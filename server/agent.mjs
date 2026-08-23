@@ -15,7 +15,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 
-const PORT = Number(process.env.ASTRA_AGENT_PORT ?? 8787)
+// Azure App Service injects PORT and expects the process to bind 0.0.0.0.
+// Locally neither is set, so the loopback default is preserved.
+const PORT = Number(process.env.PORT ?? process.env.ASTRA_AGENT_PORT ?? 8787)
+const HOST = process.env.PORT ? '0.0.0.0' : '127.0.0.1'
+/** In production the gateway also serves the built SPA; in dev, Vite does. */
+const SERVE_STATIC = process.env.ASTRA_SERVE_STATIC === '1' || Boolean(process.env.PORT)
 // fileURLToPath, not url.pathname — the latter stays percent-encoded, so any
 // space in the project path would resolve ROOT to a directory that isn't there.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -336,6 +341,44 @@ async function handleAgent(body, res) {
   }
 }
 
+/* ------------------------------ Static serving ------------------------------ */
+
+const DIST = path.join(ROOT, 'dist')
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
+}
+
+function serveStatic(url, res) {
+  const clean = (url.split('?')[0] || '/').replace(/\/+$/, '') || '/'
+  // Resolve inside dist and verify: a request may not escape the web root.
+  const candidate = path.resolve(DIST, '.' + (clean === '/' ? '/index.html' : clean))
+  const target = candidate.startsWith(DIST) && fs.existsSync(candidate) && fs.statSync(candidate).isFile()
+    ? candidate
+    : path.join(DIST, 'index.html')
+
+  if (!fs.existsSync(target)) {
+    return json(res, 404, { error: 'build not found — run npm run build' })
+  }
+
+  const ext = path.extname(target)
+  const immutable = target.includes(`${path.sep}assets${path.sep}`)
+  res.writeHead(200, {
+    'Content-Type': MIME[ext] ?? 'application/octet-stream',
+    'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+  })
+  fs.createReadStream(target).pipe(res)
+}
+
 /* ---------------------------------- Server --------------------------------- */
 
 http
@@ -356,6 +399,12 @@ http
     if (req.method === 'DELETE' && url === '/api/agent/key') {
       clearKey()
       return json(res, 200, { ok: true, configured: false })
+    }
+
+    // Anything that is not an API call is the SPA. Unknown paths fall back to
+    // index.html so a deep link still boots the app.
+    if (req.method === 'GET' && SERVE_STATIC && !url.startsWith('/api/')) {
+      return serveStatic(url, res)
     }
 
     if (req.method !== 'POST') return json(res, 404, { error: 'not found' })
@@ -399,8 +448,9 @@ http
       }
     })
   })
-  .listen(PORT, '127.0.0.1', () => {
-    console.log(`  Astra agent gateway on http://localhost:${PORT}  ·  model ${MODEL}`)
+  .listen(PORT, HOST, () => {
+    console.log(`  Astra agent gateway on http://${HOST}:${PORT}  ·  model ${MODEL}`)
+    if (SERVE_STATIC) console.log(`  Serving the built app from ${DIST}`)
     console.log(
       client
         ? `  API key loaded from ${keySource === 'environment' ? 'ANTHROPIC_API_KEY' : '.env.local'} (${mask(apiKey)})`

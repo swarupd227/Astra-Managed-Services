@@ -3,14 +3,15 @@
   "private": true,
   "version": "1.2.0",
   "type": "module",
-  "description": "Astra for Managed Services — the agentic managed-services platform by Artizent",
+  "description": "Astra for Managed Services \u2014 the agentic managed-services platform by Artizent",
   "scripts": {
     "dev": "concurrently -n gateway,web -c yellow,cyan \"npm:gateway\" \"npm:web\"",
     "web": "vite",
     "gateway": "node server/agent.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "start": "node server/agent.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",
