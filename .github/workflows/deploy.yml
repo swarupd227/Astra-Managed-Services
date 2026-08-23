@@ -1,0 +1,86 @@
+name: Deploy to Azure App Service
+
+# Every deploy is tied to a commit: push to main and what is running in Azure
+# is exactly what is in the repository. Manual runs are allowed for redeploys
+# without a code change.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: astra-managed-services-swarupd227
+  NODE_VERSION: '24.x'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # Dev dependencies are needed to build (tsc, vite) but must not ship.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # Assemble exactly what App Service runs: the gateway, the built SPA,
+      # and production dependencies only. Nothing else travels.
+      - name: Assemble deployment package
+        run: |
+          mkdir -p package
+          cp -r dist server package.json package-lock.json package/
+          cd package
+          npm ci --omit=dev --no-audit --no-fund
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: package
+          retention-days: 5
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+          path: package
+
+      - name: Deploy
+        id: deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: package
+
+      # A green deploy that serves a broken app is not a green deploy.
+      - name: Verify the site answers
+        run: |
+          url="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/api/agent/health" || true)
+            if [ "$code" = "200" ]; then
+              echo "Healthy after $i attempt(s)."
+              curl -s "$url/api/agent/health"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $code — waiting for the app to start."
+            sleep 10
+          done
+          echo "The app did not return a healthy response within two minutes."
+          exit 1
