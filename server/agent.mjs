@@ -15,12 +15,26 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 
-// Azure App Service injects PORT and expects the process to bind 0.0.0.0.
-// Locally neither is set, so the loopback default is preserved.
-const PORT = Number(process.env.PORT ?? process.env.ASTRA_AGENT_PORT ?? 8787)
-const HOST = process.env.PORT ? '0.0.0.0' : '127.0.0.1'
+/**
+ * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
+ * rather than inferring it from PORT. Inferring from PORT is fragile: if the
+ * platform does not set it, the process binds loopback on the wrong port, the
+ * health ping never lands, and the worker is killed with no error to read.
+ */
+const ON_APP_SERVICE = Boolean(process.env.WEBSITE_SITE_NAME || process.env.WEBSITE_INSTANCE_ID)
+const PORT = Number(process.env.PORT ?? process.env.ASTRA_AGENT_PORT ?? (ON_APP_SERVICE ? 8080 : 8787))
+const HOST = ON_APP_SERVICE ? '0.0.0.0' : '127.0.0.1'
 /** In production the gateway also serves the built SPA; in dev, Vite does. */
-const SERVE_STATIC = process.env.ASTRA_SERVE_STATIC === '1' || Boolean(process.env.PORT)
+const SERVE_STATIC = process.env.ASTRA_SERVE_STATIC === '1' || ON_APP_SERVICE
+
+// A container that dies silently is the hardest kind to diagnose, so say why.
+process.on('uncaughtException', (err) => {
+  console.error('[astra-agent] fatal:', err?.stack ?? err)
+  process.exit(1)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('[astra-agent] unhandled rejection:', err?.stack ?? err)
+})
 // fileURLToPath, not url.pathname — the latter stays percent-encoded, so any
 // space in the project path would resolve ROOT to a directory that isn't there.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -450,7 +464,10 @@ http
   })
   .listen(PORT, HOST, () => {
     console.log(`  Astra agent gateway on http://${HOST}:${PORT}  ·  model ${MODEL}`)
-    if (SERVE_STATIC) console.log(`  Serving the built app from ${DIST}`)
+    console.log(`  App Service: ${ON_APP_SERVICE ? process.env.WEBSITE_SITE_NAME : 'no (local)'}  ·  static: ${SERVE_STATIC}`)
+    if (SERVE_STATIC) {
+      console.log(`  Serving the built app from ${DIST}${fs.existsSync(DIST) ? '' : '  — MISSING, the SPA will 404'}`)
+    }
     console.log(
       client
         ? `  API key loaded from ${keySource === 'environment' ? 'ANTHROPIC_API_KEY' : '.env.local'} (${mask(apiKey)})`
