@@ -6,3 +6,7 @@ dist
 
 # Build artefacts
 *.tsbuildinfo
+
+# Deployment artefacts
+deploy/package/
+deploy/*.zip
