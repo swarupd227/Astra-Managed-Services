@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------
+   Astra design tokens.
+   Palette is Artizent's: signal yellow #FFDD00 on near-black #1B1B1E,
+   with the cream #ECE6DA carrying the light theme.
+   ------------------------------------------------------------------ */
+@layer base {
+  :root,
+  [data-theme='light'] {
+    /* Warm paper, not clinical white — the cream is Artizent's. */
+    --c-canvas: 246 244 239;
+    --c-surface: 255 255 255;
+    --c-raised: 250 249 245;
+    --c-sunken: 241 238 231;
+    --c-line: 229 225 216;
+    --c-line-strong: 205 199 186;
+    --c-ink: 26 26 28;
+    --c-ink-2: 82 78 71;
+    --c-ink-3: 122 116 105;
+    --c-ink-inv: 255 255 255;
+    /* Signal yellow stays the true brand value and is used for fills; text
+       and icons that must pass AA on paper use --c-brand-ink. */
+    --c-brand: 255 221 0;
+    --c-brand-ink: 122 103 0;
+    --c-ok: 22 118 76;
+    --c-warn: 158 92 0;
+    --c-crit: 186 44 33;
+    --c-info: 30 92 152;
+    --c-agent: 88 72 172;
+    --grid-line: 0 0 0 / 0.035;
+    --shadow-e1: 0 1px 2px rgb(28 26 20 / 0.05), 0 1px 1px rgb(28 26 20 / 0.03);
+    --shadow-e2: 0 2px 4px rgb(28 26 20 / 0.05), 0 6px 16px -6px rgb(28 26 20 / 0.10);
+    --shadow-e3: 0 12px 32px -8px rgb(28 26 20 / 0.16), 0 2px 6px rgb(28 26 20 / 0.06);
+    color-scheme: light;
+  }
+
+  [data-theme='dark'] {
+    --c-canvas: 16 16 18;
+    --c-surface: 28 28 31;
+    --c-raised: 36 36 40;
+    --c-sunken: 21 21 24;
+    --c-line: 48 48 54;
+    --c-line-strong: 76 76 84;
+    --c-ink: 240 238 233;
+    --c-ink-2: 168 164 155;
+    --c-ink-3: 138 135 127;
+    --c-ink-inv: 16 16 18;
+    --c-brand: 255 221 0;
+    --c-brand-ink: 255 221 0;
+    --c-ok: 61 191 129;
+    --c-warn: 240 173 62;
+    --c-crit: 240 91 76;
+    --c-info: 92 165 240;
+    --c-agent: 163 148 255;
+    --grid-line: 255 255 255 / 0.04;
+    --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-e2: 0 2px 6px rgb(0 0 0 / 0.34), 0 8px 20px -8px rgb(0 0 0 / 0.5);
+    --shadow-e3: 0 16px 40px -10px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
+    color-scheme: dark;
+  }
+
+  * { border-color: rgb(var(--c-line)); }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'cv05' 1, 'ss01' 1;
+    overscroll-behavior: none;
+  }
+
+  /* Density is a user preference, applied at the shell root. */
+  [data-density='compact'] { --row-h: 32px; --pad-y: 0.35rem; }
+  [data-density='comfortable'] { --row-h: 42px; --pad-y: 0.6rem; }
+
+  ::selection { background: rgb(var(--c-brand) / 0.28); }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--c-brand));
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+
+  /* Scrollbars: present but quiet. */
+  * { scrollbar-width: thin; scrollbar-color: rgb(var(--c-line-strong)) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-line-strong) / 0.7);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-line-strong)); background-clip: content-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Numeric data must align in columns — tabular figures everywhere it matters. */
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  .label-cap {
+    @apply text-2xs font-medium uppercase tracking-[0.09em] text-ink-3;
+  }
+
+  .hairline { @apply border-line; }
+
+  .card {
+    @apply rounded-md border border-line bg-surface;
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgb(var(--grid-line)) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--grid-line)) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .scan-fade {
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+}
