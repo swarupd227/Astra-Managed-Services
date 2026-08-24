@@ -170,6 +170,22 @@ function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; onGate?:
 
     case 'policy': {
       const r = beat.result
+
+      // Nothing was going to execute, so the engine evaluated a hypothetical.
+      // A full decision card here is theatre: it implies a gate that was never
+      // in play. One honest line, and the detail stays in the rail.
+      if (beat.advisory) {
+        return (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-sunken px-3 py-2">
+            <ShieldCheck size={12} className="shrink-0 text-ink-3" />
+            <span className="text-2xs text-ink-2">
+              Read-only — no action proposed, so no autonomy decision was required.
+            </span>
+            <span className="ml-auto font-mono text-2xs text-ink-3">{beat.policyName}</span>
+          </div>
+        )
+      }
+
       const tone = r.mode === 'autonomous' ? 'ok' : r.mode === 'supervised' ? 'brand' : r.mode === 'approve_first' ? 'warn' : 'crit'
       return (
         <div className={cn('rounded-md border', tone === 'ok' ? 'border-ok/40 bg-ok/[0.05]' : tone === 'brand' ? 'border-brand/50 bg-brand/[0.07]' : tone === 'warn' ? 'border-warn/40 bg-warn/[0.06]' : 'border-crit/40 bg-crit/[0.06]')}>
@@ -609,8 +625,9 @@ export function Copilot() {
                     {SUGGESTIONS.map((s) => (
                       <li key={s.id}>
                         <button
-                          onClick={() => { setInput(s.text); run(s.text) }}
-                          className="group flex h-full w-full flex-col rounded-md border border-line bg-surface p-3 text-left shadow-e1 transition-colors hover:border-brand"
+                          onClick={() => { if (!running) run(s.text) }}
+                          disabled={running || gateway === 'down'}
+                          className="group flex h-full w-full flex-col rounded-md border border-line bg-surface p-3 text-left shadow-e1 transition-colors hover:border-brand disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <span className="text-xs font-medium text-ink group-hover:text-brand-ink">{s.text}</span>
                           <span className="mt-1 text-2xs leading-relaxed text-ink-3">{s.hint}</span>
@@ -639,11 +656,16 @@ export function Copilot() {
                   ))}
 
                   {running && (
-                    <div className="flex items-center gap-2 px-1 py-1">
-                      <span className="relative h-[3px] w-24 overflow-hidden rounded-full bg-sunken">
+                    <div className="flex items-center gap-2.5 rounded-md border border-line bg-surface px-3 py-2.5 shadow-e1">
+                      <Dot tone="brand" pulse />
+                      <span className="min-w-0 flex-1 text-2xs leading-relaxed text-ink-2">
+                        {beats.length === 0
+                          ? 'Reaching the agent runtime — the first response takes a few seconds.'
+                          : 'Working…'}
+                      </span>
+                      <span className="relative h-[3px] w-16 shrink-0 overflow-hidden rounded-full bg-sunken">
                         <span className="absolute inset-y-0 w-1/3 animate-agent-work rounded-full bg-brand" />
                       </span>
-                      <span className="text-2xs text-ink-3">working…</span>
                     </div>
                   )}
                 </div>

@@ -20,7 +20,7 @@ export type Beat =
   | { t: 'retrieve'; agent: string; assertions: number; humanVerified: number; runbooks: number; priors: number; pkg: string; floor: string; tokensUsed: number; tokenBudget: number }
   | { t: 'finding'; title: string; detail: string; confidence: number; severity: 'info' | 'warn' | 'crit' }
   | { t: 'plan'; skill: string; success: number; runs: number; steps: { label: string; ac?: string; compensation?: string }[] }
-  | { t: 'policy'; result: EngineResult; agentId: string; policyName: string }
+  | { t: 'policy'; result: EngineResult; agentId: string; policyName: string; advisory?: boolean }
   | { t: 'mission'; missionId: string; name: string; goal: string; from: ExecutionMode; to: ExecutionMode; reason: string }
   | { t: 'gate'; role: string; timeoutSec: number; escalatesTo: string }
   | { t: 'exec'; stepIndex: number; detail: string; ms: number }
@@ -331,7 +331,16 @@ export async function runIntent(
   // known before the usage event arrived and could be charged for it.
   if (!proposal || !decision) return { proposal: null, decision: null, mode: null }
 
-  onBeat({ t: 'policy', result: decision.result, agentId: decision.agentId, policyName: decision.policyName })
+  // A read-only intent proposes no mutation, so the engine evaluated a
+  // hypothetical. Say so rather than presenting a full decision for an action
+  // that was never going to happen.
+  onBeat({
+    t: 'policy',
+    result: decision.result,
+    agentId: decision.agentId,
+    policyName: decision.policyName,
+    advisory: !proposal.requires_action,
+  })
 
   const mode = decision.mode
 
