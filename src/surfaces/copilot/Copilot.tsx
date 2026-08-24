@@ -443,11 +443,22 @@ function LiveRail({ beats, running }: { beats: Beat[]; running: boolean }) {
 
       {policy && (
         <div className="border-b border-line px-3 py-2.5">
-          <div className="label-cap">Decision</div>
+          {/* An advisory run proposed no mutation, so this mode is what a
+              plan on this class would face, not a decision that governed
+              anything here — the label and caption say so, so this panel
+              never reads as contradicting the "no decision required" line
+              in the transcript above it. */}
+          <div className="label-cap">{policy.advisory ? 'Would-be decision' : 'Decision'}</div>
           <div className="mt-1.5"><AutonomyChip mode={policy.result.mode} full /></div>
           <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-            Floor {modeLabel(policy.result.floorApplied)} · decided in {policy.result.evaluatedInMs} ms ·{' '}
-            {policy.result.trace.filter((t) => t.matched).length} of {policy.result.trace.length} rules matched
+            {policy.advisory ? (
+              <>No action was proposed, so this did not govern the run — shown for reference only.</>
+            ) : (
+              <>
+                Floor {modeLabel(policy.result.floorApplied)} · decided in {policy.result.evaluatedInMs} ms ·{' '}
+                {policy.result.trace.filter((t) => t.matched).length} of {policy.result.trace.length} rules matched
+              </>
+            )}
           </p>
         </div>
       )}
@@ -519,9 +530,16 @@ export function Copilot() {
 
       if (b.t === 'route') logEvidence('observation', 'Astra Copilot', `Intent routed — ${b.intent}`, { confidence: b.confidence, agent: b.agent })
       if (b.t === 'policy') {
+        // An advisory evaluation governed nothing, so it is not sealed as a
+        // 'decision' — the evidence chain would otherwise carry a permanent
+        // record claiming a mode was decided and, by implication, executed,
+        // for a run that proposed no action at all.
         logEvidence(
-          'decision', 'Autonomy Policy Engine',
-          `Execution mode ${b.result.mode} under ${b.policyName}`,
+          b.advisory ? 'observation' : 'decision',
+          'Autonomy Policy Engine',
+          b.advisory
+            ? `No action proposed — autonomy decision not required (would-be mode ${b.result.mode} under ${b.policyName})`
+            : `Execution mode ${b.result.mode} under ${b.policyName}`,
           {
             inputVector: { actionClasses: b.result.actionClasses, blast: b.result.blastRadius, grades: b.result.agentGrades, confidence: b.result.planConfidence },
             reasons: b.result.reasons,
