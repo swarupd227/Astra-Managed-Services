@@ -4,10 +4,11 @@ import {
   ArrowUp, Ban, Check, CircleDot, Coins, FileCheck2, Layers, Radar, ShieldAlert,
   ShieldCheck, Sparkles, Square, Target, Undo2, X,
 } from 'lucide-react'
-import { decide, execute, runIntent, SUGGESTIONS, type Beat, type AgentProposal } from '@/domain/agentRuntime'
+import { buildSuggestions, decide, execute, runIntent, type Beat, type AgentProposal } from '@/domain/agentRuntime'
 import { AGENT_BY_ID } from '@/domain/estate'
 import { AC, ROLE_BY_ID } from '@/domain/reference'
-import { useAstra } from '@/domain/store'
+import { useAstra, useWorkList } from '@/domain/store'
+import { NOW } from '@/domain/workSeed'
 import { modeLabel } from '@/domain/policyEngine'
 import { AgentChip, AutonomyChip, EvidenceLink, GradeChip, PageHeader } from '@/ui/domain'
 import { Button, Card, Chip, Dot } from '@/ui/primitives'
@@ -493,6 +494,14 @@ export function Copilot() {
   const logEvidence = useAstra((s) => s.logEvidence)
   const missionMap = useAstra((s) => s.missions)
   const chargeMission = useAstra((s) => s.chargeMission)
+  // What the model is told is "known right now" is read off these two, not
+  // authored — see liveContext() in agentRuntime.ts.
+  const workList = useWorkList()
+  const proposalMap = useAstra((s) => s.proposals)
+  const clockOffsetMins = useAstra((s) => s.clockOffsetMins)
+  // Recomputed only when the underlying work or proposals change — cheap, and
+  // means a suggestion never outlives the record it was built from.
+  const suggestions = React.useMemo(() => buildSuggestions(workList, Object.values(proposalMap)), [workList, proposalMap])
   /** The mission this run is under, so its budget can be charged as cost lands. */
   const missionRef = React.useRef<string | null>(null)
   const pushToast = useAstra((s) => s.pushToast)
@@ -543,7 +552,10 @@ export function Copilot() {
       pendingRef.current = null
       missionRef.current = null
 
-      const { proposal, decision, mode } = await runIntent(text, emit, controller.signal, Object.values(missionMap))
+      const nowMs = NOW.getTime() + clockOffsetMins * 60_000
+      const { proposal, decision, mode } = await runIntent(
+        text, emit, controller.signal, Object.values(missionMap), workList, Object.values(proposalMap), nowMs,
+      )
       if (controller.signal.aborted) return
 
       if (proposal && decision && mode === 'approve_first') {
@@ -551,7 +563,7 @@ export function Copilot() {
       }
       setRunning(false)
     },
-    [emit, missionMap],
+    [emit, missionMap, workList, proposalMap, clockOffsetMins],
   )
 
   const decideGate = async (verdict: 'approve' | 'reject') => {
@@ -575,7 +587,10 @@ export function Copilot() {
     const controller = new AbortController()
     abortRef.current = controller
     setRunning(true)
-    await execute(pending.proposal, pending.decision, emit, utterance, controller.signal)
+    await execute(
+      pending.proposal, pending.decision, emit, utterance, controller.signal,
+      workList, Object.values(proposalMap), NOW.getTime() + clockOffsetMins * 60_000,
+    )
     if (!controller.signal.aborted) setRunning(false)
   }
 
@@ -622,7 +637,7 @@ export function Copilot() {
                   </div>
 
                   <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {SUGGESTIONS.map((s) => (
+                    {suggestions.map((s) => (
                       <li key={s.id}>
                         <button
                           onClick={() => { if (!running) run(s.text) }}

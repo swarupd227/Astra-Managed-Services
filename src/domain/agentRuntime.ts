@@ -2,8 +2,10 @@ import { evaluate, type ActionContext, type EngineResult } from './policyEngine'
 import { missionCeiling, missionFor, type Mission } from './missions'
 import { AGENTS, AGENT_BY_ID, CLIENT, GRAPH_EDGES, GRAPH_NODES, POLICIES, SKILLS, TOWERS, policyForTower } from './estate'
 import { ACTION_CLASSES, AC } from './reference'
-import { DEMAND_CLASSES } from './ledgers'
-import type { EvidenceKind, ExecutionMode, Grade } from './types'
+import { DEMAND_CLASSES, SLAS } from './ledgers'
+import { ago } from '@/lib/format'
+import type { EvidenceKind, ExecutionMode, Grade, Priority, WorkObject } from './types'
+import type { Proposal } from './proposals'
 
 /* ==========================================================================
    The agent runtime.
@@ -49,23 +51,132 @@ export interface AgentProposal {
   steps: { label: string; action_class: string; compensation: string }[]
 }
 
-/** Prompts offered on the empty state. Nothing here is matched or scripted. */
-export const SUGGESTIONS = [
-  { id: 's1', text: 'Why is Retail Payments breaching its latency objective?', hint: 'Diagnosis — read-only, no gate involved' },
-  { id: 's2', text: 'Remediate the latency breach on Retail Payments', hint: 'Mutating plan on a tier-0 service' },
-  { id: 's3', text: 'Rotate the expiring certificate on the payments gateway', hint: 'AC-41 on a tier-1 service' },
-  { id: 's4', text: 'Purge the archived transaction partitions to reclaim storage', hint: 'Irreversible — watch the floor hold' },
-  { id: 's5', text: 'Backfill claims_gold for the three-day gap', hint: 'The asset has no data contract' },
-  { id: 's6', text: 'Which action classes are ready to promote next quarter?', hint: 'Analysis over evaluation evidence' },
-]
-
 /* ------------------------- Estate digest for the model --------------------- */
+
+const PRIORITY_RANK: Record<Priority, number> = { P1: 0, P2: 1, P3: 2, P4: 3 }
+
+function worstOpenIncident(work: WorkObject[]): WorkObject | undefined {
+  return work
+    .filter((w) => w.type === 'incident' && !['resolved', 'learned'].includes(w.state))
+    .sort(
+      (a, b) =>
+        PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )[0]
+}
+
+/**
+ * What is actually true right now, read off the live store rather than
+ * authored as prose. This used to be four hand-written sentences — a real
+ * incident ref and a real known-error id, copied once and then frozen. If an
+ * operator resolved the incident, the model would still be told it was open;
+ * a stale ground truth is worse than none, because it is presented as fact.
+ *
+ * Each field either comes from a real record or says plainly that there is
+ * nothing to report — it never restates yesterday's snapshot as today's.
+ */
+function liveContext(work: WorkObject[], proposals: Proposal[], nowMs: number) {
+  const worst = worstOpenIncident(work)
+
+  // The most-recorded known error is a standing structural fact, not a claim
+  // about recency — so it is phrased as one rather than dated as "recent",
+  // which would go stale the moment simulated time moves on.
+  const knownError = [...GRAPH_NODES]
+    .filter((n) => n.type === 'KnownError')
+    .sort((a, b) => Number(b.attrs.occurrences ?? 0) - Number(a.attrs.occurrences ?? 0))[0]
+
+  // The known uncontracted asset lives on a transition tower, outside the
+  // Run-tower estate graph — so the honest live signal is the open proposal
+  // asking for the contract to be authored, not a graph node query (the graph
+  // has exactly one DataAsset node, and it has a contract, which would make
+  // this silently empty rather than wrong — the same defect one layer down).
+  const assetsWithoutContract = proposals
+    .filter((p) => p.state === 'open' && /data contract/i.test(p.claim))
+    .map((p) => p.claim.replace(/^Author a data contract for /i, ''))
+
+  // Only surface the certificate risk while the proposal about it is still
+  // open — once a human decides it, restating it as current would be wrong.
+  const certProposal = proposals.find(
+    (p) => p.source?.kind === 'demand_class' && p.source.id === 'dc_cert_expiry' && p.state === 'open',
+  )
+
+  return {
+    openIncident: worst
+      ? `${worst.ref} — ${worst.title}, ${worst.priority}, opened ${ago(worst.createdAt, new Date(nowMs))}`
+      : 'No open incidents at present.',
+    recentChange: knownError
+      ? `${knownError.name} — recorded ${knownError.attrs.occurrences} times since ${knownError.attrs.first_seen}`
+      : 'No recorded regression pattern.',
+    assetsWithoutContract,
+    certificateRisk: certProposal ? certProposal.detail : 'No open certificate risk.',
+  }
+}
+
+/**
+ * Where a still-open certificate proposal names the node and the days left,
+ * pulled out of its own prose rather than duplicated as a separate fact.
+ */
+function certRiskNode(proposals: Proposal[]): { node: string; days: number } | undefined {
+  const p = proposals.find((pr) => pr.source?.kind === 'demand_class' && pr.source.id === 'dc_cert_expiry' && pr.state === 'open')
+  const m = p?.detail.match(/^(.+?) expires in (\d+) days?/i)
+  return m ? { node: m[1], days: Number(m[2]) } : undefined
+}
+
+/**
+ * The empty-state prompts (§A7 — "nothing here is matched or scripted").
+ *
+ * This used to be six lines of authored copy: a fixed incident, a fixed
+ * certificate, a fixed asset. Once the operator resolved that incident or a
+ * proposal was decided, the suggestions kept offering to diagnose or fix
+ * something that was no longer true — which is the same defect as the
+ * knownContext block above, at the surface the operator actually clicks.
+ *
+ * Each slot below is populated only while its underlying record is real and
+ * current, and drops out rather than being backfilled with invented text —
+ * a shorter, honest list beats a full one that is lying about half its rows.
+ */
+export function buildSuggestions(work: WorkObject[], proposals: Proposal[]): { id: string; text: string; hint: string }[] {
+  const incident = worstOpenIncident(work)
+  const jeopardy = !incident
+    ? [...SLAS].filter((s) => s.kind === 'sla' && s.attainmentMtd < s.attainmentTarget).sort((a, b) => a.attainmentMtd - a.attainmentTarget - (b.attainmentMtd - b.attainmentTarget))[0]
+    : undefined
+  const cert = certRiskNode(proposals)
+  const uncontracted = proposals.find((p) => p.state === 'open' && /data contract/i.test(p.claim))?.claim.replace(/^Author a data contract for /i, '')
+  const purgeAsset = GRAPH_NODES.find((n) => n.type === 'DataAsset')
+
+  const out: { id: string; text: string; hint: string }[] = []
+
+  if (incident) {
+    out.push({ id: 'diagnose', text: `Why is ${incident.service} breaching its objective?`, hint: 'Diagnosis — read-only, no gate involved' })
+    out.push({ id: 'remediate', text: `Remediate the breach on ${incident.service}`, hint: 'Mutating plan — routes through the autonomy gate' })
+  } else if (jeopardy) {
+    out.push({ id: 'diagnose', text: `Why is ${jeopardy.name} at risk of breach?`, hint: 'Diagnosis — read-only, no gate involved' })
+  }
+
+  if (cert) {
+    out.push({ id: 'cert', text: `Rotate the certificate on ${cert.node} before it expires`, hint: `AC-41 — expires in ${cert.days} days` })
+  }
+
+  if (uncontracted) {
+    out.push({ id: 'backfill', text: `Backfill ${uncontracted} for the recent gap`, hint: 'The asset has no data contract' })
+  }
+
+  if (purgeAsset) {
+    out.push({ id: 'purge', text: `Purge the archived ${purgeAsset.name} partitions to reclaim storage`, hint: 'Irreversible — watch the floor hold' })
+  }
+
+  // Evergreen: queries live evaluation and forecast data, so it needs no
+  // underlying record to stay true.
+  out.push({ id: 'promote', text: 'Which action classes are ready to promote next quarter?', hint: 'Analysis over evaluation evidence' })
+
+  return out
+}
 
 /**
  * The context package the agent is given. Compact by construction — the point
  * of a decision-scoped package is that it is selected, not dumped.
  */
-export function estateDigest() {
+export function estateDigest(work: WorkObject[], proposals: Proposal[], nowMs: number) {
   return {
     client: { name: CLIENT.name, contract: CLIENT.contract, month: CLIENT.monthsElapsed, topology: CLIENT.topology, regulator: CLIENT.regulator },
     towers: TOWERS.map((t) => ({
@@ -89,12 +200,7 @@ export function estateDigest() {
     skills: SKILLS.map((s) => ({ id: s.id, name: s.name, actionClasses: s.actionClasses, successRate: s.successRate, runs: s.runs, verificationPack: s.verificationPack })),
     demandClasses: DEMAND_CLASSES.map((d) => ({ id: d.id, name: d.name, tower: d.tower, volumeYr: d.volumeYr, hoursYr: d.hoursYr, cause: d.cause, eliminationState: d.eliminationState })),
     policies: POLICIES.map((p) => ({ id: p.id, name: p.name, version: p.version, appliesTo: p.appliesTo, rules: p.rules.map((r) => ({ when: r.when, mode: r.mode ?? null, maxMode: r.maxMode ?? null, require: r.require ?? null })) })),
-    knownContext: {
-      openIncident: 'INC0482913 — latency SLO breach on svc_payments, P2, opened 41 minutes ago',
-      recentChange: 'chg_5511 applied 2027-02-16 21:14 — reduced conn_pool.max on db_ledger_rw from 500 to 200',
-      assetsWithoutContract: ['claims_gold'],
-      certificateExpiries: [{ node: 'pmt-gw edge listener', days: 6 }],
-    },
+    knownContext: liveContext(work, proposals, nowMs),
   }
 }
 
@@ -230,8 +336,11 @@ export async function runIntent(
   onBeat: (b: Beat, replaceLast?: boolean) => void,
   signal: AbortSignal,
   missions: Mission[] = [],
+  work: WorkObject[] = [],
+  proposals: Proposal[] = [],
+  nowMs: number = Date.now(),
 ): Promise<{ proposal: AgentProposal | null; decision: Decision | null; mode: ExecutionMode | null }> {
-  const estate = estateDigest()
+  const estate = estateDigest(work, proposals, nowMs)
   let proposal: AgentProposal | null = null
   // Decided as soon as the proposal lands, not after the stream closes: the
   // usage/cost event arrives before the loop ends, and a run cannot be charged
@@ -378,6 +487,9 @@ export async function execute(
   onBeat: (b: Beat, replaceLast?: boolean) => void,
   utterance: string,
   signal: AbortSignal,
+  work: WorkObject[] = [],
+  proposals: Proposal[] = [],
+  nowMs: number = Date.now(),
 ) {
   const cls = AC[proposal.action_class]
 
@@ -402,7 +514,7 @@ export async function execute(
   let outcome = ''
   let open = false
   try {
-    for await (const ev of streamGateway({ phase: 'outcome', utterance, estate: estateDigest(), approved: proposal }, signal)) {
+    for await (const ev of streamGateway({ phase: 'outcome', utterance, estate: estateDigest(work, proposals, nowMs), approved: proposal }, signal)) {
       if (ev.type === 'text') {
         outcome += ev.text
         onBeat({ t: 'answer', agent: 'agt_herald', text: outcome, streaming: true }, open)
