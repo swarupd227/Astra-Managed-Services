@@ -17,25 +17,39 @@ export function StreamText({
 }) {
   const [n, setN] = React.useState(instant ? text.length : 0)
   const doneRef = React.useRef(false)
+  const nRef = React.useRef(n)
+  const prevTextRef = React.useRef('')
+  nRef.current = n
 
   React.useEffect(() => {
-    if (instant) { setN(text.length); return }
+    if (instant) { setN(text.length); prevTextRef.current = text; return }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setN(text.length)
+      prevTextRef.current = text
       onDone?.()
       return
     }
-    setN(0)
+    // Mid-stream, `text` is the whole accumulated string growing token by
+    // token, so its identity changes on every chunk. Resetting the reveal to
+    // 0 here would collapse and re-grow the visible text on every token —
+    // only a genuinely new string (not a continuation of the one already
+    // revealing) restarts the reveal from scratch.
+    if (!text.startsWith(prevTextRef.current)) {
+      setN(0)
+      nRef.current = 0
+    }
+    prevTextRef.current = text
     doneRef.current = false
-    let i = 0
     const id = window.setInterval(() => {
-      i += 4
-      if (i >= text.length) {
+      const next = nRef.current + 4
+      if (next >= text.length) {
         setN(text.length)
+        nRef.current = text.length
         window.clearInterval(id)
         if (!doneRef.current) { doneRef.current = true; onDone?.() }
       } else {
-        setN(i)
+        setN(next)
+        nRef.current = next
       }
     }, speed)
     return () => window.clearInterval(id)

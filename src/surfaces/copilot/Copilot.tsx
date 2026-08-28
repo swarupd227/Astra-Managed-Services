@@ -636,7 +636,7 @@ export function Copilot() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto max-w-3xl">
-              {beats.length === 0 ? (
+              {beats.length === 0 && !running ? (
                 <div className="py-6">
                   {gateway === 'down' && (
                     <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-crit/45 bg-crit/[0.06] px-3 py-2.5">
@@ -660,7 +660,7 @@ export function Copilot() {
                         <button
                           onClick={() => { if (!running) run(s.text) }}
                           disabled={running || gateway === 'down'}
-                          className="group flex h-full w-full flex-col rounded-md border border-line bg-surface p-3 text-left shadow-e1 transition-colors hover:border-brand disabled:cursor-not-allowed disabled:opacity-50"
+                          className="group flex h-full w-full flex-col rounded-md border border-line bg-surface p-3 text-left shadow-e1 transition-colors hover:border-brand disabled:pointer-events-none disabled:opacity-50"
                         >
                           <span className="text-xs font-medium text-ink group-hover:text-brand-ink">{s.text}</span>
                           <span className="mt-1 text-2xs leading-relaxed text-ink-3">{s.hint}</span>
