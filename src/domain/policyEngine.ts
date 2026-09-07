@@ -19,7 +19,7 @@ export interface ActionContext {
   asset?: { contract: string | null; pii: string | null }
   retrieval?: { minVerification: 'unverified' | 'machine_corroborated' | 'human_verified' }
   /** The AI system the gateway resolved for this run, and whether the registry lists it. */
-  model?: { id: string; vendor: string; version: string; whitelisted: boolean }
+  model?: { id: string; vendor: string; version: string; whitelisted: boolean; changed?: boolean }
   /** Which suspensions bear on this action. `any` is what most rules want. */
   suspensions?: { any: boolean; global: boolean; tower: boolean; agent: boolean; actionClass: boolean; function: boolean }
 }

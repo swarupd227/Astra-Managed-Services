@@ -304,6 +304,8 @@ export interface RunOptions {
   suspendedAgents?: string[]
   /** Agents whose drift alarm is raised — capped one level down by rule r0d. */
   driftingAgents?: string[]
+  /** Systems with an unaccepted served-model change — capped at Advise by rule r0e. */
+  changedSystems?: string[]
   /** Whether a major incident is open — the global brake the engine already understands. */
   majorActive?: boolean
 }
@@ -334,7 +336,7 @@ export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOpti
     // What the gateway resolved, so a policy can reason about the registry
     // even though the gateway has already enforced it.
     model: opts.system
-      ? { id: opts.system.id, vendor: opts.system.vendor, version: opts.system.version, whitelisted: opts.system.whitelisted }
+      ? { id: opts.system.id, vendor: opts.system.vendor, version: opts.system.version, whitelisted: opts.system.whitelisted, changed: (opts.changedSystems ?? []).includes(opts.system.id) }
       : undefined,
     // The verification floor the proposal rested on. The prompt promises that
     // a mutating plan at L3/L4 relies only on verified knowledge; rule r0c makes

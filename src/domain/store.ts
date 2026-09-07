@@ -9,6 +9,7 @@ import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiInc
 import type { RedTeamResult } from './redTeam'
 import type { BiasResult } from './biasSuite'
 import { driftReport, type DriftReport } from './drift'
+import { modelChangeClocks, type ModelChange } from './changeLog'
 import { BUDGET_WARN, MISSIONS, budgetExhausted, budgetUse, type Mission } from './missions'
 import { PROPOSALS, type Proposal, type ProposalState } from './proposals'
 import { absorbedText, assertionReach, planReach, type Lesson, type LessonKind } from './teaching'
@@ -75,6 +76,8 @@ interface State {
   bias: BiasResult | null
   /** The last drift computation — the source of every agent's driftAlarm. */
   drift: DriftReport | null
+  /** Served-model changes the currency check has opened, with their notice clocks. */
+  modelChanges: ModelChange[]
   mi: MajorIncident
   toasts: Toast[]
   verification: ChainVerification | null
@@ -117,6 +120,12 @@ interface State {
   recordBias: (result: BiasResult, by: string) => void
   /** Recomputes drift for every agent; raises or clears alarms with evidence, and returns the report. */
   runDriftMonitor: (by: string) => DriftReport
+  /** Opens a model-change notice when the served model differs from the registered one (idempotent per system + served id). */
+  recordModelChange: (systemId: string, registered: string, served: string) => ModelChange | null
+  notifyModelChange: (id: string, by: string) => void
+  acceptModelChange: (id: string, by: string) => void
+  /** Demonstration control: records a served model that differs from the registered one for a system. */
+  simulateModelChange: (systemId: string) => void
   suspendAgent: (agentId: string, by: string, reason: string) => void
   reinstateAgent: (agentId: string, by: string) => void
 
@@ -230,6 +239,7 @@ export const useAstra = create<State>((set, get) => ({
   redTeam: null,
   bias: null,
   drift: null,
+  modelChanges: [],
   mi: {
     active: false, declaredAt: null, declaredBy: null, workObjectId: null, title: '',
     timeline: [], roles: [], actions: [],
@@ -965,6 +975,74 @@ export const useAstra = create<State>((set, get) => ({
       evidenceId: summary.id,
     })
     return report
+  },
+
+  /* ------------------------------ model changes --------------------------- */
+
+  /**
+   * The vendor served something other than what the registry approved. The
+   * record starts the notice clock; until a named human accepts the change,
+   * rule r0e caps every run on that system at Advise.
+   */
+  recordModelChange: (systemId, registered, served) => {
+    const s = get()
+    if (s.modelChanges.some((m) => m.systemId === systemId && m.served === served && m.state !== 'accepted')) return null
+    const at = nowIso(s.clockOffsetMins)
+    const id = `mch_${digest(systemId + served + s.tick).slice(0, 6)}`
+    const clocks = modelChangeClocks(at)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('mch' + id).slice(0, 10)}`,
+      at, kind: 'observation', actor: 'AI-system registry',
+      summary: `Served model differs from the registered system — ${systemId}`,
+      payload: { system: systemId, registered, served, noticeDueAt: clocks.noticeDueAt, effect: 'rule r0e caps runs on this system at Advise until the change is accepted' },
+      sealed: true,
+    })
+    const change: ModelChange = { id, systemId, registered, served, detectedAt: at, ...clocks, state: 'detected', evidenceIds: [record.id] }
+    set({ evidence: [...s.evidence, record], modelChanges: [change, ...s.modelChanges] })
+    get().pushToast({ title: `Model change detected — ${systemId}`, body: `Served ${served}, registered ${registered}. Notice due ${clocks.noticeDueAt.slice(0, 10)}; runs on this system capped at Advise until accepted.`, tone: 'warn', evidenceId: record.id })
+    return change
+  },
+
+  notifyModelChange: (id, by) => {
+    const s = get()
+    const m = s.modelChanges.find((x) => x.id === id)
+    if (!m || m.state !== 'detected') return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('mchnotify' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'action', actor: by,
+      summary: `Model-change notice sent — ${m.systemId}`,
+      payload: { change: id, served: m.served, registered: m.registered, onTime: new Date(at) <= new Date(m.noticeDueAt) }, sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], modelChanges: s.modelChanges.map((x) => (x.id === id ? { ...x, state: 'notified', notifiedAt: at, evidenceIds: [...x.evidenceIds, record.id] } : x)) })
+    get().pushToast({ title: `Notice sent — ${m.systemId}`, body: new Date(at) <= new Date(m.noticeDueAt) ? 'Inside the notice period.' : 'Outside the notice period — recorded as late.', tone: 'ok', evidenceId: record.id })
+  },
+
+  acceptModelChange: (id, by) => {
+    const s = get()
+    const m = s.modelChanges.find((x) => x.id === id)
+    if (!m || m.state === 'accepted') return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('mchaccept' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'decision', actor: by,
+      summary: `Model change accepted — ${m.systemId} now ${m.served}`,
+      payload: { change: id, from: m.registered, to: m.served, condition: 'regression suites re-run on the served version; routing cap lifted' }, sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], modelChanges: s.modelChanges.map((x) => (x.id === id ? { ...x, state: 'accepted', acceptedAt: at, evidenceIds: [...x.evidenceIds, record.id] } : x)) })
+    get().pushToast({ title: `Accepted — ${m.systemId}`, body: `${m.served} is now the version of record for this system; the Advise cap is lifted.`, tone: 'ok', evidenceId: record.id })
+  },
+
+  simulateModelChange: (systemId) => {
+    // The registered id is whatever the registry says; a simulated vendor
+    // update appends a snapshot date, which is exactly how vendors do it.
+    void fetch('/api/agent/registry')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const sys = j?.systems?.find((x: { id: string; model: string }) => x.id === systemId)
+        if (sys) get().recordModelChange(sys.id, sys.model, `${sys.model}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`)
+      })
+      .catch(() => {})
   },
 
   /** The original two-scope brake, now a thin wrapper over suspensions. */

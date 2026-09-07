@@ -109,6 +109,8 @@ export const SURFACES: Surface[] = [
     items: [
       { to: '/atlas/fleet', label: 'Agent Fleet', desc: 'Every agent, ours and the client’s, under one governance regime' },
       { to: '/atlas/systems', label: 'AI Systems', desc: 'The approved model registry the gateway enforces — exhibit, purposes, revision history' },
+      { to: '/atlas/change-log', label: 'Change Log', desc: 'Every version-linked change to what the AI does, and vendor model changes with their notice clocks' },
+      { to: '/atlas/model-cards', label: 'Model Cards', desc: 'Generated per agent and per AI system from stored records' },
       { to: '/atlas/evaluation', label: 'Evaluation & Promotion', desc: 'Suites, regression diffs, the promotion pipeline' },
       { to: '/atlas/policy', label: 'Policy & Simulator', desc: 'Author policy-as-code and ask the engine what it would decide' },
       { to: '/atlas/tokenops', label: 'Model Economics', desc: 'Unit economics, routing frontiers, distillation candidates' },

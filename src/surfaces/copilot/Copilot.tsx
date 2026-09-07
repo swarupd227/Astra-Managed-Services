@@ -548,6 +548,8 @@ export function Copilot() {
   const suspensions = useAstra((s) => s.suspensions)
   const agentMap = useAstra((s) => s.agents)
   const miActive = useAstra((s) => s.mi.active)
+  const modelChanges = useAstra((s) => s.modelChanges)
+  const recordModelChange = useAstra((s) => s.recordModelChange)
   // Recomputed only when the underlying work or proposals change — cheap, and
   // means a suggestion never outlives the record it was built from.
   const suggestions = React.useMemo(() => buildSuggestions(workList, Object.values(proposalMap)), [workList, proposalMap])
@@ -602,13 +604,13 @@ export function Copilot() {
         )
       }
       // A served model that differs from the registered one is the change the
-      // contract wants notice of; the record is the start of that clock.
-      if (b.t === 'cost' && b.mismatch) {
-        logEvidence('observation', 'AI-system registry', 'Served model differs from the registered system', { system: b.system, registered: b.registered, served: b.model })
+      // contract wants notice of; the record opens the notice clock.
+      if (b.t === 'cost' && b.mismatch && b.system && b.registered) {
+        recordModelChange(b.system, b.registered, b.model)
       }
       if (b.t === 'gate') setGateOpen(true)
     },
-    [logEvidence, chargeMission, raiseAiIncident],
+    [logEvidence, chargeMission, raiseAiIncident, recordModelChange],
   )
 
   const run = React.useCallback(
@@ -632,6 +634,7 @@ export function Copilot() {
           suspensions,
           suspendedAgents: Object.values(agentMap).filter((a) => a.state === 'suspended').map((a) => a.id),
           driftingAgents: Object.values(agentMap).filter((a) => a.driftAlarm).map((a) => a.id),
+          changedSystems: modelChanges.filter((m) => m.state !== 'accepted').map((m) => m.systemId),
           majorActive: miActive,
         },
       )
@@ -642,7 +645,7 @@ export function Copilot() {
       }
       setRunning(false)
     },
-    [emit, missionMap, workList, proposalMap, clockOffsetMins, suspensions, agentMap, miActive],
+    [emit, missionMap, workList, proposalMap, clockOffsetMins, suspensions, agentMap, miActive, modelChanges],
   )
 
   const decideGate = async (verdict: 'approve' | 'reject') => {
