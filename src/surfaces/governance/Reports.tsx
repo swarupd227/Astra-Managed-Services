@@ -71,7 +71,7 @@ export function Reports() {
                 <input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="e.g. show P2 MTTR for payments vs last quarter, excluding the MI week"
+                  placeholder="e.g. show P2 MTTR for Security vs last quarter, excluding the MI week"
                   className={cn(inputClass, 'h-9 flex-1')}
                 />
                 <Button type="submit" variant="primary" size="lg"><Sparkles size={12} /> Ask</Button>

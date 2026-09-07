@@ -43,7 +43,7 @@ named human, or refuse.
 
 The policy beat is not a rendering of a decision made elsewhere. It calls the same
 evaluator the runtime calls, so the mode on screen is the mode the engine returns for that
-context. Ask it to remediate a tier-0 payments incident and it stops at L2 Approve-first.
+context. Ask it to remediate a tier-0 application incident and it stops at L2 Approve-first.
 Ask it to purge data and Custodian refuses at L1 — not because it was told to decline, but
 because AC-71 is rated irreversible and the engine will not return anything higher.
 
@@ -120,7 +120,7 @@ briefing where the figures move between refreshes is not credible.
 
 ## A suggested walkthrough
 
-1. **Astra Copilot → "Remediate the latency breach on Retail Payments."** Watch the whole
+1. **Astra Copilot → "Remediate the reconciliation break between Mulesoft and SAP S/4HANA."** Watch the whole
    spine in about twenty seconds: routing, retrieval under a verification floor, reasoning,
    a typed plan with rollbacks, the policy engine returning L2 Approve-first because the
    blast radius reaches a tier-0 service, and the run held at a gate. Approve it and watch
@@ -128,7 +128,7 @@ briefing where the figures move between refreshes is not credible.
 2. **Copilot → "Purge the archived transaction partitions."** The same machinery ends in a
    refusal. Custodian prepares the work and hands it to a human, because irreversible and
    agent-executed is a prohibited combination in the engine, not a setting on its record.
-3. **Copilot → "Backfill claims_gold."** Capped at Advise: the asset has no data contract, so
+3. **Copilot → "Backfill the Oracle datamart for the recent gap."** Capped at Advise: the asset has no data contract, so
    there is nothing to verify a backfill against. Codify before you automate, enforced.
 4. **Agent Workforce.** Fourteen agents mid-task. Apply the global brake and watch the whole
    workforce drop to L1 with the reason stated.

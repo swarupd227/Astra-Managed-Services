@@ -461,7 +461,7 @@ export function Shell() {
         </button>
 
         <div className="flex shrink-0 items-center gap-1">
-          <span className="tnum hidden items-center gap-1.5 rounded border border-line px-1.5 py-1 text-2xs text-ink-3 lg:flex" title="Estate clock (Europe/Berlin). The simulation advances one minute per tick.">
+          <span className="tnum hidden items-center gap-1.5 rounded border border-line px-1.5 py-1 text-2xs text-ink-3 lg:flex" title="Estate clock (America/Chicago). The simulation advances one minute per tick.">
             {estateTime.toISOString().slice(0, 10)} {estateTime.toISOString().slice(11, 16)}
           </span>
           <Button size="sm" variant="ghost" onClick={toggleSim} title={simRunning ? 'Pause the live estate' : 'Resume the live estate'}>

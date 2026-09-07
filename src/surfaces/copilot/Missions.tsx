@@ -194,7 +194,7 @@ function Composer({ onClose }: { onClose: () => void }) {
         <input
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
-          placeholder="Keep Retail Payments inside its latency objective over the release weekend"
+          placeholder="Keep the FOCUS weekly billing run inside its 90-minute objective over the release weekend"
           className={inputClass}
         />
       </Field>
