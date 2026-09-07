@@ -50,7 +50,7 @@ export function SlaCompliance() {
     <>
       <PageHeader
         title="SLA & XLA Compliance"
-        subtitle="Month to date · Europe/Berlin business calendar"
+        subtitle="Month to date · America/Chicago business calendar"
         actions={
           <>
             <Button size="sm" variant="default" onClick={() => setAuditOpen(true)}><Timer size={12} /> Clock audit</Button>
@@ -185,7 +185,7 @@ export function SlaCompliance() {
     pauses: [awaiting_client(cap 8h/wo),
              vendor_dependency(logged),
              change_freeze_client_initiated]
-    calendar: client_biz_hours(Europe/Berlin)
+    calendar: client_biz_hours(America/Chicago)
     holidays: client_set }
   priority_matrix: impact x urgency (client-approved v3)
   exclusions: [declared_MI_secondary_tickets]
@@ -221,27 +221,27 @@ export function SlaCompliance() {
         </div>
       </Drawer>
 
-      <Drawer open={disputeOpen} onClose={() => setDisputeOpen(false)} title="Dispute workspace" subtitle="dsp_2027_003 · P2 breach, Core Deposits, 09 February" width="max-w-[680px]">
+      <Drawer open={disputeOpen} onClose={() => setDisputeOpen(false)} title="Dispute workspace" subtitle="dsp_2027_003 · P2 breach, Zero Trust rollout, 09 February" width="max-w-[680px]">
         <div className="space-y-4 p-4">
           <div className="rounded border border-line bg-sunken p-3">
             <div className="label-cap">Position</div>
             <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-              Client asserts the clock should have paused during a vendor dependency on the mainframe adapter. Artizent's position is
-              that the dependency was not logged at the time and the pause rule requires a logged reference.
+              Client asserts the clock should have paused during a vendor dependency on the Cisco SASE inspection engine. Artizent's
+              position is that the dependency was not logged at the time and the pause rule requires a logged reference.
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded border border-line p-3">
               <div className="label-cap">Contract clause</div>
               <p className="mt-1.5 font-mono text-2xs leading-relaxed text-ink-2">pauses: [vendor_dependency(logged)]</p>
-              <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">Schedule 4, clause 8.3.2 — a vendor pause requires the third-party reference recorded at the time of the pause.</p>
+              <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">Schedule B, clause 8.3.2 — a vendor pause requires the third-party reference recorded at the time of the pause.</p>
             </div>
             <div className="rounded border border-line p-3">
               <div className="label-cap">Evidence</div>
               <ul className="mt-1.5 space-y-1 font-mono text-2xs text-ink-3">
                 <li>ev_clk_0388 · clock_start 09:04</li>
                 <li>ev_clk_0391 · no pause event recorded</li>
-                <li>ev_act_1140 · vendor ticket raised 11:52 (2h 48m later)</li>
+                <li>ev_act_1140 · Cisco vendor ticket raised 11:52 (2h 48m later)</li>
                 <li>ev_clk_0396 · clock_stop 14:12 — 5h 08m against 4h</li>
               </ul>
             </div>
@@ -249,7 +249,7 @@ export function SlaCompliance() {
           <div className="rounded border border-info/35 bg-info/[0.06] p-3">
             <div className="label-cap">Platform observation</div>
             <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-              The vendor ticket exists but was raised after the fact. Under SIAM attribution, 2h 20m of the elapsed time is attributable
+              The Cisco ticket exists but was raised after the fact. Under SIAM attribution, 2h 20m of the elapsed time is attributable
               to the third party regardless of the pause question — which gives the client a factual basis in its own carrier
               negotiation rather than leaving both parties to argue about ours.
             </p>

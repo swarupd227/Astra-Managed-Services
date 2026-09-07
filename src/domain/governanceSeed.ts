@@ -10,9 +10,9 @@ export const FORUMS = [
 ]
 
 export const RISKS = [
-  { id: 'rsk_04', title: 'Single-point knowledge on the mainframe adapter', link: 'Graph verification coverage on twr_core is 93.1% with 4 tier-1 services carrying a single verifier', state: 'amber', owner: 'S. Iyer', trend: 'improving' },
-  { id: 'rsk_07', title: 'Resilience of the FINREP delivery path', link: 'Last DR test 2026-11-14 · scenario test due in 23 days (obl_003)', state: 'amber', owner: 'D. Kowalski', trend: 'flat' },
-  { id: 'rsk_11', title: 'Client-side agent estate outrunning its governance', link: '2 client agents in production, 1 on probation after air_0019; EU AI Act register attestation overdue', state: 'red', owner: 'L. Nakamura', trend: 'worsening' },
+  { id: 'rsk_04', title: 'Single-point knowledge on PeopleSoft HCM ahead of the Workday cutover', link: 'Graph verification coverage on twr_core is 88.9% with 4 tier-1 services carrying a single verifier', state: 'amber', owner: 'S. Iyer', trend: 'improving' },
+  { id: 'rsk_07', title: 'Single-maintainer dependency on the Mulesoft integration hub', link: 'Last failover exercise 2026-11-14 · resilience scenario test due in 23 days (obl_003)', state: 'amber', owner: 'D. Kowalski', trend: 'flat' },
+  { id: 'rsk_11', title: 'Client-side agent estate outrunning its governance', link: '2 client agents in production, 1 on probation after air_0019; Schedule O Exhibit O-1 AI-system whitelist still undefined; EU AI Act register attestation overdue', state: 'red', owner: 'L. Nakamura', trend: 'worsening' },
   { id: 'rsk_02', title: 'Concentration on a single frontier model provider', link: 'Multi-provider routing live; failover exercised 2027-01-22 with graceful degradation to approve-first', state: 'green', owner: 'L. Nakamura', trend: 'improving' },
-  { id: 'rsk_09', title: 'Data Platform consumer trust below XLA target', link: 'Trust score 68.2 vs 75 for two consecutive months; credit allocation frozen', state: 'red', owner: 'A. Sørensen', trend: 'flat' },
+  { id: 'rsk_09', title: 'Oracle datamart blind spot — zero incident telemetry on a Tier-0 asset', link: 'da_oracle_dm carries no contract and no telemetry; Data Platform consumer trust score 68.2 vs 75 target for two consecutive months', state: 'red', owner: 'S. Okafor', trend: 'flat' },
 ]

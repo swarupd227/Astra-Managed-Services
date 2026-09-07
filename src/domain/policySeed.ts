@@ -12,7 +12,7 @@ import type { ActionContext } from './policyEngine'
 
 export const PRESETS: { label: string; ctx: Partial<ActionContext> & { agentId: string; policyId: string } }[] = [
   {
-    label: 'The worked example — AC-31 on a tier-0 payments service',
+    label: 'The worked example — AC-31 on a tier-0 application service',
     ctx: {
       policyId: 'pol_change_std', agentId: 'agt_remedian',
       action: { class: 'AC-31', env: 'prod', hasCompensation: true },
@@ -49,7 +49,7 @@ export const PRESETS: { label: string; ctx: Partial<ActionContext> & { agentId: 
       blast: { tier: 1, services: 1, dependents: 0, dataMutation: true },
       plan: { confidence: 0.99, verificationPack: null },
       incident: { major_active: false }, calendar: { freeze: false },
-      asset: { contract: 'dc_txn_v7', pii: 'restricted' },
+      asset: { contract: 'dc_datamart_v2', pii: 'restricted' },
     },
   },
   {

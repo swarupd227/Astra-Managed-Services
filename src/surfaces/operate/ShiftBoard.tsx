@@ -48,14 +48,14 @@ export function ShiftBoard() {
 
   const handover = React.useMemo(
     () => ({
-      shift: 'Early (06:00–14:00 CET) → Late (14:00–22:00 CET)',
+      shift: 'Early (06:00–14:00 CT) → Late (14:00–22:00 CT)',
       lead: role.person,
       openRisks: aging.slice(0, 4),
       gated: open.filter((w) => w.state === 'gated').slice(0, 5),
       exceptions: [
         'Data Platform credit allocation remains frozen — XLA trust score 68.2 against a target of 75 (§12.5).',
         'Bursar carries a drift alarm; sampled review doubled until the next evaluation suite completes.',
-        'Nordbank Procurement Bot is on probation after air_0019. Its AC-58 proposals remain four-eyes gated.',
+        'Kearney IEM Time-Entry Bot is on probation after air_0019. Its AC-58 proposals remain four-eyes gated.',
       ],
       watch: [
         'Quarter-end volume ramp begins Thursday — Sentinel thresholds are calendar-aware from 2027-02-20.',
@@ -89,7 +89,7 @@ export function ShiftBoard() {
     <>
       <PageHeader
         title="Shift Board & Handover"
-        subtitle="Early shift · 06:00–14:00 CET"
+        subtitle="Early shift · 06:00–14:00 CT"
         actions={
           <Button size="sm" variant="primary" onClick={() => setHandoverOpen(true)}>
             <FileText size={12} /> Generate handover

@@ -296,7 +296,7 @@ export function decide(p: AgentProposal, missions: Mission[] = []): Decision {
     // A backfill or migration against an asset with no contract has nothing to
     // verify against; the policy caps it at Advise on that basis.
     asset: {
-      contract: /claims_gold/i.test(JSON.stringify(p.steps)) ? null : 'dc_txn_v7',
+      contract: /datamart/i.test(JSON.stringify(p.steps)) ? null : 'dc_datamart_v2',
       pii: 'restricted',
     },
   }

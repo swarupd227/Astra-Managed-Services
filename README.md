@@ -104,12 +104,12 @@ autonomy-eligible share — the F1 coupling, as a number rather than a claim.
 
 ## Reference engagement
 
-The application is populated with a deterministic reference estate: **Nordbank Group**, a European
-banking and insurance estate at month 14 of a five-year managed-services contract, deployed
-in-tenant in Azure North Europe with client-held keys.
+The application is populated with a deterministic reference estate: **Kearney Global**, a global
+management-consulting firm's IT estate at month 3 of its managed-services contract, deployed in
+Azure (Central US) with a Chicago data center in exit, spanning 96 offices across 40 countries.
 
-Ten service towers sit at different points on the Transition → Run → Transform spine — two still
-in transition, one in hypercare, seven in steady run with optimisation and transformation running
+Ten service towers sit at different points on the Transition → Run → Transform spine — one still
+in transition, two in hypercare, seven in steady run with optimisation and transformation running
 concurrently. Fourteen agents operate across them, two of which are client-owned and managed as a
 service under the same governance regime.
 

@@ -18,7 +18,7 @@ export const CATALOG = [
 ]
 
 export const METRICS = [
-  { name: 'sla_attainment', grain: 'tower × measure × month', clock: 'client_biz_hours(Europe/Berlin), pauses per contract', source: 'SLA engine + Evidence Chain clock records' },
+  { name: 'sla_attainment', grain: 'tower × measure × month', clock: 'client_biz_hours(America/Chicago), pauses per contract', source: 'SLA engine + Evidence Chain clock records' },
   { name: 'banked_savings_hours', grain: 'tower × demand class × quarter', clock: 'banked on verification-window close', source: 'Baseline & Glidepath Ledger' },
   { name: 'autonomy_eligible_volume', grain: 'tower × month', clock: 'evaluated at policy decision time', source: 'Policy engine decisions + Service Graph' },
   { name: 'cost_per_resolved_work_object', grain: 'demand class × month', clock: 'metered per model call', source: 'TokenOps ledger' },
@@ -28,11 +28,11 @@ export const METRICS = [
 
 export const SAMPLE_ANSWERS: { q: string; metric: string; filters: string[]; answer: string; evidence: string }[] = [
 {
-    q: 'show P2 MTTR for payments vs last quarter, excluding the MI week',
+    q: 'show P2 MTTR for security vs last quarter, excluding the MI week',
     metric: 'incident_mttr (governed) · grain: tower × priority × period',
-    filters: ['tower = twr_payments', 'priority = P2', 'period = 2027-Q1 vs 2026-Q4', 'exclude: declared_MI window 2027-01-19 → 2027-01-26'],
-    answer: 'P2 MTTR on Payments Applications is 68 minutes for 2027-Q1 against 141 minutes in 2026-Q4 — a 51.8% reduction. The exclusion removed 14 work objects from the current period and 0 from the comparison period.',
-    evidence: 'ev_mtr_q1_payments',
+    filters: ['tower = twr_secops', 'priority = P2', 'period = 2027-Q1 vs 2026-Q4', 'exclude: declared_MI window 2027-01-19 → 2027-01-26'],
+    answer: 'P2 MTTR on Infrastructure — Security is 68 minutes for 2027-Q1 against 141 minutes in 2026-Q4 — a 51.8% reduction. The exclusion removed 14 work objects from the current period and 0 from the comparison period.',
+    evidence: 'ev_mtr_q1_secops',
   },
   {
     q: 'how much of the glidepath came from elimination rather than automation',

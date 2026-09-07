@@ -5,18 +5,18 @@ export const AUDIENCES = [
     id: 'status',
     label: 'Status page',
     draft:
-      'We are investigating elevated response times affecting card payments. Payments are being accepted; some customers may see slower confirmation. Our next update will be within 30 minutes.',
+      'We are investigating sync failures affecting OneDrive and PowerPoint for staff on the new Zero Trust network profile. No files have been lost; some users may see delayed sync or "file in use" conflicts. Our next update will be within 30 minutes.',
   },
   {
     id: 'exec',
     label: 'Executive',
     draft:
-      'A configuration change applied on 16 February reduced the ledger database connection pool, causing latency to breach its objective under morning peak load. Customer impact is degraded confirmation times, not failed payments. The remediation plan is prepared with a tested rollback and is awaiting your service owner’s approval. Autonomy is capped at Advise across the platform while the major incident is open.',
+      'A Zero Trust (SASE) policy change rolled out on 16 February re-routed OneDrive and Teams traffic through full packet inspection, breaking token refresh for PowerPoint co-authoring — during a week several offices are heads-down on a client deliverable. Impact is delayed file sync and co-authoring conflicts, not data loss. The remediation plan is prepared with a tested rollback and is awaiting your service owner’s approval. Autonomy is capped at Advise across the platform while the major incident is open.',
   },
   {
     id: 'technical',
     label: 'Technical',
     draft:
-      'chg_5511 set conn_pool.max on db_ledger_rw from 500 to 200. Pool saturation from 08:52 CET; p99 on svc_payments crossed 1,800 ms. Proposed: AC-31 config revert to known-good plus AC-12 rolling restart of app_ledger, canary-verified against canary_slo_v6. Rollback: reapply chg_5511, tested in non-prod 2027-02-16.',
+      'chg_6104 tightened cisco-sase-global inspection policy to include M365 traffic. TLS re-inspection broke OneDrive/PowerPoint token refresh from 08:52 CST; co-authoring conflict rate on twr_euc crossed 12% of active sessions. Proposed: AC-31 config revert to known-good on if_zta plus AC-66 EUC profile reset for affected endpoints, canary-verified against canary_slo_v6. Rollback: reapply chg_6104 outside business hours, tested in non-prod 2027-02-16.',
   },
 ]

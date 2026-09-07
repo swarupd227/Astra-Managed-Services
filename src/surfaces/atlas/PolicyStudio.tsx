@@ -48,7 +48,7 @@ export function PolicyStudio() {
   const [hasCompensation, setHasCompensation] = React.useState(true)
   const [majorIncident, setMajorIncident] = React.useState(false)
   const [freeze, setFreeze] = React.useState(false)
-  const [assetContract, setAssetContract] = React.useState<string | null>('dc_txn_v7')
+  const [assetContract, setAssetContract] = React.useState<string | null>('dc_datamart_v2')
   const [presetLabel, setPresetLabel] = React.useState(PRESETS[0].label)
 
   const applyPreset = (label: string) => {
@@ -65,7 +65,7 @@ export function PolicyStudio() {
     setHasCompensation(Boolean(p.ctx.action!.hasCompensation))
     setMajorIncident(p.ctx.incident!.major_active)
     setFreeze(p.ctx.calendar!.freeze)
-    setAssetContract(p.ctx.asset?.contract ?? 'dc_txn_v7')
+    setAssetContract(p.ctx.asset?.contract ?? 'dc_datamart_v2')
   }
 
   const agent = AGENT_BY_ID[agentId]
@@ -168,7 +168,7 @@ export function PolicyStudio() {
                 Change freeze in force
               </label>
               <label className="flex items-center gap-2 text-2xs text-ink-2">
-                <input type="checkbox" checked={assetContract !== null} onChange={(e) => setAssetContract(e.target.checked ? 'dc_txn_v7' : null)} className="accent-brand" />
+                <input type="checkbox" checked={assetContract !== null} onChange={(e) => setAssetContract(e.target.checked ? 'dc_datamart_v2' : null)} className="accent-brand" />
                 Affected data asset carries a contract
               </label>
             </div>
