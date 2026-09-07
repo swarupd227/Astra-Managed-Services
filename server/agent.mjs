@@ -14,7 +14,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import { PHASE_FUNCTION, PHASE_PURPOSE, currency, loadRegistry, publicView, resolveSystem, saveRegistry, setStatus } from './ai-registry.mjs'
+import { PHASE_FUNCTION, PHASE_PURPOSE, REGISTRY_FILE, currency, loadRegistry, publicView, requestSystem, resolveSystem, saveRegistry, setStatus } from './ai-registry.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -46,9 +46,17 @@ let MODEL = process.env.ASTRA_MODEL ?? 'claude-opus-5'
 /* ---------------------------- AI-system registry --------------------------- */
 
 // The registry is the AI Bill of Materials: which systems may be called, for
-// what, on whose approval. Loaded once; changed only through the status
-// endpoint, which writes it back so a revocation survives a restart.
-let registry = loadRegistry()
+// what, on whose approval. Loaded once; changed only through its endpoints,
+// which write it back so a revocation survives a restart. On App Service the
+// package directory is replaced on every deploy, so the live registry lives
+// on the persistent /home share and is seeded from the package once.
+const REGISTRY_PATH =
+  process.env.ASTRA_AI_REGISTRY ?? (ON_APP_SERVICE ? path.join('/home', 'data', 'astra', 'ai-registry.json') : REGISTRY_FILE)
+if (REGISTRY_PATH !== REGISTRY_FILE && !fs.existsSync(REGISTRY_PATH) && fs.existsSync(REGISTRY_FILE)) {
+  fs.mkdirSync(path.dirname(REGISTRY_PATH), { recursive: true })
+  fs.copyFileSync(REGISTRY_FILE, REGISTRY_PATH)
+}
+let registry = loadRegistry(REGISTRY_PATH)
 
 /** AI functions the customer has directed us to suspend. Enforced here, before any model call. */
 const suspendedFunctions = new Set()
@@ -518,10 +526,26 @@ http
           // written back with its history so the exhibit's revision log is
           // the file itself.
           try {
-            const { registry: next, system, from } = setStatus(registry, String(body.id ?? ''), String(body.status ?? ''), String(body.by ?? 'operator'), String(body.reason ?? ''))
+            const { registry: next, system, from, overridden } = setStatus(
+              registry, String(body.id ?? ''), String(body.status ?? ''), String(body.by ?? 'operator'), String(body.reason ?? ''),
+              new Date().toISOString(), { override: Boolean(body.override) },
+            )
             registry = next
-            saveRegistry(registry)
-            return json(res, 200, { ok: true, from, system, ...publicView(registry, MODEL) })
+            saveRegistry(registry, REGISTRY_PATH)
+            return json(res, 200, { ok: true, from, overridden, system, ...publicView(registry, MODEL) })
+          } catch (err) {
+            return json(res, 200, { ok: false, error: err?.message ?? String(err) })
+          }
+        }
+
+        if (url === '/api/agent/registry/request') {
+          // A new system enters as pending with the notice clock running.
+          // Nothing resolves to it until a named human approves it.
+          try {
+            const { registry: next, system } = requestSystem(registry, body, String(body.by ?? 'operator'), String(body.reason ?? ''))
+            registry = next
+            saveRegistry(registry, REGISTRY_PATH)
+            return json(res, 200, { ok: true, system, ...publicView(registry, MODEL) })
           } catch (err) {
             return json(res, 200, { ok: false, error: err?.message ?? String(err) })
           }
@@ -550,6 +574,7 @@ http
   .listen(PORT, HOST, () => {
     console.log(`  Astra agent gateway on http://${HOST}:${PORT}  ·  model ${MODEL}`)
     console.log(`  AI-system registry v${registry.version} · Exhibit ${registry.exhibit} · ${registry.systems.filter((s) => s.status === 'approved').length} approved · served model ${resolveSystem(registry, MODEL, null).ok ? 'listed' : 'NOT LISTED — every call will be refused'}`)
+    console.log(`  Registry file: ${REGISTRY_PATH}${registry.residency ? `  ·  residency: ${(registry.residency.allowedRegions ?? []).join(', ') || 'any region'}${registry.residency.zeroRetentionRequired ? ', zero retention required' : ''}` : ''}`)
     console.log(`  App Service: ${ON_APP_SERVICE ? process.env.WEBSITE_SITE_NAME : 'no (local)'}  ·  static: ${SERVE_STATIC}`)
     if (SERVE_STATIC) {
       console.log(`  Serving the built app from ${DIST}${fs.existsSync(DIST) ? '' : '  — MISSING, the SPA will 404'}`)

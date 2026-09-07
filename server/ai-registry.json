@@ -2,6 +2,13 @@
   "version": 3,
   "exhibit": "O-1",
   "policyRef": "Schedule O §(b)",
+  "noticeHours": 72,
+  "residency": {
+    "policyRef": "Schedule O §(e)",
+    "allowedRegions": ["us-central"],
+    "zeroRetentionRequired": true,
+    "note": "Primary estate processes in US Central (Chicago-aligned). Jurisdiction placeholder in Schedule O §(e) is unfilled — confirm with the customer."
+  },
   "systems": [
     {
       "id": "ais_frontier_01",
@@ -78,7 +85,7 @@
       "noticeDueAt": "2026-09-09T16:00:00Z",
       "attestations": { "zeroRetention": true, "noTrainingOnCustomerData": true, "ref": "Vendor enterprise terms — attestation pending review" },
       "supplyChain": [{ "component": "inference", "provider": "OpenAI (Azure)" }],
-      "history": [{ "at": "2026-09-06T16:00:00Z", "by": "L. Nakamura", "from": "none", "to": "pending", "reason": "Requested for narrative-drafting cost comparison; 72-hour notice running" }]
+      "history": [{ "at": "2026-09-06T16:00:00Z", "by": "L. Nakamura", "from": "none", "to": "pending", "reason": "Requested for narrative-drafting cost comparison — 72-hour notice running" }]
     }
   ]
 }

@@ -5,8 +5,9 @@
  * a whitelist needs enforcing to be complete. Every call resolves the model it
  * is about to use against the registry for the purpose it is about to use it
  * for; a miss is refused before a vendor stream is opened. Nothing in here
- * knows which client the registry belongs to — the contract reference, the
- * exhibit name and the approved systems are all data in the registry file.
+ * knows which client the registry belongs to — the contract references, the
+ * exhibit name, the residency rules and the approved systems are all data in
+ * the registry file.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -14,7 +15,8 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
-export const REGISTRY_FILE = process.env.ASTRA_AI_REGISTRY ?? path.join(HERE, 'ai-registry.json')
+/** The packaged seed. Deployments may point ASTRA_AI_REGISTRY at durable storage instead. */
+export const REGISTRY_FILE = path.join(HERE, 'ai-registry.json')
 
 /** Which registry purpose each gateway phase consumes. */
 export const PHASE_PURPOSE = { plan: 'plan_synthesis', outcome: 'narrative', brief: 'narrative' }
@@ -23,8 +25,9 @@ export const PHASE_PURPOSE = { plan: 'plan_synthesis', outcome: 'narrative', bri
 export const PHASE_FUNCTION = { plan: 'copilot.plan', outcome: 'herald.outcome', brief: 'herald.brief' }
 
 export const STATUSES = ['approved', 'pending', 'revoked']
+export const HOSTINGS = ['vendor_cloud', 'client_tenant', 'artizent_dedicated']
 
-const EMPTY = { version: 0, exhibit: 'AI-system whitelist', policyRef: 'AI-system whitelist', systems: [] }
+const EMPTY = { version: 0, exhibit: 'AI-system whitelist', policyRef: 'AI-system whitelist', noticeHours: 72, residency: null, systems: [] }
 
 export function loadRegistry(file = REGISTRY_FILE) {
   try {
@@ -36,12 +39,27 @@ export function loadRegistry(file = REGISTRY_FILE) {
 }
 
 export function saveRegistry(registry, file = REGISTRY_FILE) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${JSON.stringify(registry, null, 2)}\n`)
 }
 
 /** A system may be addressed by its registry id or by the model id it wraps. */
 export function findSystem(registry, modelOrId) {
   return registry.systems.find((s) => s.id === modelOrId || s.model === modelOrId) ?? null
+}
+
+/** Whether a system sits inside the residency rules, and why not if it does not. */
+export function residencyCheck(registry, system) {
+  const r = registry.residency
+  if (!r) return { ok: true }
+  const rule = `${r.policyRef ?? 'Data residency'} — data may only be processed in permitted regions`
+  if (Array.isArray(r.allowedRegions) && r.allowedRegions.length && !r.allowedRegions.includes(system.region)) {
+    return { ok: false, rule, reason: `${system.vendor} ${system.model} is hosted in ${system.region}; permitted regions are ${r.allowedRegions.join(', ')}.` }
+  }
+  if (r.zeroRetentionRequired && !system.attestations?.zeroRetention) {
+    return { ok: false, rule: `${r.policyRef ?? 'Data residency'} — zero-retention configuration is required`, reason: `${system.vendor} ${system.model} has no zero-retention attestation on file.` }
+  }
+  return { ok: true }
 }
 
 /**
@@ -61,6 +79,10 @@ export function resolveSystem(registry, modelOrId, purpose) {
       reason: `${system.vendor} ${system.model} (${system.id}) is ${system.status} in Exhibit ${registry.exhibit}${system.status === 'pending' && system.noticeDueAt ? ` — approval cannot land before ${system.noticeDueAt}` : ''}. No vendor request was made.`,
     }
   }
+  const residency = residencyCheck(registry, system)
+  if (!residency.ok) {
+    return { ok: false, system, rule: residency.rule, reason: `${residency.reason} No vendor request was made.` }
+  }
   if (purpose && !(system.purposes ?? []).includes(purpose)) {
     return {
       ok: false, system,
@@ -71,22 +93,68 @@ export function resolveSystem(registry, modelOrId, purpose) {
   return { ok: true, system }
 }
 
-/** Changes a system's status, keeping the history the exhibit's revision log needs. */
-export function setStatus(registry, id, status, by, reason, at = new Date().toISOString()) {
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+
+/**
+ * Registers a new system as pending. The notice period starts now; approval
+ * cannot land before it ends without an explicit, recorded override.
+ */
+export function requestSystem(registry, input, by, reason, at = new Date().toISOString()) {
+  const vendor = String(input?.vendor ?? '').trim()
+  const model = String(input?.model ?? '').trim()
+  const purposes = Array.isArray(input?.purposes) ? input.purposes.map(String).filter(Boolean) : []
+  if (!vendor || !model) throw new Error('A request needs a vendor and a model id')
+  if (!purposes.length) throw new Error('A request needs at least one purpose')
+  if (findSystem(registry, model)) throw new Error(`Model "${model}" is already in the registry`)
+  const hosting = HOSTINGS.includes(input?.hosting) ? input.hosting : 'vendor_cloud'
+  const noticeHours = Number(registry.noticeHours ?? 72)
+  const noticeDueAt = new Date(new Date(at).getTime() + noticeHours * 3600 * 1000).toISOString()
+  const id = `ais_${slug(vendor)}_${String(registry.systems.length + 1).padStart(2, '0')}`
+  const system = {
+    id, vendor, model,
+    version: String(input?.version ?? 'unspecified'),
+    hosting,
+    region: String(input?.region ?? 'unspecified'),
+    purposes,
+    status: 'pending',
+    requestedBy: by, requestedAt: at, noticeDueAt,
+    attestations: {
+      zeroRetention: Boolean(input?.attestations?.zeroRetention),
+      noTrainingOnCustomerData: Boolean(input?.attestations?.noTrainingOnCustomerData),
+      ref: String(input?.attestations?.ref ?? 'none on file'),
+    },
+    supplyChain: Array.isArray(input?.supplyChain) ? input.supplyChain : [],
+    history: [{ at, by, from: 'none', to: 'pending', reason: `${reason || 'Requested'} — ${noticeHours}-hour notice running` }],
+  }
+  return { registry: { ...registry, version: (registry.version ?? 0) + 1, systems: [...registry.systems, system] }, system }
+}
+
+/**
+ * Changes a system's status, keeping the history the exhibit's revision log
+ * needs. Approving a pending system inside its notice period requires an
+ * override, and the override is itself part of the record.
+ */
+export function setStatus(registry, id, status, by, reason, at = new Date().toISOString(), { override = false } = {}) {
   if (!STATUSES.includes(status)) throw new Error(`Unknown status "${status}"`)
   const system = registry.systems.find((s) => s.id === id)
   if (!system) throw new Error(`Unknown system "${id}"`)
   const from = system.status
+  let overridden = false
+  if (status === 'approved' && from === 'pending' && system.noticeDueAt && new Date(system.noticeDueAt) > new Date(at)) {
+    if (!override) throw new Error(`The notice period for ${system.model} runs until ${system.noticeDueAt}; approval needs a recorded override before then`)
+    overridden = true
+  }
   const updated = {
     ...system,
     status,
     ...(status === 'approved' ? { approvedBy: by, approvedAt: at } : {}),
-    history: [...(system.history ?? []), { at, by, from, to: status, reason }],
+    history: [...(system.history ?? []), { at, by, from, to: status, reason: overridden ? `${reason} (override — notice period not elapsed)` : reason, ...(overridden ? { override: true } : {}) }],
   }
   return {
     registry: { ...registry, version: (registry.version ?? 0) + 1, systems: registry.systems.map((s) => (s.id === id ? updated : s)) },
     system: updated,
     from,
+    overridden,
   }
 }
 
@@ -106,7 +174,9 @@ export function publicView(registry, servedModel) {
     version: registry.version,
     exhibit: registry.exhibit,
     policyRef: registry.policyRef,
+    noticeHours: registry.noticeHours ?? 72,
+    residency: registry.residency ?? null,
     servedModel: servedModel ?? null,
-    systems: registry.systems,
+    systems: registry.systems.map((s) => ({ ...s, residency: residencyCheck(registry, s) })),
   }
 }
