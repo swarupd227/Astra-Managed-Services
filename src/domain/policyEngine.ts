@@ -12,7 +12,7 @@ import type { AutonomyDecision, ExecutionMode, Grade, Policy, PolicyRule } from 
 export interface ActionContext {
   action: { class: string; env: 'prod' | 'nonprod'; irreversible?: boolean; hasCompensation?: boolean }
   blast: { tier: number; services: number; dependents: number; dataMutation: boolean }
-  agent: { id: string; grade: Record<string, Grade> }
+  agent: { id: string; grade: Record<string, Grade>; drift?: boolean }
   plan: { confidence: number; verificationPack: string | null }
   incident: { major_active: boolean }
   calendar: { freeze: boolean }

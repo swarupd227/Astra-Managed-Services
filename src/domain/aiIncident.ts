@@ -250,6 +250,8 @@ export interface CohortRule {
   id: string
   label: string
   test: RegExp
+  /** Example markers the bias suite can plant in prose, e.g. "Singapore office". */
+  samples?: string[]
 }
 
 export interface CohortStat {

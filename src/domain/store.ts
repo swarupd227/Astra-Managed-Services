@@ -7,6 +7,8 @@ import { AGENTS, TOWER_BY_ID } from './estate'
 import { ROLE_BY_ID } from './reference'
 import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiIncidentSignal, type OversightAudit } from './aiIncident'
 import type { RedTeamResult } from './redTeam'
+import type { BiasResult } from './biasSuite'
+import { driftReport, type DriftReport } from './drift'
 import { BUDGET_WARN, MISSIONS, budgetExhausted, budgetUse, type Mission } from './missions'
 import { PROPOSALS, type Proposal, type ProposalState } from './proposals'
 import { absorbedText, assertionReach, planReach, type Lesson, type LessonKind } from './teaching'
@@ -69,6 +71,10 @@ interface State {
   oversightAudit: (OversightAudit & { at: string }) | null
   /** The last red-team run against the live controls. */
   redTeam: { at: string; results: RedTeamResult[] } | null
+  /** The last matched-pair bias suite over the decision path. */
+  bias: BiasResult | null
+  /** The last drift computation — the source of every agent's driftAlarm. */
+  drift: DriftReport | null
   mi: MajorIncident
   toasts: Toast[]
   verification: ChainVerification | null
@@ -107,6 +113,10 @@ interface State {
   simulateOversightFailure: (by: string) => void
   /** Records a red-team run as a verification record and keeps the results for the Evaluation Center. */
   recordRedTeam: (results: RedTeamResult[], by: string) => void
+  /** Records a bias-suite run — pairs tested, disparities found — as a verification record. */
+  recordBias: (result: BiasResult, by: string) => void
+  /** Recomputes drift for every agent; raises or clears alarms with evidence, and returns the report. */
+  runDriftMonitor: (by: string) => DriftReport
   suspendAgent: (agentId: string, by: string, reason: string) => void
   reinstateAgent: (agentId: string, by: string) => void
 
@@ -218,6 +228,8 @@ export const useAstra = create<State>((set, get) => ({
   aiIncidents: [],
   oversightAudit: null,
   redTeam: null,
+  bias: null,
+  drift: null,
   mi: {
     active: false, declaredAt: null, declaredBy: null, workObjectId: null, title: '',
     timeline: [], roles: [], actions: [],
@@ -889,6 +901,70 @@ export const useAstra = create<State>((set, get) => ({
       tone: failed.length ? 'crit' : 'ok',
       evidenceId: record.id,
     })
+  },
+
+  recordBias: (result, by) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('bias' + s.tick + s.evidence.length).slice(0, 10)}`,
+      at, kind: 'verification', actor: by,
+      summary: `Bias suite — ${result.pairs} matched pairs, ${result.disparities.length} disparit${result.disparities.length === 1 ? 'y' : 'ies'}`,
+      payload: { cohorts: result.cohorts, pairs: result.pairs, disparities: result.disparities, invariant: result.invariant },
+      sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], bias: { ...result, at } })
+    get().pushToast({
+      title: result.invariant ? 'Bias suite: decision path is cohort-blind' : `Bias suite: ${result.disparities.length} disparities`,
+      body: `${result.pairs} matched pairs across ${result.cohorts.length} cohorts — mode, gates, floor and detectors compared.`,
+      tone: result.invariant ? 'ok' : 'crit',
+      evidenceId: record.id,
+    })
+  },
+
+  /**
+   * Drift is computed, never seeded. Each alarm that changes state is its own
+   * evidence record; the cap it triggers is rule r0d, readable in any policy.
+   */
+  runDriftMonitor: (by) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const report = { ...driftReport(Object.values(s.agents)), at }
+    let evidence = s.evidence
+    const agents = { ...s.agents }
+    let raised = 0, cleared = 0
+
+    for (const w of report.windows) {
+      const agent = agents[w.agentId]
+      if (!agent || agent.driftAlarm === w.alarm) continue
+      const record = appendRecord(evidence, {
+        id: `ev_${digest('drift' + w.agentId + String(w.alarm) + s.tick).slice(0, 10)}`,
+        at, kind: 'decision', agentId: w.agentId, actor: 'Drift monitor',
+        summary: w.alarm ? `Drift alarm raised — ${agent.name}` : `Drift alarm cleared — ${agent.name}`,
+        payload: { window: w, effect: w.alarm ? 'rule r0d caps the agent at Supervised until cleared' : 'cap lifted' },
+        sealed: true,
+      })
+      evidence = [...evidence, record]
+      agents[w.agentId] = { ...agent, driftAlarm: w.alarm }
+      if (w.alarm) raised++
+      else cleared++
+    }
+
+    const summary = appendRecord(evidence, {
+      id: `ev_${digest('driftrun' + s.tick + evidence.length).slice(0, 10)}`,
+      at, kind: 'verification', actor: by,
+      summary: `Drift monitor — ${report.windows.filter((w) => w.alarm).length} of ${report.windows.length} agents drifting`,
+      payload: { minDrop: report.minDrop, alarms: report.windows.filter((w) => w.alarm).map((w) => ({ agentId: w.agentId, dropFromPeak: w.dropFromPeak, slope: w.slope })) },
+      sealed: true,
+    })
+    set({ evidence: [...evidence, summary], agents, drift: report })
+    get().pushToast({
+      title: 'Drift monitor run',
+      body: `${report.windows.filter((w) => w.alarm).length} drifting · ${raised} raised, ${cleared} cleared this run.`,
+      tone: report.windows.some((w) => w.alarm) ? 'warn' : 'ok',
+      evidenceId: summary.id,
+    })
+    return report
   },
 
   /** The original two-scope brake, now a thin wrapper over suspensions. */

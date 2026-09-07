@@ -631,6 +631,7 @@ export function Copilot() {
         {
           suspensions,
           suspendedAgents: Object.values(agentMap).filter((a) => a.state === 'suspended').map((a) => a.id),
+          driftingAgents: Object.values(agentMap).filter((a) => a.driftAlarm).map((a) => a.id),
           majorActive: miActive,
         },
       )

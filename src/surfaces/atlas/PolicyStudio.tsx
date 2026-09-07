@@ -52,6 +52,7 @@ export function PolicyStudio() {
   const [whitelisted, setWhitelisted] = React.useState(true)
   const [suspended, setSuspended] = React.useState(false)
   const [floor, setFloor] = React.useState<'unverified' | 'machine_corroborated' | 'human_verified'>('human_verified')
+  const [drift, setDrift] = React.useState(false)
   const [presetLabel, setPresetLabel] = React.useState(PRESETS[0].label)
 
   const applyPreset = (label: string) => {
@@ -78,7 +79,7 @@ export function PolicyStudio() {
     () => ({
       action: { class: actionClass, env: 'prod', hasCompensation },
       blast: { tier, services, dependents, dataMutation: ['AC-44', 'AC-49', 'AC-71'].includes(actionClass) },
-      agent: { id: agentId, grade: agent.grants as Record<string, Grade> },
+      agent: { id: agentId, grade: agent.grants as Record<string, Grade>, drift },
       plan: { confidence, verificationPack: AC[actionClass]?.verificationPack ?? null },
       incident: { major_active: majorIncident },
       calendar: { freeze },
@@ -87,7 +88,7 @@ export function PolicyStudio() {
       suspensions: { any: suspended, global: false, tower: false, agent: false, actionClass: suspended, function: false },
       retrieval: { minVerification: floor },
     }),
-    [actionClass, hasCompensation, tier, services, dependents, agentId, agent, confidence, majorIncident, freeze, assetContract, whitelisted, suspended, floor],
+    [actionClass, hasCompensation, tier, services, dependents, agentId, agent, confidence, majorIncident, freeze, assetContract, whitelisted, suspended, floor, drift],
   )
 
   const result: EngineResult = React.useMemo(() => evaluate(policy, ctx, agent.ceiling), [policy, ctx, agent.ceiling])
@@ -184,6 +185,10 @@ export function PolicyStudio() {
               <label className="flex items-center gap-2 text-2xs text-ink-2">
                 <input type="checkbox" checked={suspended} onChange={(e) => setSuspended(e.target.checked)} className="accent-brand" />
                 A suspension applies to this action class
+              </label>
+              <label className="flex items-center gap-2 text-2xs text-ink-2">
+                <input type="checkbox" checked={drift} onChange={(e) => setDrift(e.target.checked)} className="accent-brand" />
+                The agent's drift alarm is raised
               </label>
               <Field label="Verification floor the plan rests on">
                 <select value={floor} onChange={(e) => setFloor(e.target.value as typeof floor)} className={selectClass}>

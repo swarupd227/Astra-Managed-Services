@@ -302,6 +302,8 @@ export interface RunOptions {
   /** Live suspensions from the control plane, and the agents suspended there. */
   suspensions?: Suspension[]
   suspendedAgents?: string[]
+  /** Agents whose drift alarm is raised — capped one level down by rule r0d. */
+  driftingAgents?: string[]
   /** Whether a major incident is open — the global brake the engine already understands. */
   majorActive?: boolean
 }
@@ -325,7 +327,7 @@ export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOpti
       dependents: p.blast_radius.dependents,
       dataMutation: p.blast_radius.data_mutation,
     },
-    agent: { id: agent.id, grade: agent.grants as Record<string, Grade> },
+    agent: { id: agent.id, grade: agent.grants as Record<string, Grade>, drift: (opts.driftingAgents ?? []).includes(agent.id) },
     plan: { confidence: p.plan_confidence, verificationPack: AC[cls]?.verificationPack ?? null },
     incident: { major_active: Boolean(opts.majorActive) },
     calendar: { freeze: false },

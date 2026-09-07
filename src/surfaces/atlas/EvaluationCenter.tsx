@@ -12,6 +12,8 @@ import { cn, dateShort, num, pct } from '@/lib/format'
 import { SUITES, REGRESSION } from '@/domain/evaluationSeed'
 import { RED_TEAM_CASES } from '@/domain/redTeamSeed'
 import { gatewayDeps, runRedTeam } from '@/domain/redTeam'
+import { BIAS_CASES, runBiasSuite } from '@/domain/biasSuite'
+import { COHORTS } from '@/domain/cohortSeed'
 import { ProducedBy } from '@/ui/ProducedBy'
 
 
@@ -21,7 +23,11 @@ export function EvaluationCenter() {
   const agents = useAstra((s) => s.agents)
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
-  const [tab, setTab] = React.useState<'suites' | 'skills' | 'regression' | 'redteam'>('suites')
+  const [tab, setTab] = React.useState<'suites' | 'skills' | 'regression' | 'redteam' | 'biasdrift'>('suites')
+  const bias = useAstra((s) => s.bias)
+  const recordBias = useAstra((s) => s.recordBias)
+  const drift = useAstra((s) => s.drift)
+  const runDriftMonitor = useAstra((s) => s.runDriftMonitor)
   const [running, setRunning] = React.useState<string | null>(null)
 
   // The red-team library runs against the live controls — the gateway's
@@ -81,7 +87,7 @@ export function EvaluationCenter() {
       </div>
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">
-        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'suites', label: 'Suites & pipeline' }, { id: 'skills', label: 'Skill registry', count: SKILLS.length }, { id: 'regression', label: 'Regression diffs', count: REGRESSION.length }, { id: 'redteam', label: 'Red team', count: RED_TEAM_CASES.length }]} />
+        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'suites', label: 'Suites & pipeline' }, { id: 'skills', label: 'Skill registry', count: SKILLS.length }, { id: 'regression', label: 'Regression diffs', count: REGRESSION.length }, { id: 'redteam', label: 'Red team', count: RED_TEAM_CASES.length }, { id: 'biasdrift', label: 'Bias & drift' }]} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -301,6 +307,101 @@ export function EvaluationCenter() {
               No model is called by any case. Injection cases hit the gateway's classifier through its own endpoint; poisoning cases run the policy engine's retrieval floor; tool-misuse and fabrication cases run the inline detectors; model cases hit the registry through the settings guard, which refuses before any vendor request. Every run is a verification record in the evidence chain.
             </p>
           </Card>
+        )}
+
+        {tab === 'biasdrift' && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card
+              title="Bias suite — matched pairs"
+              subtitle="The same proposal per cohort; mode, gates, floor and detectors must not differ"
+              right={
+                <Button size="sm" variant="primary" disabled={!role.canApprove} onClick={() => recordBias(runBiasSuite(COHORTS, BIAS_CASES), role.person)}>
+                  <FlaskConical size={12} /> Run bias suite
+                </Button>
+              }
+            >
+              <div className="mb-3 grid grid-cols-3 gap-3">
+                <Metric size="sm" label="Cases × cohorts" value={`${BIAS_CASES.length} × ${COHORTS.length}`} hint={COHORTS.map((c) => c.id).join(', ')} />
+                <Metric size="sm" label="Pairs tested" value={bias ? bias.pairs : '—'} />
+                <Metric size="sm" label="Disparities" value={bias ? bias.disparities.length : '—'} deltaTone={bias ? (bias.invariant ? 'ok' : 'crit') : undefined} hint={bias ? bias.at?.slice(0, 16).replace('T', ' ') : 'not run'} />
+              </div>
+              {bias && bias.invariant && (
+                <div className="rounded border border-ok/40 bg-ok/[0.06] p-3 text-2xs leading-relaxed text-ink-2">
+                  Invariant. Across {bias.pairs} pairs the engine returned the same mode, the same gates and the same floor for every cohort, and no detector fired differently. The decision path never receives a cohort attribute — this proves it stays that way on this build.
+                </div>
+              )}
+              {bias && !bias.invariant && (
+                <Table>
+                  <thead><tr><Th>Case</Th><Th>Cohorts</Th><Th>Field</Th><Th>A</Th><Th>B</Th></tr></thead>
+                  <tbody>
+                    {bias.disparities.map((d, i) => (
+                      <Tr key={i} className="bg-crit/[0.06]">
+                        <Td className="font-mono text-2xs">{d.caseId}</Td>
+                        <Td className="text-2xs">{d.cohortA} vs {d.cohortB}</Td>
+                        <Td><Chip mono>{d.field}</Chip></Td>
+                        <Td className="text-2xs">{d.a}</Td>
+                        <Td className="text-2xs">{d.b}</Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+              <ul className="mt-3 space-y-1 text-2xs text-ink-3">
+                {BIAS_CASES.map((c) => <li key={c.id}>· {c.label} <span className="font-mono">({c.id})</span></li>)}
+              </ul>
+              <p className="mt-2 text-2xs leading-relaxed text-ink-3">
+                Whether outcomes differ by cohort in live work is the cohort monitor's question, on the <Link to="/governance/ai-incidents" className="text-brand-ink hover:underline">AI Incidents</Link> page.
+              </p>
+            </Card>
+
+            <Card
+              title="Drift monitor"
+              subtitle="Live-success series per agent — a sustained decline raises the alarm and rule r0d caps the agent at Supervised"
+              right={
+                <Button size="sm" variant="primary" disabled={!role.canApprove} onClick={() => runDriftMonitor(role.person)}>
+                  <Play size={12} /> Run drift monitor
+                </Button>
+              }
+            >
+              {drift ? (
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th>Agent</Th>
+                      <Th align="right">Current</Th>
+                      <Th align="right">Peak</Th>
+                      <Th align="right">Drop</Th>
+                      <Th align="right">Slope</Th>
+                      <Th>State</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drift.windows
+                      .slice()
+                      .sort((a, b) => Number(b.alarm) - Number(a.alarm) || b.dropFromPeak - a.dropFromPeak)
+                      .map((w) => (
+                        <Tr key={w.agentId} className={w.alarm ? 'bg-warn/[0.06]' : undefined}>
+                          <Td>
+                            <AgentChip id={w.agentId} />
+                            <span className="mt-0.5 block max-w-[260px] text-[10px] leading-snug text-ink-3">{w.reason}</span>
+                          </Td>
+                          <Td align="right" className="tnum text-2xs">{w.points ? pct(w.current * 100) : '—'}</Td>
+                          <Td align="right" className="tnum text-2xs">{w.points ? pct(w.peak * 100) : '—'}</Td>
+                          <Td align="right" className={cn('tnum text-2xs', w.dropFromPeak >= drift.minDrop ? 'text-warn' : 'text-ink-2')}>{w.points ? `${(w.dropFromPeak * 100).toFixed(1)} pts` : '—'}</Td>
+                          <Td align="right" className={cn('tnum text-2xs', w.slope < 0 ? 'text-warn' : 'text-ink-2')}>{w.points ? w.slope.toFixed(4) : '—'}</Td>
+                          <Td>{w.alarm ? <Chip tone="warn">drifting · capped L3</Chip> : w.points < 4 ? <Chip tone="neutral">too few points</Chip> : <Chip tone="ok">stable</Chip>}</Td>
+                        </Tr>
+                      ))}
+                  </tbody>
+                </Table>
+              ) : (
+                <p className="text-2xs text-ink-3">Not yet run this session. The Fleet's drift badges are whatever the last run computed; before the first run they are the seeded state.</p>
+              )}
+              <p className="mt-3 text-2xs leading-relaxed text-ink-3">
+                Alarm rule: negative least-squares slope and a drop of at least {drift ? (drift.minDrop * 100).toFixed(1) : '0.5'} pts from the series peak. Raising or clearing an alarm is its own evidence record naming the window.
+              </p>
+            </Card>
+          </div>
         )}
       </div>
     </>
