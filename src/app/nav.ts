@@ -96,6 +96,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
       { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },
       { to: '/governance/evidence', label: 'Evidence Explorer', desc: 'Search any action; verify the hash chain; export' },
+      { to: '/governance/ai-incidents', label: 'AI Incidents', desc: 'Fabrication, injection, oversight and cohort findings — with notification and RCA clocks' },
       { to: '/governance/reports', label: 'Reports', desc: 'Governed semantic layer, signed extracts, natural-language queries' },
     ],
   },

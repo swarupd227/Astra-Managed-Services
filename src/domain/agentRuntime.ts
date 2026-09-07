@@ -6,7 +6,7 @@ import { DEMAND_CLASSES, SLAS } from './ledgers'
 import { ago } from '@/lib/format'
 import type { EvidenceKind, ExecutionMode, Grade, Priority, WorkObject } from './types'
 import type { Proposal } from './proposals'
-import { detectFabrication, type AiIncidentClass } from './aiIncident'
+import { detectFabrication, detectToolAnomaly, type AiIncidentClass } from './aiIncident'
 import { suspensionContext, type Suspension } from './suspensions'
 
 /* ==========================================================================
@@ -35,7 +35,7 @@ export type Beat =
   | { t: 'refuse'; agent: string; text: string; rule: string }
   | { t: 'cost'; usd: number; note: string; inputTokens: number; outputTokens: number; model: string; system?: string; registered?: string | null; mismatch?: boolean }
   | { t: 'system'; id: string; vendor: string; model: string; version: string; region: string; hosting: string }
-  | { t: 'incident'; class: AiIncidentClass; detector: string; summary: string; details: string[]; consequential: boolean }
+  | { t: 'incident'; class: AiIncidentClass; detector: string; summary: string; details: string[]; consequential: boolean; agent?: string; systemId?: string }
   | { t: 'rejected'; text: string }
   | { t: 'error'; message: string }
 
@@ -239,6 +239,7 @@ type GatewayEvent =
   | { type: 'usage'; inputTokens: number; outputTokens: number; cacheRead: number; model: string; stopReason: string; system?: string; registered?: string | null; served?: string | null; mismatch?: boolean }
   | { type: 'system'; system: GatewaySystem }
   | { type: 'refuse'; agent: string; text: string; rule: string }
+  | { type: 'incident'; class: AiIncidentClass; detector: string; summary: string; details: string[]; consequential: boolean }
   | { type: 'done' }
   | { type: 'error'; message: string }
 
@@ -410,6 +411,16 @@ export async function runIntent(
         onBeat({ t: 'refuse', agent: 'agt_herald', text: ev.text, rule: ev.rule })
         onBeat({ t: 'evidence', summary: 'Refusal recorded — no vendor request was made', kind: 'decision' })
         return { proposal: null, decision: null, mode: null }
+      } else if (ev.type === 'incident') {
+        // The gateway's own detectors — an injected utterance, or a canary
+        // leaking out of the model — raise the incident; the run stops here.
+        // Only an output-side finding (the canary) is attributed to the agent:
+        // a hostile input is not the agent's doing and must not demote it.
+        onBeat({ t: 'incident', class: ev.class, detector: ev.detector, summary: ev.summary, details: ev.details, consequential: ev.consequential, agent: ev.detector === 'canary' ? routedAgent : undefined, systemId: system?.id })
+        onBeat({ t: 'refuse', agent: routedAgent, text: ev.summary, rule: `AI Incident — ${ev.class.replace(/_/g, ' ')} (${ev.detector})` })
+        onBeat({ t: 'evidence', summary: 'AI Incident recorded at the gateway; the run was stopped', kind: 'observation' })
+        fabricated = true
+        continue
       } else if (ev.type === 'proposal') {
         proposal = ev.input
         routedAgent = AGENT_BY_ID[proposal.routed_agent] ? proposal.routed_agent : 'agt_herald'
@@ -418,13 +429,13 @@ export async function runIntent(
         // Every identifier the proposal carries is checked against the estate
         // before anything is routed, planned or decided. A consequential plan
         // built on invented references is refused here, not defaulted.
-        const signal = detectFabrication(proposal)
+        const signal = detectFabrication(proposal) ?? detectToolAnomaly(proposal)
         if (signal) {
-          onBeat({ t: 'incident', ...signal })
+          onBeat({ t: 'incident', ...signal, agent: routedAgent, systemId: system?.id })
           if (signal.consequential) {
             fabricated = true
-            onBeat({ t: 'refuse', agent: routedAgent, text: signal.details.join(' '), rule: 'AI Incident — fabrication in a consequential proposal; refused before the policy engine saw it' })
-            onBeat({ t: 'evidence', summary: 'AI Incident recorded with the proposal and every unresolved reference', kind: 'observation' })
+            onBeat({ t: 'refuse', agent: routedAgent, text: signal.details.join(' '), rule: `AI Incident — ${signal.class.replace(/_/g, ' ')} in a consequential proposal; refused before the policy engine saw it` })
+            onBeat({ t: 'evidence', summary: 'AI Incident recorded with the proposal and every finding behind it', kind: 'observation' })
             continue
           }
         }
@@ -588,6 +599,8 @@ export async function execute(
         open = true
       } else if (ev.type === 'refuse') {
         onBeat({ t: 'refuse', agent: 'agt_herald', text: ev.text, rule: ev.rule })
+      } else if (ev.type === 'incident') {
+        onBeat({ t: 'incident', class: ev.class, detector: ev.detector, summary: ev.summary, details: ev.details, consequential: ev.consequential, agent: 'agt_herald' })
       } else if (ev.type === 'usage') {
         onBeat({
           t: 'cost', usd: runCost(ev.inputTokens, ev.outputTokens),
@@ -639,6 +652,8 @@ export async function streamExecutiveBrief(
       }
     } else if (ev.type === 'refuse') {
       throw new Error(ev.text)
+    } else if (ev.type === 'incident') {
+      throw new Error(`AI Incident — ${ev.class.replace(/_/g, ' ')} (${ev.detector}): ${ev.summary}`)
     } else if (ev.type === 'error') {
       throw new Error(ev.message)
     }

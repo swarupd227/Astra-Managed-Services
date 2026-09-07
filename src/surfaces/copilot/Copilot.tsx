@@ -554,8 +554,11 @@ export function Copilot() {
   /** The mission this run is under, so its budget can be charged as cost lands. */
   const missionRef = React.useRef<string | null>(null)
   const pushToast = useAstra((s) => s.pushToast)
+  const raiseAiIncident = useAstra((s) => s.raiseAiIncident)
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
+  /** The intent under way, readable from inside emit without re-creating it per run. */
+  const utteranceRef = React.useRef('')
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -590,11 +593,13 @@ export function Copilot() {
       // it. Without this the budget is a number on a card, not a ceiling.
       if (b.t === 'cost' && missionRef.current) chargeMission(missionRef.current, b.usd, 1)
       if (b.t === 'refuse') logEvidence('decision', b.agent, 'Action refused by platform rule', { rule: b.rule })
+      // A detector fired: the incident opens its finding, starts both clocks
+      // and, when consequential, puts the agent on probation.
       if (b.t === 'incident') {
-        logEvidence('observation', 'AI Incident detector', `AI Incident — ${b.class.replace(/_/g, ' ')} (${b.detector})`, {
-          summary: b.summary, details: b.details, consequential: b.consequential,
-        })
-        if (b.consequential) pushToast({ title: 'AI Incident recorded', body: b.summary, tone: 'crit' })
+        raiseAiIncident(
+          { class: b.class, detector: b.detector, summary: b.summary, details: b.details, consequential: b.consequential },
+          { agentId: b.agent, systemId: b.systemId, runRef: utteranceRef.current },
+        )
       }
       // A served model that differs from the registered one is the change the
       // contract wants notice of; the record is the start of that clock.
@@ -603,7 +608,7 @@ export function Copilot() {
       }
       if (b.t === 'gate') setGateOpen(true)
     },
-    [logEvidence, chargeMission, pushToast],
+    [logEvidence, chargeMission, raiseAiIncident],
   )
 
   const run = React.useCallback(
@@ -613,6 +618,7 @@ export function Copilot() {
       abortRef.current = controller
 
       setUtterance(text)
+      utteranceRef.current = text
       setBeats([])
       setGateOpen(false)
       setRunning(true)

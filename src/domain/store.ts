@@ -3,7 +3,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, verifyChain, type ChainVerification } from './evidence'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
-import { AGENTS } from './estate'
+import { AGENTS, TOWER_BY_ID } from './estate'
+import { ROLE_BY_ID } from './reference'
+import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiIncidentSignal, type OversightAudit } from './aiIncident'
 import { BUDGET_WARN, MISSIONS, budgetExhausted, budgetUse, type Mission } from './missions'
 import { PROPOSALS, type Proposal, type ProposalState } from './proposals'
 import { absorbedText, assertionReach, planReach, type Lesson, type LessonKind } from './teaching'
@@ -60,6 +62,10 @@ interface State {
   brake: { global: boolean; towers: string[] }
   /** The record: every suspension in force, with who directed it and why. */
   suspensions: Suspension[]
+  /** Detected AI Incidents with their notification and RCA clocks. */
+  aiIncidents: AiIncident[]
+  /** The last oversight audit of the chain, if one has been run. */
+  oversightAudit: (OversightAudit & { at: string }) | null
   mi: MajorIncident
   toasts: Toast[]
   verification: ChainVerification | null
@@ -87,6 +93,15 @@ interface State {
   /** Suspend by scope — platform, tower, action class or AI function. Returns the suspension id. */
   suspend: (scope: SuspensionScope, target: string, by: string, reason: string, opts?: { directedByCustomer?: boolean; tower?: string }) => string
   release: (id: string, by: string) => void
+  /** Records a detected AI Incident, opens its finding and starts both clocks. Returns the incident. */
+  raiseAiIncident: (signal: AiIncidentSignal, refs?: { agentId?: string; systemId?: string; runRef?: string }) => AiIncident
+  notifyAiIncident: (id: string, by: string) => void
+  publishRca: (id: string, by: string, summary: string) => void
+  closeAiIncident: (id: string, by: string) => void
+  /** Audits the chain for actions that lacked the human control their decision required. */
+  runOversightAudit: (by: string) => OversightAudit
+  /** Demonstration control: appends an unapproved action so the audit has something to catch. */
+  simulateOversightFailure: (by: string) => void
   suspendAgent: (agentId: string, by: string, reason: string) => void
   reinstateAgent: (agentId: string, by: string) => void
 
@@ -195,6 +210,8 @@ export const useAstra = create<State>((set, get) => ({
 
   brake: { global: false, towers: [] },
   suspensions: [],
+  aiIncidents: [],
+  oversightAudit: null,
   mi: {
     active: false, declaredAt: null, declaredBy: null, workObjectId: null, title: '',
     timeline: [], roles: [], actions: [],
@@ -668,6 +685,181 @@ export const useAstra = create<State>((set, get) => ({
       void fetch('/api/agent/suspend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ function: suspension.target, on: false }) }).catch(() => {})
     }
     get().pushToast({ title: 'Autonomy brake released', body: `${where} returns to the standing schedule.`, tone: 'ok', evidenceId: record.id })
+  },
+
+  /* ------------------------------ AI incidents ---------------------------- */
+
+  /**
+   * An AI Incident is a finding like any other work — it opens a work object
+   * on the governance tower so it sits in the same queues — plus two clocks
+   * the contract sets: notification and root-cause analysis. A consequential
+   * incident also puts the agent on probation.
+   */
+  raiseAiIncident: (signal, refs = {}) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const id = `air_${digest(signal.class + signal.detector + signal.summary + s.tick + s.aiIncidents.length).slice(0, 6)}`
+    const clocks = clocksFor(at)
+    const severity: AiIncident['severity'] = signal.consequential ? 'P1' : signal.class === 'oversight_failure' ? 'P2' : 'P3'
+    const owner = ROLE_BY_ID.aieng?.person ?? 'AI / Platform Engineer'
+    const woId = `wo_${digest('air' + id).slice(0, 6)}`
+
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('air' + id).slice(0, 10)}`,
+      at, kind: 'observation', actor: 'AI Incident detector', agentId: refs.agentId, workObjectId: woId,
+      summary: `AI Incident ${id} — ${signal.class.replace(/_/g, ' ')} (${signal.detector})`,
+      payload: { summary: signal.summary, details: signal.details, consequential: signal.consequential, severity, systemId: refs.systemId ?? null, runRef: refs.runRef ?? null, ...clocks },
+      sealed: true,
+    })
+
+    const entry: TimelineEntry = {
+      id: `t_${s.tick}_air`, at, actorKind: 'system', actor: 'AI Incident detector',
+      text: `${signal.summary} Notification due ${clocks.notifyDueAt.slice(0, 16).replace('T', ' ')}; RCA due ${clocks.rcaDueAt.slice(0, 10)}.`,
+      evidenceId: record.id, level: signal.consequential ? 'crit' : 'warn',
+    }
+    const wo: WorkObject = {
+      id: woId,
+      ref: `AIR0${483200 + s.aiIncidents.length}`,
+      type: 'finding',
+      title: `AI Incident — ${signal.class.replace(/_/g, ' ')} (${signal.detector})`,
+      tower: 'twr_agentops',
+      service: TOWER_BY_ID.twr_agentops?.name ?? 'AI & Automation Governance',
+      affected: [],
+      demandClass: `dc_ai_${signal.class}`,
+      classificationConfidence: 1,
+      priority: severity,
+      state: 'triaged',
+      createdAt: at,
+      slaTargetMins: 24 * 60,
+      slaElapsedMins: 0,
+      slaPaused: false,
+      breachProbability: 0.05,
+      assignee: owner,
+      assigneeKind: 'human',
+      economics: { estManualMins: 180, actualAgentMins: 0, tokensUsd: 0, attribution: 'none' },
+      evidenceHead: record.id,
+      narrative: [entry],
+      source: { system: 'AI Incident detector', ref: id },
+      awaitingApproval: false,
+    }
+
+    const incident: AiIncident = {
+      id, class: signal.class, severity, detector: signal.detector, summary: signal.summary, details: signal.details,
+      detectedAt: at, agentId: refs.agentId, systemId: refs.systemId, workObjectId: woId, runRef: refs.runRef,
+      ...clocks, state: 'open', evidenceIds: [record.id],
+    }
+
+    let evidence = [...s.evidence, record]
+    let agents = s.agents
+    if (signal.consequential && refs.agentId && s.agents[refs.agentId] && s.agents[refs.agentId].state === 'active') {
+      const agent = s.agents[refs.agentId]
+      const prob = appendRecord(evidence, {
+        id: `ev_${digest('airprob' + id).slice(0, 10)}`,
+        at, kind: 'decision', agentId: refs.agentId, actor: 'AI Incident detector',
+        summary: `Agent ${agent.name} placed on probation — AI Incident ${id}`,
+        payload: { incident: id, restoration: 'RCA published and the class re-passed in evaluation' }, sealed: true,
+      })
+      evidence = [...evidence, prob]
+      agents = { ...s.agents, [refs.agentId]: { ...agent, state: 'probation' } }
+      incident.evidenceIds.push(prob.id)
+    }
+
+    set({ evidence, agents, aiIncidents: [incident, ...s.aiIncidents], work: { ...s.work, [woId]: wo }, verification: null })
+    get().pushToast({
+      title: `AI Incident ${id} — ${signal.class.replace(/_/g, ' ')}`,
+      body: `${signal.summary} Notification clock started (24h).`,
+      tone: signal.consequential ? 'crit' : 'warn',
+      evidenceId: record.id,
+    })
+    return incident
+  },
+
+  notifyAiIncident: (id, by) => {
+    const s = get()
+    const inc = s.aiIncidents.find((x) => x.id === id)
+    if (!inc || inc.state !== 'open') return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('airnotify' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'action', actor: by, workObjectId: inc.workObjectId,
+      summary: `AI Incident ${id} — customer notified`,
+      payload: { class: inc.class, notifyDueAt: inc.notifyDueAt, onTime: new Date(at) <= new Date(inc.notifyDueAt), channel: 'incident register + email' }, sealed: true,
+    })
+    set({
+      evidence: [...s.evidence, record],
+      aiIncidents: s.aiIncidents.map((x) => (x.id === id ? { ...x, state: 'notified', notifiedAt: at, evidenceIds: [...x.evidenceIds, record.id] } : x)),
+    })
+    get().pushToast({ title: `${id} notified`, body: new Date(at) <= new Date(inc.notifyDueAt) ? 'Inside the 24-hour window.' : 'Outside the 24-hour window — recorded as late.', tone: 'ok', evidenceId: record.id })
+  },
+
+  publishRca: (id, by, summary) => {
+    const s = get()
+    const inc = s.aiIncidents.find((x) => x.id === id)
+    if (!inc || inc.state === 'closed' || inc.state === 'rca_published') return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('airrca' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'knowledge', actor: by, workObjectId: inc.workObjectId,
+      summary: `AI Incident ${id} — root-cause analysis published`,
+      payload: { class: inc.class, rcaDueAt: inc.rcaDueAt, onTime: new Date(at) <= new Date(inc.rcaDueAt), summary }, sealed: true,
+    })
+    set({
+      evidence: [...s.evidence, record],
+      aiIncidents: s.aiIncidents.map((x) => (x.id === id ? { ...x, state: 'rca_published', rcaPublishedAt: at, rcaSummary: summary, evidenceIds: [...x.evidenceIds, record.id] } : x)),
+    })
+    get().pushToast({ title: `${id} RCA published`, body: summary, tone: 'ok', evidenceId: record.id })
+  },
+
+  closeAiIncident: (id, by) => {
+    const s = get()
+    const inc = s.aiIncidents.find((x) => x.id === id)
+    if (!inc || inc.state !== 'rca_published') return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('airclose' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'decision', actor: by, workObjectId: inc.workObjectId,
+      summary: `AI Incident ${id} — closed`, payload: { class: inc.class, corrective: inc.rcaSummary ?? null }, sealed: true,
+    })
+    const wo = inc.workObjectId ? s.work[inc.workObjectId] : undefined
+    set({
+      evidence: [...s.evidence, record],
+      aiIncidents: s.aiIncidents.map((x) => (x.id === id ? { ...x, state: 'closed', closedAt: at, evidenceIds: [...x.evidenceIds, record.id] } : x)),
+      work: wo ? { ...s.work, [wo.id]: { ...wo, state: 'resolved' } } : s.work,
+    })
+    get().pushToast({ title: `${id} closed`, body: 'Closed with its RCA on the record.', tone: 'ok', evidenceId: record.id })
+  },
+
+  runOversightAudit: (by) => {
+    const s = get()
+    const audit = auditOversight(s.evidence, s.work)
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('audit' + s.tick + s.evidence.length).slice(0, 10)}`,
+      at, kind: 'verification', actor: by,
+      summary: `Oversight audit — ${audit.checked} actions checked, ${audit.failures.length} failure${audit.failures.length === 1 ? '' : 's'}`,
+      payload: { checked: audit.checked, failures: audit.failures }, sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], oversightAudit: { ...audit, at } })
+    const signal = oversightSignal(audit)
+    const alreadyOpen = get().aiIncidents.some((x) => x.class === 'oversight_failure' && x.state !== 'closed')
+    if (signal && !alreadyOpen) get().raiseAiIncident(signal, { runRef: record.id })
+    else get().pushToast({ title: 'Oversight audit complete', body: `${audit.checked} actions checked — ${audit.failures.length ? `${audit.failures.length} failures, already under an open incident` : 'every approve-first action had its approval'}.`, tone: audit.failures.length ? 'warn' : 'ok', evidenceId: record.id })
+    return audit
+  },
+
+  simulateOversightFailure: (by) => {
+    const s = get()
+    const gated = Object.values(s.work).find((w) => w.autonomy?.mode === 'approve_first' && w.state === 'gated')
+    if (!gated) return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('simact' + gated.id + s.tick).slice(0, 10)}`,
+      at, kind: 'action', workObjectId: gated.id, runId: gated.runId, actionClass: gated.autonomy?.actionClasses[0], agentId: 'agt_remedian', actor: 'Remedian',
+      summary: `${gated.autonomy?.actionClasses[0]} executed (demonstration — no approval preceded this record)`,
+      payload: { simulated: true, by, note: 'Demonstration control: an action record appended without its approval so the chain audit has something to catch.' }, sealed: true,
+    })
+    set({ evidence: [...s.evidence, record] })
+    get().runOversightAudit(by)
   },
 
   /** The original two-scope brake, now a thin wrapper over suspensions. */
