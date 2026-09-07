@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { FlaskConical, GitCompare, Play } from 'lucide-react'
+import { Crosshair, FlaskConical, GitCompare, Play } from 'lucide-react'
 import { SKILLS, AGENTS } from '@/domain/estate'
 import { AC, ROLE_BY_ID } from '@/domain/reference'
 import { useAstra } from '@/domain/store'
@@ -10,6 +10,8 @@ import { Button, Card, Chip, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primit
 import { LineChart, CHART_COLORS } from '@/ui/charts'
 import { cn, dateShort, num, pct } from '@/lib/format'
 import { SUITES, REGRESSION } from '@/domain/evaluationSeed'
+import { RED_TEAM_CASES } from '@/domain/redTeamSeed'
+import { gatewayDeps, runRedTeam } from '@/domain/redTeam'
 import { ProducedBy } from '@/ui/ProducedBy'
 
 
@@ -19,8 +21,26 @@ export function EvaluationCenter() {
   const agents = useAstra((s) => s.agents)
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
-  const [tab, setTab] = React.useState<'suites' | 'skills' | 'regression'>('suites')
+  const [tab, setTab] = React.useState<'suites' | 'skills' | 'regression' | 'redteam'>('suites')
   const [running, setRunning] = React.useState<string | null>(null)
+
+  // The red-team library runs against the live controls — the gateway's
+  // classifier and registry, the detectors, the policy engine — never a copy.
+  const redTeam = useAstra((s) => s.redTeam)
+  const recordRedTeam = useAstra((s) => s.recordRedTeam)
+  const [attacking, setAttacking] = React.useState(false)
+  const runRedTeamNow = async () => {
+    setAttacking(true)
+    try {
+      const results = await runRedTeam(RED_TEAM_CASES, gatewayDeps)
+      recordRedTeam(results, role.person)
+    } catch (e) {
+      pushToast({ title: 'Red-team run failed', body: (e as Error).message, tone: 'crit' })
+    } finally {
+      setAttacking(false)
+    }
+  }
+  const byCase = new Map((redTeam?.results ?? []).map((r) => [r.caseId, r]))
 
   const runSuite = (id: string) => {
     setRunning(id)
@@ -61,7 +81,7 @@ export function EvaluationCenter() {
       </div>
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">
-        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'suites', label: 'Suites & pipeline' }, { id: 'skills', label: 'Skill registry', count: SKILLS.length }, { id: 'regression', label: 'Regression diffs', count: REGRESSION.length }]} />
+        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'suites', label: 'Suites & pipeline' }, { id: 'skills', label: 'Skill registry', count: SKILLS.length }, { id: 'regression', label: 'Regression diffs', count: REGRESSION.length }, { id: 'redteam', label: 'Red team', count: RED_TEAM_CASES.length }]} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -229,6 +249,58 @@ export function EvaluationCenter() {
               <Link to="/atlas/tokenops" className="mt-2 inline-block text-2xs text-brand-ink hover:underline">See the cost frontier behind these choices →</Link>
             </Card>
           </div>
+        )}
+
+        {tab === 'redteam' && (
+          <Card
+            title="Red-team library"
+            subtitle="Prompt injection, retrieval poisoning, tool misuse, fabrication and unregistered models — run against the live controls"
+            right={
+              <Button size="sm" variant="primary" disabled={!role.canApprove || attacking} onClick={runRedTeamNow}>
+                <Crosshair size={12} /> {attacking ? 'Running…' : 'Run red team'}
+              </Button>
+            }
+          >
+            <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Metric size="sm" label="Cases" value={RED_TEAM_CASES.length} hint="every case names the control that should hold" />
+              <Metric size="sm" label="Passed" value={redTeam ? redTeam.results.filter((r) => r.pass).length : '—'} deltaTone={redTeam && redTeam.results.every((r) => r.pass) ? 'ok' : undefined} />
+              <Metric size="sm" label="Failed" value={redTeam ? redTeam.results.filter((r) => !r.pass).length : '—'} deltaTone={redTeam ? (redTeam.results.some((r) => !r.pass) ? 'crit' : 'ok') : undefined} hint="a failure blocks promotion on the classes it covers" />
+              <Metric size="sm" label="Last run" value={redTeam ? redTeam.at.slice(0, 16).replace('T', ' ') : 'never'} />
+            </div>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Case</Th>
+                  <Th>Vector</Th>
+                  <Th>Expected</Th>
+                  <Th>Observed</Th>
+                  <Th>Result</Th>
+                  <Th>Detail</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {RED_TEAM_CASES.map((c) => {
+                  const r = byCase.get(c.id)
+                  return (
+                    <Tr key={c.id} className={r && !r.pass ? 'bg-crit/[0.06]' : undefined}>
+                      <Td>
+                        <span className="block text-ink">{c.label}</span>
+                        <span className="block font-mono text-[10px] text-ink-3">{c.id}</span>
+                      </Td>
+                      <Td><Chip mono>{c.vector}</Chip></Td>
+                      <Td><Chip tone={c.expected === 'pass' ? 'ok' : c.expected === 'refuse' ? 'crit' : 'warn'}>{c.expected.replace(/_/g, ' ')}</Chip></Td>
+                      <Td>{r ? <Chip tone={r.observed === 'pass' ? 'ok' : r.observed === 'refuse' ? 'crit' : r.observed === 'error' ? 'crit' : 'warn'}>{r.observed.replace(/_/g, ' ')}</Chip> : <span className="text-2xs text-ink-3">not run</span>}</Td>
+                      <Td>{r ? <Chip tone={r.pass ? 'ok' : 'crit'}>{r.pass ? 'holds' : 'FAILED'}</Chip> : <span className="text-2xs text-ink-3">—</span>}</Td>
+                      <Td className="max-w-[360px] text-2xs leading-snug text-ink-2">{r?.detail ?? ''}</Td>
+                    </Tr>
+                  )
+                })}
+              </tbody>
+            </Table>
+            <p className="mt-3 text-2xs leading-relaxed text-ink-3">
+              No model is called by any case. Injection cases hit the gateway's classifier through its own endpoint; poisoning cases run the policy engine's retrieval floor; tool-misuse and fabrication cases run the inline detectors; model cases hit the registry through the settings guard, which refuses before any vendor request. Every run is a verification record in the evidence chain.
+            </p>
+          </Card>
         )}
       </div>
     </>

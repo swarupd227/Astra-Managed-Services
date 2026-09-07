@@ -288,6 +288,14 @@ export interface Decision {
   mode: ExecutionMode
 }
 
+const FLOORS = ['unverified', 'machine_corroborated', 'human_verified'] as const
+type Floor = (typeof FLOORS)[number]
+
+/** What the proposal says it rested on; anything unrecognised is treated as unverified. */
+function floorOf(v: string | undefined): Floor {
+  return (FLOORS as readonly string[]).includes(v ?? '') ? (v as Floor) : 'unverified'
+}
+
 export interface RunOptions {
   /** The AI system the gateway resolved for this run. Absent until the gateway says. */
   system?: GatewaySystem | null
@@ -326,6 +334,10 @@ export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOpti
     model: opts.system
       ? { id: opts.system.id, vendor: opts.system.vendor, version: opts.system.version, whitelisted: opts.system.whitelisted }
       : undefined,
+    // The verification floor the proposal rested on. The prompt promises that
+    // a mutating plan at L3/L4 relies only on verified knowledge; rule r0c makes
+    // the promise enforceable by capping an unverified mutating plan at Advise.
+    retrieval: { minVerification: floorOf(p.context_used?.verification_floor) },
     suspensions: suspensionContext(opts.suspensions ?? [], {
       tower: tower.id, agentId: agent.id, actionClass: cls, fn: 'copilot.plan',
       agentSuspended: (opts.suspendedAgents ?? []).includes(agent.id),

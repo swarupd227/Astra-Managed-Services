@@ -6,6 +6,7 @@ import { ASSERTIONS } from './knowledge'
 import { AGENTS, TOWER_BY_ID } from './estate'
 import { ROLE_BY_ID } from './reference'
 import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiIncidentSignal, type OversightAudit } from './aiIncident'
+import type { RedTeamResult } from './redTeam'
 import { BUDGET_WARN, MISSIONS, budgetExhausted, budgetUse, type Mission } from './missions'
 import { PROPOSALS, type Proposal, type ProposalState } from './proposals'
 import { absorbedText, assertionReach, planReach, type Lesson, type LessonKind } from './teaching'
@@ -66,6 +67,8 @@ interface State {
   aiIncidents: AiIncident[]
   /** The last oversight audit of the chain, if one has been run. */
   oversightAudit: (OversightAudit & { at: string }) | null
+  /** The last red-team run against the live controls. */
+  redTeam: { at: string; results: RedTeamResult[] } | null
   mi: MajorIncident
   toasts: Toast[]
   verification: ChainVerification | null
@@ -102,6 +105,8 @@ interface State {
   runOversightAudit: (by: string) => OversightAudit
   /** Demonstration control: appends an unapproved action so the audit has something to catch. */
   simulateOversightFailure: (by: string) => void
+  /** Records a red-team run as a verification record and keeps the results for the Evaluation Center. */
+  recordRedTeam: (results: RedTeamResult[], by: string) => void
   suspendAgent: (agentId: string, by: string, reason: string) => void
   reinstateAgent: (agentId: string, by: string) => void
 
@@ -212,6 +217,7 @@ export const useAstra = create<State>((set, get) => ({
   suspensions: [],
   aiIncidents: [],
   oversightAudit: null,
+  redTeam: null,
   mi: {
     active: false, declaredAt: null, declaredBy: null, workObjectId: null, title: '',
     timeline: [], roles: [], actions: [],
@@ -860,6 +866,29 @@ export const useAstra = create<State>((set, get) => ({
     })
     set({ evidence: [...s.evidence, record] })
     get().runOversightAudit(by)
+  },
+
+  recordRedTeam: (results, by) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const failed = results.filter((r) => !r.pass)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('redteam' + s.tick + s.evidence.length).slice(0, 10)}`,
+      at, kind: 'verification', actor: by,
+      summary: `Red-team run — ${results.length - failed.length} of ${results.length} controls held`,
+      payload: {
+        cases: results.length,
+        failed: failed.map((f) => ({ id: f.caseId, vector: f.vector, expected: f.expected, observed: f.observed, detail: f.detail })),
+      },
+      sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], redTeam: { at, results } })
+    get().pushToast({
+      title: failed.length ? `Red team: ${failed.length} control${failed.length === 1 ? '' : 's'} failed` : 'Red team: every control held',
+      body: `${results.length} cases against the live gateway, detectors and policy engine.`,
+      tone: failed.length ? 'crit' : 'ok',
+      evidenceId: record.id,
+    })
   },
 
   /** The original two-scope brake, now a thin wrapper over suspensions. */

@@ -51,6 +51,7 @@ export function PolicyStudio() {
   const [assetContract, setAssetContract] = React.useState<string | null>('dc_datamart_v2')
   const [whitelisted, setWhitelisted] = React.useState(true)
   const [suspended, setSuspended] = React.useState(false)
+  const [floor, setFloor] = React.useState<'unverified' | 'machine_corroborated' | 'human_verified'>('human_verified')
   const [presetLabel, setPresetLabel] = React.useState(PRESETS[0].label)
 
   const applyPreset = (label: string) => {
@@ -84,8 +85,9 @@ export function PolicyStudio() {
       asset: { contract: assetContract, pii: 'restricted' },
       model: { id: 'simulated', vendor: 'simulated', version: 'n/a', whitelisted },
       suspensions: { any: suspended, global: false, tower: false, agent: false, actionClass: suspended, function: false },
+      retrieval: { minVerification: floor },
     }),
-    [actionClass, hasCompensation, tier, services, dependents, agentId, agent, confidence, majorIncident, freeze, assetContract, whitelisted, suspended],
+    [actionClass, hasCompensation, tier, services, dependents, agentId, agent, confidence, majorIncident, freeze, assetContract, whitelisted, suspended, floor],
   )
 
   const result: EngineResult = React.useMemo(() => evaluate(policy, ctx, agent.ceiling), [policy, ctx, agent.ceiling])
@@ -183,6 +185,13 @@ export function PolicyStudio() {
                 <input type="checkbox" checked={suspended} onChange={(e) => setSuspended(e.target.checked)} className="accent-brand" />
                 A suspension applies to this action class
               </label>
+              <Field label="Verification floor the plan rests on">
+                <select value={floor} onChange={(e) => setFloor(e.target.value as typeof floor)} className={selectClass}>
+                  <option value="human_verified">human-verified</option>
+                  <option value="machine_corroborated">machine-corroborated</option>
+                  <option value="unverified">unverified</option>
+                </select>
+              </Field>
             </div>
 
             <div className="p-3">

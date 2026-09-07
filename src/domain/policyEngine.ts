@@ -239,8 +239,10 @@ export function evaluate(policy: Policy, ctx: ActionContext, agentCeiling?: Exec
 
     if (matched) {
       if (rule.maxMode) {
+        // The lowest cap seen binds for the whole evaluation, whatever comes
+        // after it — a later rule that sets a mode may not lift a cap.
+        if (!capped || MODE_TO_LEVEL[rule.maxMode] < MODE_TO_LEVEL[capped]) capped = rule.maxMode
         if (MODE_TO_LEVEL[rule.maxMode] < MODE_TO_LEVEL[mode]) {
-          capped = rule.maxMode
           mode = rule.maxMode
           overrides.push(`${rule.when} → capped at ${LABEL[rule.maxMode]}`)
           effect = `override: max mode ${LABEL[rule.maxMode]}`
@@ -257,6 +259,13 @@ export function evaluate(policy: Policy, ctx: ActionContext, agentCeiling?: Exec
       }
     }
     trace.push({ ruleId: rule.id, when: rule.when, matched, lines, effect })
+  }
+
+  // A cap is an order of authority, not an order of authoring: re-apply the
+  // lowest one after every rule has spoken, so a mode rule cannot outrank it.
+  if (capped && MODE_TO_LEVEL[mode] > MODE_TO_LEVEL[capped]) {
+    mode = capped
+    reasons.push(`Cap at ${LABEL[capped]} binds over later mode rules`)
   }
 
   // 3. Prohibited combination: irreversible and unattended (design principle P4).
