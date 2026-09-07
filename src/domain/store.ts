@@ -10,6 +10,8 @@ import type { RedTeamResult } from './redTeam'
 import type { BiasResult } from './biasSuite'
 import { driftReport, type DriftReport } from './drift'
 import { modelChangeClocks, type ModelChange } from './changeLog'
+import { deletionManifest, manifestHash, nextAttestationDue, type Attestation, type DeletionCertificate } from './dataHandling'
+import { ATTESTATIONS } from './dataHandlingSeed'
 import { BUDGET_WARN, MISSIONS, budgetExhausted, budgetUse, type Mission } from './missions'
 import { PROPOSALS, type Proposal, type ProposalState } from './proposals'
 import { absorbedText, assertionReach, planReach, type Lesson, type LessonKind } from './teaching'
@@ -78,6 +80,10 @@ interface State {
   drift: DriftReport | null
   /** Served-model changes the currency check has opened, with their notice clocks. */
   modelChanges: ModelChange[]
+  /** Training-exclusion attestations, newest first. */
+  attestations: Attestation[]
+  /** Deletion certificates, newest first. */
+  deletions: DeletionCertificate[]
   mi: MajorIncident
   toasts: Toast[]
   verification: ChainVerification | null
@@ -126,6 +132,10 @@ interface State {
   acceptModelChange: (id: string, by: string) => void
   /** Demonstration control: records a served model that differs from the registered one for a system. */
   simulateModelChange: (systemId: string) => void
+  /** Records a training-exclusion attestation as a knowledge record and restarts the cadence. */
+  attestTrainingExclusion: (by: string, vendorRef: string, scope: string) => void
+  /** Deletes closed work, its runs and stale assertions for a tower under four-eyes, and seals the certificate. */
+  certifyDeletion: (tower: string, by: string, secondControl: string, reason: string) => DeletionCertificate | null
   suspendAgent: (agentId: string, by: string, reason: string) => void
   reinstateAgent: (agentId: string, by: string) => void
 
@@ -240,6 +250,8 @@ export const useAstra = create<State>((set, get) => ({
   bias: null,
   drift: null,
   modelChanges: [],
+  attestations: ATTESTATIONS,
+  deletions: [],
   mi: {
     active: false, declaredAt: null, declaredBy: null, workObjectId: null, title: '',
     timeline: [], roles: [], actions: [],
@@ -1043,6 +1055,78 @@ export const useAstra = create<State>((set, get) => ({
         if (sys) get().recordModelChange(sys.id, sys.model, `${sys.model}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`)
       })
       .catch(() => {})
+  },
+
+  /* ------------------------------ data handling --------------------------- */
+
+  attestTrainingExclusion: (by, vendorRef, scope) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const id = `att_${String(s.attestations.length + 1).padStart(3, '0')}`
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('attest' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'knowledge', actor: by,
+      summary: 'Training-exclusion attestation — no customer data trains, tunes, evaluates or improves a model for another party',
+      payload: { attestation: id, vendorRef, scope, nextDueAt: nextAttestationDue(at) }, sealed: true,
+    })
+    const attestation: Attestation = { id, at, by, vendorRef, scope, nextDueAt: nextAttestationDue(at), evidenceId: record.id }
+    set({ evidence: [...s.evidence, record], attestations: [attestation, ...s.attestations] })
+    get().pushToast({ title: 'Attestation recorded', body: `Next due ${attestation.nextDueAt.slice(0, 10)}.`, tone: 'ok', evidenceId: record.id })
+  },
+
+  /**
+   * The one irreversible act the platform performs on customer data. It runs
+   * as AC-71 demands: two named humans, never an agent. The chain keeps its
+   * hashes — the certificate records the root at the moment of deletion, and
+   * is itself the next sealed record, so an auditor can prove the sequence.
+   */
+  certifyDeletion: (tower, by, secondControl, reason) => {
+    const s = get()
+    if (!secondControl.trim() || secondControl.trim().toLowerCase() === by.toLowerCase()) {
+      get().pushToast({ title: 'Deletion refused', body: 'Four-eyes: the second control must be a different named human.', tone: 'crit' })
+      return null
+    }
+    const manifest = deletionManifest(Object.values(s.work), Object.values(s.runs), s.assertions, tower)
+    if (!manifest.workIds.length && !manifest.assertionIds.length) {
+      get().pushToast({ title: 'Nothing to delete', body: 'No closed work or stale assertions in scope for that tower.', tone: 'info' })
+      return null
+    }
+    const at = nowIso(s.clockOffsetMins)
+    const preRootHash = verifyChain(s.evidence).rootHash
+    const id = `del_${digest(tower + at + s.tick).slice(0, 6)}`
+    const label = TOWER_BY_ID[tower]?.name ?? tower
+
+    const approval = appendRecord(s.evidence, {
+      id: `ev_${digest('delapprove' + id).slice(0, 10)}`,
+      at, kind: 'approval', actor: secondControl, actionClass: 'AC-71',
+      summary: `Deletion approved by second control — ${label}`,
+      payload: { deletion: id, requestedBy: by, scope: { kind: 'tower', target: tower }, manifestHash: manifestHash(manifest), counts: { workObjects: manifest.workIds.length, runs: manifest.runIds.length, assertions: manifest.assertionIds.length } },
+      sealed: true,
+    })
+    const certificate: DeletionCertificate = {
+      id, scope: { kind: 'tower', target: tower, label }, requestedBy: by, secondControl, at,
+      counts: { workObjects: manifest.workIds.length, runs: manifest.runIds.length, assertions: manifest.assertionIds.length },
+      preRootHash, manifestHash: manifestHash(manifest), reason, evidenceIds: [approval.id],
+    }
+    const action = appendRecord([...s.evidence, approval], {
+      id: `ev_${digest('delaction' + id).slice(0, 10)}`,
+      at, kind: 'action', actor: by, actionClass: 'AC-71',
+      summary: `Certified deletion — ${label}: ${certificate.counts.workObjects} work objects, ${certificate.counts.runs} runs, ${certificate.counts.assertions} stale assertions`,
+      payload: { certificate: { ...certificate, evidenceIds: [approval.id] }, manifest, executedBy: 'human — AC-71 is never agent-executed' },
+      sealed: true,
+    })
+    certificate.evidenceIds.push(action.id)
+
+    const drop = new Set(manifest.workIds)
+    const dropRuns = new Set(manifest.runIds)
+    const dropAssertions = new Set(manifest.assertionIds)
+    const work = Object.fromEntries(Object.entries(s.work).filter(([k]) => !drop.has(k)))
+    const runs = Object.fromEntries(Object.entries(s.runs).filter(([k]) => !dropRuns.has(k)))
+    const assertions = s.assertions.filter((a) => !dropAssertions.has(a.id))
+
+    set({ evidence: [...s.evidence, approval, action], work, runs, assertions, deletions: [certificate, ...s.deletions], verification: null })
+    get().pushToast({ title: `Deletion certified — ${id}`, body: `${certificate.counts.workObjects} work objects and ${certificate.counts.assertions} stale assertions removed from ${label}; certificate sealed with the pre-deletion root hash.`, tone: 'ok', evidenceId: action.id })
+    return certificate
   },
 
   /** The original two-scope brake, now a thin wrapper over suspensions. */

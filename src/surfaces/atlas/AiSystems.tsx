@@ -1,7 +1,10 @@
 import React from 'react'
-import { ArrowUpRight, Ban, Check, Clock, Cpu, Globe, Plus, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, Ban, Check, Clock, Cpu, FileCheck2, Globe, Plus, RotateCcw, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
+import { TOWERS, TOWER_BY_ID } from '@/domain/estate'
+import { NOW } from '@/domain/workSeed'
+import { deletionManifest } from '@/domain/dataHandling'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Button, Card, Chip, Drawer, Empty, Field, Metric, Table, Td, Th, Tr, inputClass, selectClass } from '@/ui/primitives'
@@ -64,6 +67,16 @@ export function AiSystems() {
   const [busy, setBusy] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<string | null>(null)
   const [requesting, setRequesting] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
+
+  // Data handling — the attestation cadence and certified deletion.
+  const attestations = useAstra((s) => s.attestations)
+  const deletions = useAstra((s) => s.deletions)
+  const attest = useAstra((s) => s.attestTrainingExclusion)
+  const clockOffset = useAstra((s) => s.clockOffsetMins)
+  const now = new Date(NOW.getTime() + clockOffset * 60000)
+  const lastAttestation = attestations[0]
+  const attestationOverdue = lastAttestation ? new Date(lastAttestation.nextDueAt) < now : true
 
   const load = React.useCallback(() => {
     fetch('/api/agent/registry')
@@ -313,6 +326,64 @@ export function AiSystems() {
               )}
             </Card>
 
+            <Card
+              title="Training-exclusion attestation"
+              subtitle="No customer data trains, tunes, evaluates or improves a model for anyone else — attested on a cadence"
+              right={<FileCheck2 size={13} className={attestationOverdue ? 'text-crit' : 'text-ok'} />}
+            >
+              {lastAttestation ? (
+                <dl className="space-y-1.5 text-2xs">
+                  <div className="flex justify-between gap-3"><dt className="text-ink-3">Last attested</dt><dd className="text-ink-2">{lastAttestation.at.slice(0, 10)} by {lastAttestation.by}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-ink-3">Next due</dt><dd className={attestationOverdue ? 'text-crit' : 'text-ok'}>{lastAttestation.nextDueAt.slice(0, 10)}{attestationOverdue ? ' · overdue' : ''}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-ink-3">Rests on</dt><dd className="text-right text-ink-2">{lastAttestation.vendorRef}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-ink-3">Scope</dt><dd className="text-right text-ink-2">{lastAttestation.scope}</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-ink-3">On record</dt><dd className="text-ink-2">{attestations.length} attestation{attestations.length === 1 ? '' : 's'}</dd></div>
+                </dl>
+              ) : (
+                <p className="text-2xs text-crit">No attestation on record.</p>
+              )}
+              {role.canApprove && (
+                <div className="mt-3">
+                  <Button size="sm" variant="default" onClick={() => {
+                    const ref = window.prompt('Vendor document the attestation rests on (contract, addendum, date):', lastAttestation?.vendorRef ?? '')
+                    if (!ref?.trim()) return
+                    attest(role.person, ref.trim(), lastAttestation?.scope ?? 'Every approved AI system in the registry')
+                  }}>
+                    <FileCheck2 size={11} /> Attest now
+                  </Button>
+                </div>
+              )}
+            </Card>
+
+            <Card
+              title="Certified deletion"
+              subtitle="Irreversible, so never by an agent: two named humans, a manifest, and the chain's root hash at the moment of deletion"
+              right={<Trash2 size={13} className="text-ink-3" />}
+            >
+              {deletions.length === 0 ? (
+                <p className="text-2xs text-ink-3">No deletions certified this session.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {deletions.map((d) => (
+                    <li key={d.id} className="rounded border border-line bg-sunken p-2.5 text-2xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-ink">{d.id}</span>
+                        <Chip mono>{d.scope.label}</Chip>
+                        <span className="ml-auto text-ink-3">{d.at.slice(0, 16).replace('T', ' ')}</span>
+                      </div>
+                      <p className="mt-1 text-ink-2">{d.counts.workObjects} work objects, {d.counts.runs} runs, {d.counts.assertions} stale assertions removed — {d.reason}</p>
+                      <p className="mt-1 font-mono text-[10px] text-ink-3">signers {d.requestedBy} + {d.secondControl} · pre-root {d.preRootHash.slice(0, 12)}… · manifest {d.manifestHash.slice(0, 12)}…</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {role.canApprove && (
+                <div className="mt-3">
+                  <Button size="sm" variant="danger" onClick={() => setDeleting(true)}><Trash2 size={11} /> Certify a deletion</Button>
+                </div>
+              )}
+            </Card>
+
             <Card title="How this is enforced" subtitle="The registry is not a policy document; it is the only path a call can take">
               <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
                 <li>· The gateway resolves the configured model against this registry for the purpose each phase serves. A model that is not listed, is revoked, is still pending, sits outside the residency rules, or is not approved for that purpose is refused before any vendor request is made.</li>
@@ -326,7 +397,57 @@ export function AiSystems() {
       </div>
 
       <RequestDrawer open={requesting} onClose={() => setRequesting(false)} purposeOptions={purposeOptions} regions={registry?.residency?.allowedRegions ?? []} onSubmit={submitRequest} />
+      <DeletionDrawer open={deleting} onClose={() => setDeleting(false)} />
     </>
+  )
+}
+
+/* ------------------------------ Deletion drawer ----------------------------- */
+
+function DeletionDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const roleId = useAstra((s) => s.roleId)
+  const role = ROLE_BY_ID[roleId]
+  const work = useAstra((s) => s.work)
+  const runs = useAstra((s) => s.runs)
+  const assertions = useAstra((s) => s.assertions)
+  const certify = useAstra((s) => s.certifyDeletion)
+  const [tower, setTower] = React.useState(TOWERS[0]?.id ?? '')
+  const [second, setSecond] = React.useState('')
+  const [reason, setReason] = React.useState('')
+
+  const manifest = React.useMemo(() => deletionManifest(Object.values(work), Object.values(runs), assertions, tower), [work, runs, assertions, tower])
+  const sameSigner = second.trim() && second.trim().toLowerCase() === role.person.toLowerCase()
+  const valid = tower && second.trim() && !sameSigner && reason.trim() && (manifest.workIds.length + manifest.assertionIds.length) > 0
+
+  return (
+    <Drawer open={open} onClose={onClose} title="Certify a deletion" subtitle="Closed work, its runs and stale assertions for one tower — never open work, never the chain" width="max-w-[520px]">
+      <div className="space-y-3 p-4">
+        <Field label="Scope — tower">
+          <select value={tower} onChange={(e) => setTower(e.target.value)} className={selectClass}>
+            {TOWERS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </Field>
+        <div className="rounded border border-line bg-sunken p-3 text-2xs text-ink-2">
+          <div className="label-cap">Manifest preview</div>
+          <p className="mt-1">{manifest.workIds.length} closed work objects · {manifest.runIds.length} runs · {manifest.assertionIds.length} stale assertions in {TOWER_BY_ID[tower]?.name}</p>
+          {manifest.workIds.length + manifest.assertionIds.length === 0 && <p className="mt-1 text-ink-3">Nothing in scope for this tower.</p>}
+        </div>
+        <Field label="Requested by"><input value={role.person} readOnly className={cn(inputClass, 'text-ink-3')} /></Field>
+        <Field label="Second control (a different named human)" hint={sameSigner ? 'Four-eyes: the second control must be a different person' : undefined}>
+          <input value={second} onChange={(e) => setSecond(e.target.value)} className={cn(inputClass, sameSigner && 'border-crit')} placeholder="e.g. V. Marchetti" />
+        </Field>
+        <Field label="Reason"><textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className={cn(inputClass, 'resize-none')} placeholder="Retention schedule, customer request, contract exit…" /></Field>
+        <div className="flex gap-2">
+          <Button variant="danger" disabled={!valid} onClick={() => { certify(tower, role.person, second.trim(), reason.trim()); setSecond(''); setReason(''); onClose() }}>
+            <Trash2 size={12} /> Delete and certify
+          </Button>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        </div>
+        <p className="text-2xs leading-relaxed text-ink-3">
+          AC-71 rules: no agent may execute this at any level. The certificate records both signers, the counts, the digest of the ordered manifest and the evidence chain's root hash immediately before deletion, and is itself the next sealed record.
+        </p>
+      </div>
+    </Drawer>
   )
 }
 
