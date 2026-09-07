@@ -3,7 +3,7 @@
 export const SUITES = [
   { id: 'es_2027_02_11', name: 'Infrastructure remediation', cases: 1240, coverage: ['AC-12', 'AC-18', 'AC-24', 'AC-31'], lastRun: 7, pass: 0.931, regression: 0, owner: 'M. Okonkwo' },
   { id: 'es_2027_02_04', name: 'Triage & diagnosis', cases: 2480, coverage: ['AC-05', 'AC-08'], lastRun: 14, pass: 0.962, regression: 0, owner: 'R. Venkatesh' },
-  { id: 'es_2027_01_28', name: 'Problem mining & FinOps', cases: 620, coverage: ['AC-05', 'AC-18', 'AC-80'], lastRun: 21, pass: 0.902, regression: 2, owner: 'C. Duval' },
+  { id: 'es_2027_01_28', name: 'Problem mining & FinOps', cases: 620, coverage: ['AC-05', 'AC-18', 'AC-80'], lastRun: 21, pass: 0.902, regression: 2, owner: 'J. Whitcombe' },
   { id: 'es_cl_2027_02', name: 'Client agents — onboarding', cases: 320, coverage: ['AC-05', 'AC-58'], lastRun: 6, pass: 0.741, regression: 1, owner: 'L. Nakamura' },
 ]
 

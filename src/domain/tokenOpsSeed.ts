@@ -11,5 +11,5 @@ export const BUDGETS = [
 export const ANOMALIES = [
   { id: 'anm_04', at: 3, title: 'Degenerate retry loop on sk_backfill_v4', detail: 'A malformed schema response triggered 41 identical retries in 90 seconds. Quarantined automatically; the skill now bounds retries by response fingerprint.', savedUsd: 118 },
   { id: 'anm_03', at: 11, title: 'Prompt bloat on sk_govpack_v10', detail: 'Context assembly stopped ranking and started concatenating after a graph schema change. Detected on cost per work object, not on quality — quality was fine, the price was not.', savedUsd: 264 },
-  { id: 'anm_02', at: 26, title: 'Client agent budget breach — KYC Assist', detail: 'Hard threshold reached. Routing degraded to the mid tier automatically and a work object was raised against the agent owner.', savedUsd: 47 },
+  { id: 'anm_02', at: 26, title: 'Client agent budget breach — Proposal Copilot', detail: 'Hard threshold reached. Routing degraded to the mid tier automatically and a work object was raised against the agent owner.', savedUsd: 47 },
 ]
