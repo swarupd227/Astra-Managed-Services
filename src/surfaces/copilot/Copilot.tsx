@@ -1,8 +1,8 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  ArrowUp, Ban, Check, CircleDot, Coins, FileCheck2, Layers, Radar, ShieldAlert,
-  ShieldCheck, Sparkles, Square, Target, Undo2, X,
+  ArrowUp, Ban, Check, CircleDot, Coins, Cpu, FileCheck2, Layers, Radar, ShieldAlert,
+  ShieldCheck, Sparkles, Square, Target, TriangleAlert, Undo2, X,
 } from 'lucide-react'
 import { buildSuggestions, decide, execute, runIntent, type Beat, type AgentProposal } from '@/domain/agentRuntime'
 import { AGENT_BY_ID } from '@/domain/estate'
@@ -324,6 +324,39 @@ function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; onGate?:
           <span className="tnum text-ink-2">{usd(beat.usd)}</span>
           <span>of model spend on this run.</span>
           <span className="min-w-0 flex-1">{beat.note}</span>
+          {beat.system && <Chip mono>{beat.system}</Chip>}
+          {beat.mismatch && (
+            <span className="flex items-center gap-1 text-warn">
+              <TriangleAlert size={10} /> served {beat.model}, registered {beat.registered} — recorded for notice
+            </span>
+          )}
+        </div>
+      )
+
+    case 'system':
+      return (
+        <div className="flex flex-wrap items-center gap-2 px-1 text-2xs text-ink-3">
+          <Cpu size={11} className="shrink-0" />
+          <span>Model resolved against the registry —</span>
+          <span className="text-ink-2">{beat.vendor} {beat.model}</span>
+          <Chip mono>{beat.id}</Chip>
+          <span>{beat.hosting.replace(/_/g, ' ')} · {beat.region}</span>
+        </div>
+      )
+
+    case 'incident':
+      return (
+        <div className={cn('rounded-md border px-3 py-2.5', beat.consequential ? 'border-crit/45 bg-crit/[0.06]' : 'border-warn/40 bg-warn/[0.06]')}>
+          <div className="flex flex-wrap items-center gap-2">
+            <TriangleAlert size={13} className={cn('shrink-0', beat.consequential ? 'text-crit' : 'text-warn')} />
+            <span className="text-xs font-medium text-ink">AI Incident — {beat.class.replace(/_/g, ' ')}</span>
+            <Chip mono>{beat.detector}</Chip>
+            <Chip tone={beat.consequential ? 'crit' : 'warn'} className="ml-auto">{beat.consequential ? 'consequential' : 'recorded'}</Chip>
+          </div>
+          <p className="mt-1 text-2xs leading-relaxed text-ink-2">{beat.summary}</p>
+          <ul className="mt-1.5 space-y-0.5">
+            {beat.details.map((d) => <li key={d} className="text-2xs leading-relaxed text-ink-2">· {d}</li>)}
+          </ul>
         </div>
       )
 
@@ -510,6 +543,11 @@ export function Copilot() {
   const workList = useWorkList()
   const proposalMap = useAstra((s) => s.proposals)
   const clockOffsetMins = useAstra((s) => s.clockOffsetMins)
+  // The control plane the run is decided under: live suspensions, suspended
+  // agents and whether a major incident is open.
+  const suspensions = useAstra((s) => s.suspensions)
+  const agentMap = useAstra((s) => s.agents)
+  const miActive = useAstra((s) => s.mi.active)
   // Recomputed only when the underlying work or proposals change — cheap, and
   // means a suggestion never outlives the record it was built from.
   const suggestions = React.useMemo(() => buildSuggestions(workList, Object.values(proposalMap)), [workList, proposalMap])
@@ -552,9 +590,20 @@ export function Copilot() {
       // it. Without this the budget is a number on a card, not a ceiling.
       if (b.t === 'cost' && missionRef.current) chargeMission(missionRef.current, b.usd, 1)
       if (b.t === 'refuse') logEvidence('decision', b.agent, 'Action refused by platform rule', { rule: b.rule })
+      if (b.t === 'incident') {
+        logEvidence('observation', 'AI Incident detector', `AI Incident — ${b.class.replace(/_/g, ' ')} (${b.detector})`, {
+          summary: b.summary, details: b.details, consequential: b.consequential,
+        })
+        if (b.consequential) pushToast({ title: 'AI Incident recorded', body: b.summary, tone: 'crit' })
+      }
+      // A served model that differs from the registered one is the change the
+      // contract wants notice of; the record is the start of that clock.
+      if (b.t === 'cost' && b.mismatch) {
+        logEvidence('observation', 'AI-system registry', 'Served model differs from the registered system', { system: b.system, registered: b.registered, served: b.model })
+      }
       if (b.t === 'gate') setGateOpen(true)
     },
-    [logEvidence, chargeMission],
+    [logEvidence, chargeMission, pushToast],
   )
 
   const run = React.useCallback(
@@ -573,6 +622,11 @@ export function Copilot() {
       const nowMs = NOW.getTime() + clockOffsetMins * 60_000
       const { proposal, decision, mode } = await runIntent(
         text, emit, controller.signal, Object.values(missionMap), workList, Object.values(proposalMap), nowMs,
+        {
+          suspensions,
+          suspendedAgents: Object.values(agentMap).filter((a) => a.state === 'suspended').map((a) => a.id),
+          majorActive: miActive,
+        },
       )
       if (controller.signal.aborted) return
 
@@ -581,7 +635,7 @@ export function Copilot() {
       }
       setRunning(false)
     },
-    [emit, missionMap, workList, proposalMap, clockOffsetMins],
+    [emit, missionMap, workList, proposalMap, clockOffsetMins, suspensions, agentMap, miActive],
   )
 
   const decideGate = async (verdict: 'approve' | 'reject') => {

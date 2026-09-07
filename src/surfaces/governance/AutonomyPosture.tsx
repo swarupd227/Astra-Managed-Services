@@ -1,7 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Ban, ShieldQuestion, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowUpRight, Ban, Pause, Play, ShieldQuestion, TrendingDown, TrendingUp } from 'lucide-react'
 import { AUTONOMY_SCHEDULE } from '@/domain/knowledge'
+import { AI_FUNCTIONS } from '@/domain/suspensions'
 import { ACTION_CLASSES, AC, AUTONOMY_LEVELS, ROLE_BY_ID } from '@/domain/reference'
 import { TOWERS, TOWER_BY_ID, AGENTS } from '@/domain/estate'
 import { useAstra } from '@/domain/store'
@@ -19,9 +20,16 @@ export function AutonomyPosture() {
   const pendingRequests = Object.values(proposals).filter((p) => p.permission && p.state === 'open')
 
   const pushToast = useAstra((s) => s.pushToast)
+  const suspensions = useAstra((s) => s.suspensions)
+  const suspend = useAstra((s) => s.suspend)
+  const release = useAstra((s) => s.release)
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
   const [cell, setCell] = React.useState<{ tower: string; ac: string } | null>(null)
+
+  const classSuspension = (ac: string, tower: string) =>
+    suspensions.find((x) => x.scope === 'actionClass' && x.target === ac && (!x.tower || x.tower === tower))
+  const functionSuspension = (fn: string) => suspensions.find((x) => x.scope === 'function' && x.target === fn)
 
   const runTowers = TOWERS.filter((t) => !['S0', 'S1'].includes(t.state))
   const byKey = React.useMemo(() => {
@@ -197,6 +205,44 @@ export function AutonomyPosture() {
                 </li>
               </ul>
             </Card>
+
+            {/* A customer may direct that one AI function stop. The gateway
+                refuses the function before any model call; the record says
+                who directed it, because a customer-directed stop is not a
+                breach. */}
+            <Card title="AI function suspensions" subtitle="Stop one function without stopping the platform">
+              <ul className="space-y-2">
+                {AI_FUNCTIONS.map((f) => {
+                  const active = functionSuspension(f.id)
+                  return (
+                    <li key={f.id} className={cn('flex items-center gap-2 rounded border p-2.5', active ? 'border-crit/40 bg-crit/[0.06]' : 'border-line')}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-2xs text-ink-2">{f.id}</span>
+                          {active && <Chip tone="crit">suspended</Chip>}
+                        </div>
+                        <p className="mt-0.5 text-2xs leading-relaxed text-ink-3">{f.label}</p>
+                        {active && <p className="mt-0.5 text-2xs text-ink-3">{active.by} · {active.reason}{active.directedByCustomer ? ' · customer-directed' : ''}</p>}
+                      </div>
+                      {active ? (
+                        <Button size="sm" variant="ghost" disabled={!role.canApprove} onClick={() => release(active.id, role.person)}>
+                          <Play size={11} /> Release
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          disabled={!role.canApprove}
+                          onClick={() => suspend('function', f.id, role.person, 'Suspended from the autonomy posture', { directedByCustomer: role.org === 'client' })}
+                        >
+                          <Pause size={11} /> Suspend
+                        </Button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
           </div>
         </div>
       </div>
@@ -258,6 +304,22 @@ export function AutonomyPosture() {
               <Button variant="default" disabled={!role.canApprove} onClick={() => { setCell(null); pushToast({ title: 'Review requested', body: 'Added to the governance pack for the next sitting.', tone: 'info' }) }}>
                 Request review
               </Button>
+              {(() => {
+                const active = classSuspension(selected.actionClass, selected.tower)
+                return active ? (
+                  <Button variant="ghost" disabled={!role.canApprove} onClick={() => release(active.id, role.person)}>
+                    <Play size={11} /> Release class
+                  </Button>
+                ) : (
+                  <Button
+                    variant="danger"
+                    disabled={!role.canApprove}
+                    onClick={() => suspend('actionClass', selected.actionClass, role.person, `Suspended from the autonomy posture — ${selected.actionClass} on ${TOWER_BY_ID[selected.tower]?.name}`, { tower: selected.tower, directedByCustomer: role.org === 'client' })}
+                  >
+                    <Pause size={11} /> Suspend class here
+                  </Button>
+                )
+              })()}
             </div>
           </div>
         )}

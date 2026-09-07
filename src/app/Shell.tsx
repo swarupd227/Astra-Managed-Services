@@ -8,7 +8,8 @@ import { AstraSignature, ArtizentLockup } from '@/brand/Logo'
 import { PINNED, SURFACES } from './nav'
 import { CommandPalette } from './CommandPalette'
 import { ROLES, ROLE_BY_ID } from '@/domain/reference'
-import { CLIENT } from '@/domain/estate'
+import { CLIENT, TOWER_BY_ID } from '@/domain/estate'
+import { AI_FUNCTIONS, type Suspension } from '@/domain/suspensions'
 import { OBLIGATIONS } from '@/domain/ledgers'
 import { useAstra, useApprovalCount } from '@/domain/store'
 import { Avatar } from '@/ui/domain'
@@ -40,28 +41,53 @@ function MiBanner() {
   )
 }
 
+function suspensionLabel(x: Suspension) {
+  switch (x.scope) {
+    case 'global': return 'platform-wide'
+    case 'tower': return TOWER_BY_ID[x.target]?.name ?? x.target
+    case 'actionClass': return `${x.target}${x.tower ? ` · ${TOWER_BY_ID[x.tower]?.name ?? x.tower}` : ' · all towers'}`
+    case 'function': return AI_FUNCTIONS.find((f) => f.id === x.target)?.label ?? x.target
+    default: return x.target
+  }
+}
+
+/** Every suspension in force, each releasable on its own — not one banner for one switch. */
 function BrakeBanner() {
-  const brake = useAstra((s) => s.brake)
-  const setBrake = useAstra((s) => s.setBrake)
+  const suspensions = useAstra((s) => s.suspensions)
+  const agents = useAstra((s) => s.agents)
+  const release = useAstra((s) => s.release)
   const roleId = useAstra((s) => s.roleId)
-  if (!brake.global && brake.towers.length === 0) return null
+  const suspendedAgents = Object.values(agents).filter((a) => a.state === 'suspended').length
+  if (suspensions.length === 0 && suspendedAgents === 0) return null
   const role = ROLE_BY_ID[roleId]
+  const global = suspensions.some((x) => x.scope === 'global')
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-warn/40 bg-warn/10 px-4 py-1.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-warn/40 bg-warn/10 px-4 py-1.5">
       <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.08em] text-warn">
         <ShieldAlert size={13} strokeWidth={2.4} />
         Autonomy brake
       </span>
-      <span className="min-w-0 flex-1 truncate text-2xs text-ink-2">
-        {brake.global
+      <span className="text-2xs text-ink-2">
+        {global
           ? 'Platform-wide brake applied. Every agent is at L1 Advise; work continues through humans via the mirrored ITSM.'
-          : `Brake applied to ${brake.towers.length} tower${brake.towers.length > 1 ? 's' : ''}.`}
+          : `${suspensions.length} suspension${suspensions.length === 1 ? '' : 's'} in force${suspendedAgents ? ` · ${suspendedAgents} agent${suspendedAgents === 1 ? '' : 's'} suspended` : ''}.`}
       </span>
-      {role.canApprove && (
-        <Button size="sm" variant="ghost" onClick={() => setBrake(brake.global ? 'global' : brake.towers[0], false, role.person)}>
-          Release
-        </Button>
-      )}
+      {suspensions.map((x) => (
+        <span
+          key={x.id}
+          className="flex items-center gap-1 rounded border border-warn/40 bg-surface px-1.5 py-0.5 text-2xs text-ink-2"
+          title={`${x.reason} — ${x.by}${x.directedByCustomer ? ' (customer-directed)' : ''}`}
+        >
+          <span className="font-mono text-ink-3">{x.scope}</span>
+          {suspensionLabel(x)}
+          {x.directedByCustomer && <span className="text-ink-3">· customer-directed</span>}
+          {role.canApprove && (
+            <button onClick={() => release(x.id, role.person)} className="ml-1 text-ink-3 hover:text-ink" title="Release">
+              <X size={10} />
+            </button>
+          )}
+        </span>
+      ))}
     </div>
   )
 }

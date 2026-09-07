@@ -14,6 +14,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
+import { PHASE_FUNCTION, PHASE_PURPOSE, currency, loadRegistry, publicView, resolveSystem, saveRegistry, setStatus } from './ai-registry.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -41,6 +42,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const ENV_FILE = path.join(ROOT, '.env.local')
 
 let MODEL = process.env.ASTRA_MODEL ?? 'claude-opus-5'
+
+/* ---------------------------- AI-system registry --------------------------- */
+
+// The registry is the AI Bill of Materials: which systems may be called, for
+// what, on whose approval. Loaded once; changed only through the status
+// endpoint, which writes it back so a revocation survives a restart.
+let registry = loadRegistry()
+
+/** AI functions the customer has directed us to suspend. Enforced here, before any model call. */
+const suspendedFunctions = new Set()
 
 /* ------------------------------ Key management ----------------------------- */
 
@@ -263,6 +274,8 @@ function describeError(err) {
 async function handleTest(res, candidateKey) {
   const testClient = candidateKey ? new Anthropic({ apiKey: candidateKey }) : client
   if (!testClient) return json(res, 200, { ok: false, error: 'No API key configured.' })
+  const resolved = resolveSystem(registry, MODEL, null)
+  if (!resolved.ok) return json(res, 200, { ok: false, error: resolved.reason })
 
   const started = Date.now()
   try {
@@ -296,6 +309,31 @@ async function handleAgent(body, res) {
     return
   }
 
+  // A customer-directed suspension of this function is honoured before any
+  // model call, and the refusal names the function so the operator sees why.
+  const fn = PHASE_FUNCTION[phase] ?? 'copilot.plan'
+  if (suspendedFunctions.has(fn)) {
+    send({ type: 'refuse', agent: 'Registry', text: `The ${fn} function is suspended at the customer's direction. Nothing was sent to a model.`, rule: 'Human oversight — a suspended AI function does not run' })
+    send({ type: 'done' })
+    res.end()
+    return
+  }
+
+  // The model is resolved against the registry for the purpose this phase
+  // serves. A miss is the whole enforcement: no vendor stream is opened.
+  const resolved = resolveSystem(registry, MODEL, PHASE_PURPOSE[phase] ?? 'plan_synthesis')
+  if (!resolved.ok) {
+    send({ type: 'refuse', agent: 'Registry', text: resolved.reason, rule: resolved.rule })
+    send({ type: 'done' })
+    res.end()
+    return
+  }
+  const system = resolved.system
+  send({
+    type: 'system',
+    system: { id: system.id, vendor: system.vendor, model: system.model, version: system.version, region: system.region, hosting: system.hosting, whitelisted: true },
+  })
+
   try {
     // Three phases share this endpoint. Only `plan` proposes an action, so
     // only `plan` gets the tool and the high effort budget.
@@ -304,7 +342,7 @@ async function handleAgent(body, res) {
     const narrating = isOutcome || isBrief
 
     const stream = client.messages.stream({
-      model: MODEL,
+      model: system.model,
       max_tokens: isOutcome ? 1024 : isBrief ? 1600 : 8000,
       thinking: { type: 'adaptive', display: 'summarized' },
       output_config: { effort: isOutcome ? 'low' : isBrief ? 'medium' : 'high' },
@@ -338,6 +376,8 @@ async function handleAgent(body, res) {
       }
     }
 
+    // The currency check: the vendor reports which model actually served the
+    // call, and it is compared with what the registry approved.
     send({
       type: 'usage',
       inputTokens: final.usage.input_tokens,
@@ -345,6 +385,8 @@ async function handleAgent(body, res) {
       cacheRead: final.usage.cache_read_input_tokens ?? 0,
       model: final.model,
       stopReason: final.stop_reason,
+      system: system.id,
+      ...currency(system, final.model),
     })
     send({ type: 'done' })
   } catch (err) {
@@ -407,7 +449,18 @@ http
         maskedKey: mask(apiKey),
         model: MODEL,
         envFile: keySource === 'file' ? '.env.local' : null,
+        registry: {
+          version: registry.version,
+          exhibit: registry.exhibit,
+          approved: registry.systems.filter((s) => s.status === 'approved').length,
+          servedModelApproved: resolveSystem(registry, MODEL, null).ok,
+        },
+        suspendedFunctions: [...suspendedFunctions],
       })
+    }
+
+    if (req.method === 'GET' && url === '/api/agent/registry') {
+      return json(res, 200, publicView(registry, MODEL))
     }
 
     if (req.method === 'DELETE' && url === '/api/agent/key') {
@@ -439,15 +492,47 @@ http
           if (!key.startsWith('sk-ant-')) {
             return json(res, 200, { ok: false, error: 'That does not look like an Anthropic API key — they begin with sk-ant-.' })
           }
-          if (body.model) MODEL = String(body.model)
+          if (body.model) {
+            // The settings screen may only select among approved systems — it
+            // is not a way around the registry.
+            const r = resolveSystem(registry, String(body.model), null)
+            if (!r.ok) return json(res, 200, { ok: false, error: r.reason })
+            MODEL = r.system.model
+          }
           setKey(key, Boolean(body.persist))
           return json(res, 200, { ok: true, configured: true, source: keySource, maskedKey: mask(apiKey), model: MODEL })
         }
 
         if (url === '/api/agent/test') {
           const candidate = body.key ? String(body.key).trim() : null
-          if (body.model) MODEL = String(body.model)
+          if (body.model) {
+            const r = resolveSystem(registry, String(body.model), null)
+            if (!r.ok) return json(res, 200, { ok: false, error: r.reason })
+            MODEL = r.system.model
+          }
           return handleTest(res, candidate)
+        }
+
+        if (url === '/api/agent/registry') {
+          // Status changes are the registry's only mutation. Each one is
+          // written back with its history so the exhibit's revision log is
+          // the file itself.
+          try {
+            const { registry: next, system, from } = setStatus(registry, String(body.id ?? ''), String(body.status ?? ''), String(body.by ?? 'operator'), String(body.reason ?? ''))
+            registry = next
+            saveRegistry(registry)
+            return json(res, 200, { ok: true, from, system, ...publicView(registry, MODEL) })
+          } catch (err) {
+            return json(res, 200, { ok: false, error: err?.message ?? String(err) })
+          }
+        }
+
+        if (url === '/api/agent/suspend') {
+          const target = String(body.function ?? '')
+          if (!Object.values(PHASE_FUNCTION).includes(target)) return json(res, 200, { ok: false, error: `Unknown AI function "${target}"` })
+          if (body.on) suspendedFunctions.add(target)
+          else suspendedFunctions.delete(target)
+          return json(res, 200, { ok: true, suspendedFunctions: [...suspendedFunctions] })
         }
 
         if (url.startsWith('/api/agent')) return handleAgent(body, res)
@@ -464,6 +549,7 @@ http
   })
   .listen(PORT, HOST, () => {
     console.log(`  Astra agent gateway on http://${HOST}:${PORT}  ·  model ${MODEL}`)
+    console.log(`  AI-system registry v${registry.version} · Exhibit ${registry.exhibit} · ${registry.systems.filter((s) => s.status === 'approved').length} approved · served model ${resolveSystem(registry, MODEL, null).ok ? 'listed' : 'NOT LISTED — every call will be refused'}`)
     console.log(`  App Service: ${ON_APP_SERVICE ? process.env.WEBSITE_SITE_NAME : 'no (local)'}  ·  static: ${SERVE_STATIC}`)
     if (SERVE_STATIC) {
       console.log(`  Serving the built app from ${DIST}${fs.existsSync(DIST) ? '' : '  — MISSING, the SPA will 404'}`)

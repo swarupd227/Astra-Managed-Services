@@ -1,0 +1,84 @@
+{
+  "version": 3,
+  "exhibit": "O-1",
+  "policyRef": "Schedule O §(b)",
+  "systems": [
+    {
+      "id": "ais_frontier_01",
+      "vendor": "Anthropic",
+      "model": "claude-opus-5",
+      "version": "vendor snapshot 2026-05",
+      "hosting": "vendor_cloud",
+      "region": "us-central",
+      "purposes": ["plan_synthesis", "causal_reasoning", "runbook_drafting", "narrative"],
+      "status": "approved",
+      "approvedBy": "E. Whitfield",
+      "approvedAt": "2026-06-20T14:10:00Z",
+      "attestations": { "zeroRetention": true, "noTrainingOnCustomerData": true, "ref": "Vendor DPA addendum, May 2026" },
+      "supplyChain": [{ "component": "inference", "provider": "Anthropic" }, { "component": "gateway", "provider": "Artizent (Azure Central US)" }],
+      "history": [{ "at": "2026-06-20T14:10:00Z", "by": "E. Whitfield", "from": "pending", "to": "approved", "reason": "Initial Exhibit O-1 — frontier tier" }]
+    },
+    {
+      "id": "ais_mid_01",
+      "vendor": "Anthropic",
+      "model": "claude-sonnet-5",
+      "version": "vendor snapshot 2026-05",
+      "hosting": "vendor_cloud",
+      "region": "us-central",
+      "purposes": ["log_extraction", "narrative", "verification_triage"],
+      "status": "approved",
+      "approvedBy": "E. Whitfield",
+      "approvedAt": "2026-06-20T14:10:00Z",
+      "attestations": { "zeroRetention": true, "noTrainingOnCustomerData": true, "ref": "Vendor DPA addendum, May 2026" },
+      "supplyChain": [{ "component": "inference", "provider": "Anthropic" }, { "component": "gateway", "provider": "Artizent (Azure Central US)" }],
+      "history": [{ "at": "2026-06-20T14:10:00Z", "by": "E. Whitfield", "from": "pending", "to": "approved", "reason": "Initial Exhibit O-1 — mid tier" }]
+    },
+    {
+      "id": "ais_small_01",
+      "vendor": "Artizent",
+      "model": "astra-triage-small-v12",
+      "version": "fit from sk_triage_v12, 2026-08",
+      "hosting": "client_tenant",
+      "region": "us-central",
+      "purposes": ["event_classification"],
+      "status": "approved",
+      "approvedBy": "E. Whitfield",
+      "approvedAt": "2026-08-02T09:30:00Z",
+      "attestations": { "zeroRetention": true, "noTrainingOnCustomerData": true, "ref": "Distilled on this tenant's traffic only; never listed for another tenant" },
+      "supplyChain": [{ "component": "inference", "provider": "Client tenant (Azure)" }],
+      "history": [{ "at": "2026-08-02T09:30:00Z", "by": "E. Whitfield", "from": "pending", "to": "approved", "reason": "Distilled classifier — client-hosted" }]
+    },
+    {
+      "id": "ais_legacy_01",
+      "vendor": "Anthropic",
+      "model": "claude-3-7-sonnet",
+      "version": "2025-02",
+      "hosting": "vendor_cloud",
+      "region": "us-east",
+      "purposes": ["narrative"],
+      "status": "revoked",
+      "attestations": { "zeroRetention": false, "noTrainingOnCustomerData": true, "ref": "Not re-attested for zero retention" },
+      "supplyChain": [{ "component": "inference", "provider": "Anthropic" }],
+      "history": [
+        { "at": "2026-06-20T14:10:00Z", "by": "E. Whitfield", "from": "pending", "to": "approved", "reason": "Carried over from pilot" },
+        { "at": "2026-08-14T11:00:00Z", "by": "V. Marchetti", "from": "approved", "to": "revoked", "reason": "Superseded; zero-retention configuration not available on this version" }
+      ]
+    },
+    {
+      "id": "ais_pending_01",
+      "vendor": "OpenAI",
+      "model": "gpt-5",
+      "version": "2026-08",
+      "hosting": "vendor_cloud",
+      "region": "us-east",
+      "purposes": ["narrative"],
+      "status": "pending",
+      "requestedBy": "L. Nakamura",
+      "requestedAt": "2026-09-06T16:00:00Z",
+      "noticeDueAt": "2026-09-09T16:00:00Z",
+      "attestations": { "zeroRetention": true, "noTrainingOnCustomerData": true, "ref": "Vendor enterprise terms — attestation pending review" },
+      "supplyChain": [{ "component": "inference", "provider": "OpenAI (Azure)" }],
+      "history": [{ "at": "2026-09-06T16:00:00Z", "by": "L. Nakamura", "from": "none", "to": "pending", "reason": "Requested for narrative-drafting cost comparison; 72-hour notice running" }]
+    }
+  ]
+}

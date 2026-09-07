@@ -49,6 +49,8 @@ export function PolicyStudio() {
   const [majorIncident, setMajorIncident] = React.useState(false)
   const [freeze, setFreeze] = React.useState(false)
   const [assetContract, setAssetContract] = React.useState<string | null>('dc_datamart_v2')
+  const [whitelisted, setWhitelisted] = React.useState(true)
+  const [suspended, setSuspended] = React.useState(false)
   const [presetLabel, setPresetLabel] = React.useState(PRESETS[0].label)
 
   const applyPreset = (label: string) => {
@@ -80,8 +82,10 @@ export function PolicyStudio() {
       incident: { major_active: majorIncident },
       calendar: { freeze },
       asset: { contract: assetContract, pii: 'restricted' },
+      model: { id: 'simulated', vendor: 'simulated', version: 'n/a', whitelisted },
+      suspensions: { any: suspended, global: false, tower: false, agent: false, actionClass: suspended, function: false },
     }),
-    [actionClass, hasCompensation, tier, services, dependents, agentId, agent, confidence, majorIncident, freeze, assetContract],
+    [actionClass, hasCompensation, tier, services, dependents, agentId, agent, confidence, majorIncident, freeze, assetContract, whitelisted, suspended],
   )
 
   const result: EngineResult = React.useMemo(() => evaluate(policy, ctx, agent.ceiling), [policy, ctx, agent.ceiling])
@@ -170,6 +174,14 @@ export function PolicyStudio() {
               <label className="flex items-center gap-2 text-2xs text-ink-2">
                 <input type="checkbox" checked={assetContract !== null} onChange={(e) => setAssetContract(e.target.checked ? 'dc_datamart_v2' : null)} className="accent-brand" />
                 Affected data asset carries a contract
+              </label>
+              <label className="flex items-center gap-2 text-2xs text-ink-2">
+                <input type="checkbox" checked={whitelisted} onChange={(e) => setWhitelisted(e.target.checked)} className="accent-brand" />
+                Model is listed in the AI-system registry
+              </label>
+              <label className="flex items-center gap-2 text-2xs text-ink-2">
+                <input type="checkbox" checked={suspended} onChange={(e) => setSuspended(e.target.checked)} className="accent-brand" />
+                A suspension applies to this action class
               </label>
             </div>
 

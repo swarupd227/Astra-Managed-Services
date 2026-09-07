@@ -375,6 +375,8 @@ export const POLICIES: Policy[] = [
     id: 'pol_change_std', name: 'change_standard', version: 'v9',
     appliesTo: { towers: ['twr_payments', 'twr_core'], envs: ['prod'] },
     rules: [
+      { id: 'r0a', when: 'model.whitelisted == false', maxMode: 'manual' },
+      { id: 'r0b', when: 'suspensions.any == true', maxMode: 'advise' },
       { id: 'r1', when: 'action.class in [AC-12, AC-18, AC-24] and blast.tier <= 1', require: 'agent.grade[action.class] >= B and plan.confidence >= 0.85', mode: 'supervised', notify: ['oncall_sdm'], abortWindowSec: 120 },
       { id: 'r2', when: 'action.class == AC-31 and blast.tier == 0', mode: 'approve_first', gate: { approverRole: 'sdm', artefacts: ['diff', 'blast', 'rollback'], timeoutSec: 600, escalatesTo: 'duty_manager' } },
       { id: 'r3', when: 'action.class == AC-31 and blast.tier >= 1', require: 'agent.grade[AC-31] >= B', mode: 'supervised', notify: ['oncall_sdm'], abortWindowSec: 120 },
@@ -392,6 +394,8 @@ export const POLICIES: Policy[] = [
     id: 'pol_euc_std', name: 'euc_standard', version: 'v6',
     appliesTo: { towers: ['twr_euc'], envs: ['prod'] },
     rules: [
+      { id: 'r0a', when: 'model.whitelisted == false', maxMode: 'manual' },
+      { id: 'r0b', when: 'suspensions.any == true', maxMode: 'advise' },
       { id: 'r1', when: 'action.class in [AC-66, AC-24] and blast.tier >= 2', require: 'agent.grade[action.class] >= A', mode: 'autonomous' },
       { id: 'r2', when: 'action.class == AC-18 and blast.tier >= 2', require: 'agent.grade[AC-18] >= A', mode: 'supervised' },
       { id: 'r3', when: 'action.class == AC-58', mode: 'approve_first', gate: { approverRole: 'sdm+second_control', artefacts: ['entitlement_diff', 'sod_check'], timeoutSec: 1800, escalatesTo: 'security_lead' } },
@@ -405,6 +409,8 @@ export const POLICIES: Policy[] = [
     id: 'pol_data_contract', name: 'data_contract_gate', version: 'v4',
     appliesTo: { towers: ['twr_dataplat', 'twr_bi'], envs: ['prod'] },
     rules: [
+      { id: 'r0a', when: 'model.whitelisted == false', maxMode: 'manual' },
+      { id: 'r0b', when: 'suspensions.any == true', maxMode: 'advise' },
       { id: 'r1', when: 'action.class in [AC-44, AC-49] and asset.contract == null', maxMode: 'advise' },
       { id: 'r2', when: 'action.class == AC-49 and asset.contract != null', mode: 'approve_first', gate: { approverRole: 'data_steward', artefacts: ['dq_pack', 'lineage', 'rollback'], timeoutSec: 3600, escalatesTo: 'data_owner' } },
       { id: 'r3', when: 'action.class in [AC-12, AC-31] and asset.pii == restricted', require: 'agent.grade[action.class] >= B', mode: 'supervised', notify: ['data_steward'] },

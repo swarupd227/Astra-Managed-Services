@@ -40,6 +40,7 @@ import { AgentRecord } from './surfaces/atlas/AgentRecord'
 import { EvaluationCenter } from './surfaces/atlas/EvaluationCenter'
 import { PolicyStudio } from './surfaces/atlas/PolicyStudio'
 import { TokenOpsStudio } from './surfaces/atlas/TokenOpsStudio'
+import { AiSystems } from './surfaces/atlas/AiSystems'
 
 const router = createHashRouter([
   {
@@ -84,6 +85,7 @@ const router = createHashRouter([
       { path: 'atlas/evaluation', element: <EvaluationCenter /> },
       { path: 'atlas/policy', element: <PolicyStudio /> },
       { path: 'atlas/tokenops', element: <TokenOpsStudio /> },
+      { path: 'atlas/systems', element: <AiSystems /> },
 
       { path: '*', element: <Navigate to="/" replace /> },
     ],

@@ -6,6 +6,8 @@ import { DEMAND_CLASSES, SLAS } from './ledgers'
 import { ago } from '@/lib/format'
 import type { EvidenceKind, ExecutionMode, Grade, Priority, WorkObject } from './types'
 import type { Proposal } from './proposals'
+import { detectFabrication, type AiIncidentClass } from './aiIncident'
+import { suspensionContext, type Suspension } from './suspensions'
 
 /* ==========================================================================
    The agent runtime.
@@ -31,7 +33,9 @@ export type Beat =
   | { t: 'ledger'; hours: number; attribution: string; note: string }
   | { t: 'answer'; agent: string; text: string; streaming?: boolean }
   | { t: 'refuse'; agent: string; text: string; rule: string }
-  | { t: 'cost'; usd: number; note: string; inputTokens: number; outputTokens: number; model: string }
+  | { t: 'cost'; usd: number; note: string; inputTokens: number; outputTokens: number; model: string; system?: string; registered?: string | null; mismatch?: boolean }
+  | { t: 'system'; id: string; vendor: string; model: string; version: string; region: string; hosting: string }
+  | { t: 'incident'; class: AiIncidentClass; detector: string; summary: string; details: string[]; consequential: boolean }
   | { t: 'rejected'; text: string }
   | { t: 'error'; message: string }
 
@@ -216,12 +220,25 @@ export function runCost(inputTokens: number, outputTokens: number) {
 
 /* ------------------------------- SSE plumbing ------------------------------ */
 
+/** The AI system the gateway resolved from its registry for a call. */
+export interface GatewaySystem {
+  id: string
+  vendor: string
+  model: string
+  version: string
+  region: string
+  hosting: string
+  whitelisted: boolean
+}
+
 type GatewayEvent =
   | { type: 'thinking'; text: string }
   | { type: 'text'; text: string }
   | { type: 'tool_start' }
   | { type: 'proposal'; input: AgentProposal }
-  | { type: 'usage'; inputTokens: number; outputTokens: number; cacheRead: number; model: string; stopReason: string }
+  | { type: 'usage'; inputTokens: number; outputTokens: number; cacheRead: number; model: string; stopReason: string; system?: string; registered?: string | null; served?: string | null; mismatch?: boolean }
+  | { type: 'system'; system: GatewaySystem }
+  | { type: 'refuse'; agent: string; text: string; rule: string }
   | { type: 'done' }
   | { type: 'error'; message: string }
 
@@ -270,7 +287,17 @@ export interface Decision {
   mode: ExecutionMode
 }
 
-export function decide(p: AgentProposal, missions: Mission[] = []): Decision {
+export interface RunOptions {
+  /** The AI system the gateway resolved for this run. Absent until the gateway says. */
+  system?: GatewaySystem | null
+  /** Live suspensions from the control plane, and the agents suspended there. */
+  suspensions?: Suspension[]
+  suspendedAgents?: string[]
+  /** Whether a major incident is open — the global brake the engine already understands. */
+  majorActive?: boolean
+}
+
+export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOptions = {}): Decision {
   const agent = AGENT_BY_ID[p.routed_agent] ?? AGENT_BY_ID.agt_remedian
   const cls = AC[p.action_class] ? p.action_class : 'AC-05'
   const tower = TOWERS.find((t) => agent.towers.includes(t.id)) ?? TOWERS[0]
@@ -291,8 +318,17 @@ export function decide(p: AgentProposal, missions: Mission[] = []): Decision {
     },
     agent: { id: agent.id, grade: agent.grants as Record<string, Grade> },
     plan: { confidence: p.plan_confidence, verificationPack: AC[cls]?.verificationPack ?? null },
-    incident: { major_active: false },
+    incident: { major_active: Boolean(opts.majorActive) },
     calendar: { freeze: false },
+    // What the gateway resolved, so a policy can reason about the registry
+    // even though the gateway has already enforced it.
+    model: opts.system
+      ? { id: opts.system.id, vendor: opts.system.vendor, version: opts.system.version, whitelisted: opts.system.whitelisted }
+      : undefined,
+    suspensions: suspensionContext(opts.suspensions ?? [], {
+      tower: tower.id, agentId: agent.id, actionClass: cls, fn: 'copilot.plan',
+      agentSuspended: (opts.suspendedAgents ?? []).includes(agent.id),
+    }),
     // A backfill or migration against an asset with no contract has nothing to
     // verify against; the policy caps it at Advise on that basis.
     asset: {
@@ -339,9 +375,12 @@ export async function runIntent(
   work: WorkObject[] = [],
   proposals: Proposal[] = [],
   nowMs: number = Date.now(),
+  opts: RunOptions = {},
 ): Promise<{ proposal: AgentProposal | null; decision: Decision | null; mode: ExecutionMode | null }> {
   const estate = estateDigest(work, proposals, nowMs)
   let proposal: AgentProposal | null = null
+  let system: GatewaySystem | null = opts.system ?? null
+  let fabricated = false
   // Decided as soon as the proposal lands, not after the stream closes: the
   // usage/cost event arrives before the loop ends, and a run cannot be charged
   // to a mission that has not been identified yet.
@@ -362,10 +401,33 @@ export async function runIntent(
         answer += ev.text
         onBeat({ t: 'answer', agent: routedAgent, text: answer, streaming: true }, answerOpen)
         answerOpen = true
+      } else if (ev.type === 'system') {
+        system = ev.system
+        onBeat({ t: 'system', id: system.id, vendor: system.vendor, model: system.model, version: system.version, region: system.region, hosting: system.hosting })
+      } else if (ev.type === 'refuse') {
+        // The gateway refused before any model call — a suspended function or
+        // a model outside the registry. Nothing to decide; record it and stop.
+        onBeat({ t: 'refuse', agent: 'agt_herald', text: ev.text, rule: ev.rule })
+        onBeat({ t: 'evidence', summary: 'Refusal recorded — no vendor request was made', kind: 'decision' })
+        return { proposal: null, decision: null, mode: null }
       } else if (ev.type === 'proposal') {
         proposal = ev.input
         routedAgent = AGENT_BY_ID[proposal.routed_agent] ? proposal.routed_agent : 'agt_herald'
         answerOpen = false
+
+        // Every identifier the proposal carries is checked against the estate
+        // before anything is routed, planned or decided. A consequential plan
+        // built on invented references is refused here, not defaulted.
+        const signal = detectFabrication(proposal)
+        if (signal) {
+          onBeat({ t: 'incident', ...signal })
+          if (signal.consequential) {
+            fabricated = true
+            onBeat({ t: 'refuse', agent: routedAgent, text: signal.details.join(' '), rule: 'AI Incident — fabrication in a consequential proposal; refused before the policy engine saw it' })
+            onBeat({ t: 'evidence', summary: 'AI Incident recorded with the proposal and every unresolved reference', kind: 'observation' })
+            continue
+          }
+        }
 
         onBeat({ t: 'route', intent: proposal.intent, confidence: proposal.intent_confidence, agent: routedAgent, note: proposal.routing_note })
         onBeat({
@@ -380,7 +442,7 @@ export async function runIntent(
         })
         onBeat({ t: 'finding', ...proposal.finding })
 
-        decision = decide(proposal, missions)
+        decision = decide(proposal, missions, { ...opts, system })
         // Announced whenever a mission governs the run, not only when it
         // narrows — the operator needs to know what the work is being done
         // under, and the budget cannot be charged against an unnamed mission.
@@ -418,6 +480,7 @@ export async function runIntent(
           t: 'cost', usd,
           note: `${ev.inputTokens.toLocaleString()} in / ${ev.outputTokens.toLocaleString()} out${ev.cacheRead ? ` · ${ev.cacheRead.toLocaleString()} cached` : ''}`,
           inputTokens: ev.inputTokens, outputTokens: ev.outputTokens, model: ev.model,
+          system: ev.system, registered: ev.registered, mismatch: ev.mismatch,
         })
       } else if (ev.type === 'error') {
         onBeat({ t: 'error', message: ev.message })
@@ -435,6 +498,10 @@ export async function runIntent(
     })
     return { proposal: null, decision: null, mode: null }
   }
+
+  // A fabricated consequential proposal was refused inside the loop; there is
+  // no decision to announce for it.
+  if (fabricated) return { proposal: null, decision: null, mode: null }
 
   // `decision` was taken the moment the proposal landed, so the mission was
   // known before the usage event arrived and could be charged for it.
@@ -519,6 +586,8 @@ export async function execute(
         outcome += ev.text
         onBeat({ t: 'answer', agent: 'agt_herald', text: outcome, streaming: true }, open)
         open = true
+      } else if (ev.type === 'refuse') {
+        onBeat({ t: 'refuse', agent: 'agt_herald', text: ev.text, rule: ev.rule })
       } else if (ev.type === 'usage') {
         onBeat({
           t: 'cost', usd: runCost(ev.inputTokens, ev.outputTokens),
@@ -568,6 +637,8 @@ export async function streamExecutiveBrief(
         outputTokens: ev.outputTokens,
         model: ev.model,
       }
+    } else if (ev.type === 'refuse') {
+      throw new Error(ev.text)
     } else if (ev.type === 'error') {
       throw new Error(ev.message)
     }

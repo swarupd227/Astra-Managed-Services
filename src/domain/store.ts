@@ -8,6 +8,7 @@ import { BUDGET_WARN, MISSIONS, budgetExhausted, budgetUse, type Mission } from 
 import { PROPOSALS, type Proposal, type ProposalState } from './proposals'
 import { absorbedText, assertionReach, planReach, type Lesson, type LessonKind } from './teaching'
 import { digest } from './rng'
+import { brakeOf, type Suspension, type SuspensionScope } from './suspensions'
 import type {
   Agent, Assertion, EvidenceRecord, Run, TimelineEntry, WorkObject, WorkState,
 } from './types'
@@ -55,7 +56,10 @@ interface State {
   lessons: Lesson[]
 
   /* control */
+  /** Derived from `suspensions` — kept so every existing reader of the brake keeps working. */
   brake: { global: boolean; towers: string[] }
+  /** The record: every suspension in force, with who directed it and why. */
+  suspensions: Suspension[]
   mi: MajorIncident
   toasts: Toast[]
   verification: ChainVerification | null
@@ -80,6 +84,9 @@ interface State {
   toggleMiAction: (id: string) => void
 
   setBrake: (scope: 'global' | string, on: boolean, by: string) => void
+  /** Suspend by scope — platform, tower, action class or AI function. Returns the suspension id. */
+  suspend: (scope: SuspensionScope, target: string, by: string, reason: string, opts?: { directedByCustomer?: boolean; tower?: string }) => string
+  release: (id: string, by: string) => void
   suspendAgent: (agentId: string, by: string, reason: string) => void
   reinstateAgent: (agentId: string, by: string) => void
 
@@ -187,6 +194,7 @@ export const useAstra = create<State>((set, get) => ({
   lessons: [],
 
   brake: { global: false, towers: [] },
+  suspensions: [],
   mi: {
     active: false, declaredAt: null, declaredBy: null, workObjectId: null, title: '',
     timeline: [], roles: [], actions: [],
@@ -597,28 +605,81 @@ export const useAstra = create<State>((set, get) => ({
 
   /* --------------------------------- brakes -------------------------------- */
 
-  setBrake: (scope, on, by) => {
+  /**
+   * One suspension record per directive. The gateway is told about function
+   * suspensions so they are enforced before a model call, not only in policy.
+   */
+  suspend: (scope, target, by, reason, opts = {}) => {
     const s = get()
+    if (scope === 'agent') {
+      get().suspendAgent(target, by, reason)
+      return ''
+    }
+    const existing = s.suspensions.find((x) => x.scope === scope && x.target === target && (x.tower ?? null) === (opts.tower ?? null))
+    if (existing) return existing.id
+
     const at = nowIso(s.clockOffsetMins)
+    const id = `sus_${digest(scope + target + (opts.tower ?? '') + s.tick).slice(0, 8)}`
+    const suspension: Suspension = { id, scope, target, tower: opts.tower, by, at, reason, directedByCustomer: Boolean(opts.directedByCustomer) }
+    const where = scope === 'global' ? 'platform-wide' : scope === 'tower' ? target : scope === 'actionClass' ? `${target}${opts.tower ? ` on ${opts.tower}` : ' everywhere'}` : `function ${target}`
     const record = appendRecord(s.evidence, {
-      id: `ev_${digest('brake' + scope + String(on) + s.tick).slice(0, 10)}`,
+      id: `ev_${digest('brake' + id).slice(0, 10)}`,
       at, kind: 'decision', actor: by,
-      summary: on ? `Autonomy brake applied — ${scope === 'global' ? 'platform-wide' : scope}` : `Autonomy brake released — ${scope === 'global' ? 'platform-wide' : scope}`,
-      payload: { scope, on }, sealed: true,
+      actionClass: scope === 'actionClass' ? target : undefined,
+      summary: `Autonomy brake applied — ${where}`,
+      payload: { suspension, directedByCustomer: suspension.directedByCustomer, effect: scope === 'function' ? 'gateway refuses the function before any model call' : 'policy caps affected actions at Advise' },
+      sealed: true,
     })
-    set({
-      evidence: [...s.evidence, record],
-      brake:
-        scope === 'global'
-          ? { ...s.brake, global: on }
-          : { ...s.brake, towers: on ? [...new Set([...s.brake.towers, scope])] : s.brake.towers.filter((t) => t !== scope) },
-    })
+    const suspensions = [...s.suspensions, suspension]
+    set({ evidence: [...s.evidence, record], suspensions, brake: brakeOf(suspensions) })
+
+    if (scope === 'function') {
+      void fetch('/api/agent/suspend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ function: target, on: true }) }).catch(() => {})
+    }
     get().pushToast({
-      title: on ? 'Autonomy brake applied' : 'Autonomy brake released',
-      body: scope === 'global' ? 'All agents drop to Advise. Work continues through humans via the mirrored ITSM.' : `Tower ${scope} capped at Advise.`,
-      tone: on ? 'crit' : 'ok',
+      title: 'Autonomy brake applied',
+      body: scope === 'global'
+        ? 'All agents drop to Advise. Work continues through humans via the mirrored ITSM.'
+        : scope === 'function'
+          ? `${target} will be refused at the gateway until released.`
+          : `${where} capped at Advise.`,
+      tone: 'crit',
       evidenceId: record.id,
     })
+    return id
+  },
+
+  release: (id, by) => {
+    const s = get()
+    const suspension = s.suspensions.find((x) => x.id === id)
+    if (!suspension) return
+    const at = nowIso(s.clockOffsetMins)
+    const where = suspension.scope === 'global' ? 'platform-wide' : suspension.scope === 'function' ? `function ${suspension.target}` : suspension.target
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('release' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'decision', actor: by,
+      actionClass: suspension.scope === 'actionClass' ? suspension.target : undefined,
+      summary: `Autonomy brake released — ${where}`,
+      payload: { suspension }, sealed: true,
+    })
+    const suspensions = s.suspensions.filter((x) => x.id !== id)
+    set({ evidence: [...s.evidence, record], suspensions, brake: brakeOf(suspensions) })
+    if (suspension.scope === 'function') {
+      void fetch('/api/agent/suspend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ function: suspension.target, on: false }) }).catch(() => {})
+    }
+    get().pushToast({ title: 'Autonomy brake released', body: `${where} returns to the standing schedule.`, tone: 'ok', evidenceId: record.id })
+  },
+
+  /** The original two-scope brake, now a thin wrapper over suspensions. */
+  setBrake: (scope, on, by) => {
+    const s = get()
+    const kind = scope === 'global' ? 'global' : 'tower'
+    if (on) {
+      get().suspend(kind, scope, by, scope === 'global' ? 'Global autonomy brake' : 'Tower brake')
+    } else {
+      const existing = s.suspensions.find((x) => x.scope === kind && x.target === scope)
+      if (existing) get().release(existing.id, by)
+    }
   },
 
   suspendAgent: (agentId, by, reason) => {

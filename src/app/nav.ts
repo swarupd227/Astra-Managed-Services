@@ -107,6 +107,7 @@ export const SURFACES: Surface[] = [
     users: 'AI engineering, platform team',
     items: [
       { to: '/atlas/fleet', label: 'Agent Fleet', desc: 'Every agent, ours and the client’s, under one governance regime' },
+      { to: '/atlas/systems', label: 'AI Systems', desc: 'The approved model registry the gateway enforces — exhibit, purposes, revision history' },
       { to: '/atlas/evaluation', label: 'Evaluation & Promotion', desc: 'Suites, regression diffs, the promotion pipeline' },
       { to: '/atlas/policy', label: 'Policy & Simulator', desc: 'Author policy-as-code and ask the engine what it would decide' },
       { to: '/atlas/tokenops', label: 'Model Economics', desc: 'Unit economics, routing frontiers, distillation candidates' },
