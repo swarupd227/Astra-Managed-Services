@@ -19,10 +19,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 export const REGISTRY_FILE = path.join(HERE, 'ai-registry.json')
 
 /** Which registry purpose each gateway phase consumes. */
-export const PHASE_PURPOSE = { plan: 'plan_synthesis', outcome: 'narrative', brief: 'narrative' }
+export const PHASE_PURPOSE = { plan: 'plan_synthesis', outcome: 'narrative', brief: 'narrative', compile: 'plan_synthesis' }
 
 /** The AI function each gateway phase belongs to — the unit a customer may suspend. */
-export const PHASE_FUNCTION = { plan: 'copilot.plan', outcome: 'herald.outcome', brief: 'herald.brief' }
+export const PHASE_FUNCTION = { plan: 'copilot.plan', outcome: 'herald.outcome', brief: 'herald.brief', compile: 'compiler.objectives' }
 
 export const STATUSES = ['approved', 'pending', 'revoked']
 export const HOSTINGS = ['vendor_cloud', 'client_tenant', 'artizent_dedicated']

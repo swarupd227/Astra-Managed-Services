@@ -204,7 +204,86 @@ const PROPOSE_ACTION = {
   },
 }
 
+const PROPOSE_OBJECTIVES = {
+  name: 'propose_objectives',
+  description:
+    'Propose how each stated objective will be measured, using only measures the platform already takes. ' +
+    'You are proposing a configuration for a human to accept — nothing you return is applied on its own. ' +
+    'Where an objective cannot be measured from the catalogue, say so with kind "none" and a reason; never approximate it with an unrelated measure.',
+  strict: true,
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      objectives: {
+        type: 'array',
+        description: 'One entry per objective in the supplied text, in the order given.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            statement: { type: 'string', description: 'The objective exactly as the client wrote it. Do not paraphrase.' },
+            shortName: { type: 'string', description: 'Two or three words naming it, e.g. "AI-Enabled Operations".' },
+            owner: { type: 'string', description: 'Client-side owner if the text names or implies one, otherwise "unassigned".' },
+            horizon: { type: 'string', description: 'Over what period this is judged, if stated; otherwise "not stated".' },
+            measures: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  label: { type: 'string', description: 'What this measure tells the reader, in plain words.' },
+                  kind: {
+                    type: 'string',
+                    enum: ['sla', 'demand_class', 'tower_avg', 'glidepath_banked', 'glidepath_trajectory', 'innovation_verified', 'spend_ratio', 'none'],
+                  },
+                  ref: { type: 'string', description: 'The catalogue ref for this kind — an SLA id, a demand-class id, a tower field, or an attribution. Empty string where the kind needs none.' },
+                  target: { type: 'number', description: 'The target value, or -1 when the measure carries its own target or has none.' },
+                  direction: { type: 'string', enum: ['up', 'down'] },
+                  proxy: { type: 'boolean', description: 'True when this stands in for something the platform cannot measure directly.' },
+                  proxyNote: { type: 'string', description: 'Required when proxy is true: what it stands in for and why it is not the same thing. Empty otherwise.' },
+                  why: { type: 'string', description: 'Required when kind is "none": what would have to exist to measure this. Empty otherwise.' },
+                },
+                required: ['label', 'kind', 'ref', 'target', 'direction', 'proxy', 'proxyNote', 'why'],
+              },
+            },
+            demandClasses: { type: 'array', items: { type: 'string' }, description: 'Demand-class ids from the catalogue whose elimination serves this objective. Empty array if none.' },
+            gaps: { type: 'array', items: { type: 'string' }, description: 'What this objective needs that the platform cannot evidence today. Empty array only if genuinely nothing.' },
+          },
+          required: ['statement', 'shortName', 'owner', 'horizon', 'measures', 'demandClasses', 'gaps'],
+        },
+      },
+      note: { type: 'string', description: 'Your actual words to the reviewer: where your judgement was weakest, which mapping you are least sure of, anything ambiguous or inconsistent in the client\'s own text. Two to four sentences. Never a stub, a placeholder or an empty string — this is the only place a doubt that belongs to no single objective can be recorded.' },
+    },
+    required: ['objectives', 'note'],
+  },
+}
+
 /* -------------------------------- Prompting -------------------------------- */
+
+function compilerPrompt(catalogue) {
+  return `You are the objective compiler of Astra, the managed-services platform Artizent operates.
+
+A client has stated what they want this engagement to achieve. Your job is to propose how each objective will be measured, using only measures this platform already takes, and to be candid about the ones it cannot measure at all.
+
+You are proposing. A named client owner accepts or rejects what you return, and nothing you propose is applied on its own. Say what you actually found; do not produce a tidy scorecard.
+
+THE MEASURE CATALOGUE
+These are the only measures that exist. Every ref you use must appear here verbatim.
+${JSON.stringify(catalogue, null, 1)}
+
+HOW TO WORK
+1. Take each objective in the order given and keep its statement verbatim. The client's words are the record; your summary is not.
+2. Propose the measures from the catalogue that genuinely evidence it. Prefer a measure that already carries its own target (an SLA or XLA) over one you must set a target for.
+3. Where the catalogue holds nothing that evidences an objective — or evidences only part of it — use kind "none" for that part, and say in "why" what would have to exist. This is the most valuable thing you produce. An objective whose every measure resolves is the easy case; an objective half of which cannot be measured is the one the client needs to know about before they sign.
+4. Use a proxy only where a real measure is genuinely absent, mark proxy true, and in proxyNote say plainly what it stands in for and why it is not the same thing. An unlabelled proxy is worse than no measure.
+5. List in "gaps" what the objective needs that this platform cannot evidence — a missing baseline, a feed that does not exist, a programme object with no representation. Be specific about what would close it.
+6. Never invent an id. If you find yourself wanting a measure that is not in the catalogue, that is a gap, not a ref.
+7. Fill "note" every time. It is the one place you speak to the reviewer rather than about the objectives: where your judgement was weakest, which mapping you are least sure of, anything in the client's own text that reads as inconsistent or ambiguous. Leaving it empty wastes the only channel you have for a doubt that belongs to no single objective.
+
+VOICE
+Write as a senior engineer proposing a measurement scheme to a client executive who will be held to it. Plain, specific, unhurried. British spelling. No marketing language. Do not claim the platform can do something it cannot.`
+}
 
 function systemPrompt(estate) {
   return `You are the agent runtime of Astra, the managed-services platform Artizent operates for ${estate?.client?.name ?? 'the client'}.
@@ -330,7 +409,7 @@ async function handleTest(res, candidateKey) {
 
 async function handleAgent(body, res) {
   const send = sse(res)
-  const { phase = 'plan', utterance, estate, approved, portfolio } = body
+  const { phase = 'plan', utterance, estate, approved, portfolio, catalogue } = body
 
   if (!client) {
     send({ type: 'error', message: 'No API key configured. Open Connection settings to add one.' })
@@ -392,15 +471,21 @@ async function handleAgent(body, res) {
     // only `plan` gets the tool and the high effort budget.
     const isOutcome = phase === 'outcome'
     const isBrief = phase === 'brief'
+    const isCompile = phase === 'compile'
     const narrating = isOutcome || isBrief
 
     const stream = client.messages.stream({
       model: system.model,
-      max_tokens: isOutcome ? 1024 : isBrief ? 1600 : 8000,
+      // A compilation carries every objective's measures, proxy notes and
+      // gaps in one structure, so it needs far more room than a single plan.
+      max_tokens: isOutcome ? 1024 : isBrief ? 1600 : isCompile ? 24000 : 8000,
       thinking: { type: 'adaptive', display: 'summarized' },
       output_config: { effort: isOutcome ? 'low' : isBrief ? 'medium' : 'high' },
-      system: withCanary(isBrief ? briefPrompt(portfolio) : isOutcome ? outcomePrompt(estate) : systemPrompt(estate), canary),
-      tools: narrating ? undefined : [PROPOSE_ACTION],
+      system: withCanary(
+        isBrief ? briefPrompt(portfolio) : isOutcome ? outcomePrompt(estate) : isCompile ? compilerPrompt(catalogue) : systemPrompt(estate),
+        canary,
+      ),
+      tools: narrating ? undefined : [isCompile ? PROPOSE_OBJECTIVES : PROPOSE_ACTION],
       messages: isBrief
         ? [{ role: 'user', content: 'Brief me.' }]
         : isOutcome
@@ -408,7 +493,9 @@ async function handleAgent(body, res) {
               role: 'user',
               content: `Operator intent: ${utterance}\n\nApproved and executed plan:\n${JSON.stringify(approved, null, 1)}`,
             }]
-          : [{ role: 'user', content: utterance }],
+          : isCompile
+            ? [{ role: 'user', content: `The client states these objectives for the engagement:\n\n${utterance}` }]
+            : [{ role: 'user', content: utterance }],
     })
 
     stream.on('streamEvent', (event) => {
@@ -434,10 +521,25 @@ async function handleAgent(body, res) {
       })
     }
 
+    // A structured proposal cut off at the token ceiling still parses, and a
+    // half-written one is indistinguishable from a complete one once it
+    // reaches the screen: objectives the model reasoned about are simply
+    // absent, and the summary counts read clean because what is missing was
+    // never counted. So a truncated call yields no proposal at all.
+    const truncated = final.stop_reason === 'max_tokens'
+    if (truncated && !leaked && final.content.some((b) => b.type === 'tool_use')) {
+      send({
+        type: 'refuse',
+        agent: 'Gateway',
+        text: 'The model reached its output ceiling before it finished. A partial proposal was withheld: what is missing from a truncated structure cannot be distinguished from what was deliberately left out, so the result would read as complete when it is not. Compile fewer objectives at a time, or raise the ceiling.',
+        rule: 'Truncated output — a partial structured proposal is never presented as a whole one',
+      })
+    }
+
     for (const block of final.content) {
-      if (!leaked && block.type === 'tool_use' && block.name === 'propose_action') {
-        send({ type: 'proposal', input: block.input })
-      }
+      if (leaked || truncated || block.type !== 'tool_use') continue
+      if (block.name === 'propose_action') send({ type: 'proposal', input: block.input })
+      if (block.name === 'propose_objectives') send({ type: 'objectives', input: block.input })
     }
 
     // The currency check: the vendor reports which model actually served the

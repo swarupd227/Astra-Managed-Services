@@ -30,6 +30,7 @@ export const AI_FUNCTIONS = [
   { id: 'copilot.plan', label: 'Copilot — intent routing and plan generation', phase: 'plan' },
   { id: 'herald.outcome', label: 'Herald — outcome narrative after an approved run', phase: 'outcome' },
   { id: 'herald.brief', label: 'Herald — executive brief', phase: 'brief' },
+  { id: 'compiler.objectives', label: 'Objective compiler — proposing how stated objectives will be measured', phase: 'compile' },
 ] as const
 
 export type AiFunctionId = (typeof AI_FUNCTIONS)[number]['id']

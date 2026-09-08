@@ -240,10 +240,12 @@ type GatewayEvent =
   | { type: 'system'; system: GatewaySystem }
   | { type: 'refuse'; agent: string; text: string; rule: string }
   | { type: 'incident'; class: AiIncidentClass; detector: string; summary: string; details: string[]; consequential: boolean }
+  /** The objective compiler's proposal. Shaped and validated by objectiveCompiler.ts. */
+  | { type: 'objectives'; input: unknown }
   | { type: 'done' }
   | { type: 'error'; message: string }
 
-async function* streamGateway(body: unknown, signal: AbortSignal): AsyncGenerator<GatewayEvent> {
+export async function* streamGateway(body: unknown, signal: AbortSignal): AsyncGenerator<GatewayEvent> {
   const res = await fetch('/api/agent', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
