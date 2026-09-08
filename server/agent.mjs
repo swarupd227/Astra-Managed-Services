@@ -239,6 +239,7 @@ THE PORTFOLIO
 ${JSON.stringify(portfolio, null, 1)}
 
 HOW TO BRIEF
+0. Lead on the objectives if the portfolio carries them: this executive bought outcomes, not towers. Where an objective has measures that cannot be taken — the portfolio lists them under "unmeasured" — say so plainly rather than reporting only the half that can. A measure marked as a proxy is evidence by agreement, not by measurement, and should be described that way.
 1. Open with the single most important thing. Not a greeting, not a summary of what you are about to say.
 2. Make an argument, not a list. Say what the figures mean, and where two figures disagree, say which one you believe and why.
 3. Every number you cite must be one from the portfolio above. Never invent or round beyond what is given. If a figure is missing, say you do not have it.

@@ -49,6 +49,8 @@ export interface Mission {
   name: string
   kind: MissionKind
   goal: string
+  /** The client objective this standing delegation serves. */
+  objectiveId?: string
   tower: string
   owner: string
   sponsor: string
@@ -190,6 +192,8 @@ const rng = new Rng(90210)
 const STANDING: {
   key: string
   name: string
+  /** Which client objective this standing mission is for. */
+  objective: string
   goal: (t: Tower) => string
   owner: (t: Tower) => string
   sponsor: string
@@ -205,6 +209,7 @@ const STANDING: {
   {
     key: 'keep_green',
     name: 'Keep Green',
+    objective: 'obj_ai_ops',
     goal: (t) => `SLA and SLO attainment at or above target across ${t.name}`,
     owner: (t) => t.sdm,
     sponsor: 'R. Castellano (Client Service Owner)',
@@ -224,6 +229,7 @@ const STANDING: {
   },
   {
     key: 'shrink_baseline',
+    objective: 'obj_cost_scalability',
     name: 'Shrink the Baseline',
     goal: (t) => `Continuously propose and, within pre-approved classes, implement demand eliminations against the ${t.name} glidepath`,
     owner: () => 'S. Iyer',
@@ -244,6 +250,7 @@ const STANDING: {
   },
   {
     key: 'earn_autonomy',
+    objective: 'obj_ai_ops',
     name: 'Earn Autonomy',
     goal: (t) => `Agents on ${t.name} assemble their own promotion evidence and file permission requests as thresholds are met`,
     owner: () => 'L. Nakamura',
@@ -264,6 +271,7 @@ const STANDING: {
   },
   {
     key: 'stay_cheap',
+    objective: 'obj_cost_scalability',
     name: 'Stay Cheap',
     goal: (t) => `Hold unit cost per work object on ${t.name} below the contracted ceiling without degrading resolution quality`,
     owner: () => 'J. Whitcombe',
@@ -322,6 +330,7 @@ export const MISSIONS: Mission[] = TOWERS.filter((t) => t.state === 'S4').flatMa
       name: m.name,
       kind: 'standing' as const,
       goal: m.goal(t),
+      objectiveId: m.objective,
       tower: t.id,
       owner: m.owner(t),
       sponsor: m.sponsor,

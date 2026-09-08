@@ -131,7 +131,11 @@ export function ExecutiveHome() {
 
     // The portfolio is snapshotted at the moment of asking. A brief whose
     // figures move underneath it while it is being written is not a brief.
-    const portfolio = buildPortfolio(Object.values(useAstra.getState().work), Object.values(useAstra.getState().proposals))
+    const portfolio = buildPortfolio(
+      Object.values(useAstra.getState().work),
+      Object.values(useAstra.getState().proposals),
+      useAstra.getState().objectives,
+    )
 
     try {
       const u = await streamExecutiveBrief(portfolio, setText, ac.signal)

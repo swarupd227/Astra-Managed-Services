@@ -1,6 +1,7 @@
 import { CLIENT, TOWERS } from './estate'
 import { DECISIONS, INNOVATION, OBLIGATIONS, SLAS, TRANSFORM, bankedHours } from './ledgers'
 import { daysOpen, type Proposal } from './proposals'
+import { objectiveProgress, type Objective } from './objectives'
 import type { WorkObject } from './types'
 
 /* ==========================================================================
@@ -16,6 +17,19 @@ export interface Portfolio {
   client: string
   contract: string
   monthElapsed: number
+  /**
+   * Progress against what the client is buying, not only against the towers.
+   * `unmeasured` is carried deliberately: a brief that reported only the
+   * measurable half of an objective would read better and be worth less.
+   */
+  objectives: {
+    statement: string
+    owner: string
+    state: 'on_track' | 'at_risk' | 'unmeasurable'
+    accepted: boolean
+    measures: { label: string; now: string; target: string | null; state: string; proxy: boolean }[]
+    unmeasured: string[]
+  }[]
   service: {
     slasMet: number
     slasTotal: number
@@ -44,7 +58,7 @@ export interface Portfolio {
   }
 }
 
-export function buildPortfolio(work: WorkObject[], proposals: Proposal[]): Portfolio {
+export function buildPortfolio(work: WorkObject[], proposals: Proposal[], objectives: Objective[] = []): Portfolio {
   const runTowers = TOWERS.filter((t) => t.state === 'S4')
   const baseline = runTowers.reduce((s, t) => s + t.baselineHrsPerQtr, 0) || 1
 
@@ -63,6 +77,19 @@ export function buildPortfolio(work: WorkObject[], proposals: Proposal[]): Portf
     client: CLIENT.name,
     contract: CLIENT.contract,
     monthElapsed: CLIENT.monthsElapsed,
+    objectives: objectives.map((o) => {
+      const p = objectiveProgress(o)
+      return {
+        statement: o.statement.split(':')[0],
+        owner: o.owner,
+        state: p.state,
+        accepted: o.state === 'accepted',
+        measures: p.measures
+          .filter((m) => m.state !== 'no_measure')
+          .map((m) => ({ label: m.label, now: m.display, target: m.target, state: m.state, proxy: m.proxy })),
+        unmeasured: p.measures.filter((m) => m.state === 'no_measure').map((m) => m.label),
+      }
+    }),
     service: {
       slasMet: slas.length - breaching.length,
       slasTotal: slas.length,

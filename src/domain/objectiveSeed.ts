@@ -24,7 +24,6 @@ export const OBJECTIVES: Objective[] = [
     ],
     servedBy: {
       demandClasses: ['dc_pwd_reset', 'dc_triple_av', 'dc_access_recert'],
-      transformAllocations: ['ta_019', 'ta_044'],
     },
     state: 'proposed',
     gaps: [],
@@ -82,7 +81,7 @@ export const OBJECTIVES: Objective[] = [
         direction: 'down',
       },
     ],
-    servedBy: { demandClasses: ['dc_workday_migration', 'dc_iem_ghost', 'dc_shadow_app'], transformAllocations: ['ta_007'] },
+    servedBy: { demandClasses: ['dc_workday_migration', 'dc_iem_ghost', 'dc_shadow_app'] },
     state: 'proposed',
     gaps: [
       'No migration or programme object: a target end-state, its milestones and a burn-down cannot be represented.',
@@ -100,7 +99,7 @@ export const OBJECTIVES: Objective[] = [
       { id: 'om_inn_value', label: 'Innovation value realised and verified', source: { kind: 'innovation_verified' }, direction: 'up' },
       { id: 'om_inn_accel', label: 'Effort removed through acceleration rather than headcount', source: { kind: 'glidepath_banked', attribution: 'acceleration' }, direction: 'up' },
     ],
-    servedBy: { transformAllocations: ['ta_036', 'ta_044'] },
+    servedBy: { },
     state: 'proposed',
     gaps: [],
   },
@@ -124,7 +123,7 @@ export const OBJECTIVES: Objective[] = [
         direction: 'up',
       },
     ],
-    servedBy: { transformAllocations: ['ta_012', 'ta_025'] },
+    servedBy: { },
     state: 'proposed',
     gaps: ['No demand forecast and no capacity-headroom measure, so the scalability half of this objective is unevidenced.'],
   },
@@ -150,7 +149,7 @@ export const OBJECTIVES: Objective[] = [
         direction: 'up',
       },
     ],
-    servedBy: { demandClasses: ['dc_pwd_reset', 'dc_onedrive_sync', 'dc_sw_provision'], transformAllocations: ['ta_019'] },
+    servedBy: { demandClasses: ['dc_pwd_reset', 'dc_onedrive_sync', 'dc_sw_provision'] },
     state: 'proposed',
     gaps: [
       'No self-service deflection rate against a target, which the service description explicitly asks for.',

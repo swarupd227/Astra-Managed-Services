@@ -1,6 +1,7 @@
 import { AGENTS, TOWERS } from './estate'
-import { DEMAND_CLASSES, GLIDEPATH, INNOVATION, SLAS, bankedHours } from './ledgers'
-import type { GlidepathEntry, ISO } from './types'
+import { DEMAND_CLASSES, GLIDEPATH, INNOVATION, SLAS, TRANSFORM, bankedHours } from './ledgers'
+import { MISSIONS } from './missions'
+import type { GlidepathEntry, ISO, TransformAllocation } from './types'
 
 /* ==========================================================================
    Objectives — what the client is actually buying.
@@ -62,7 +63,13 @@ export interface Objective {
   owner: string
   horizon: string
   measures: ObjectiveMeasure[]
-  servedBy: { missions?: string[]; transformAllocations?: string[]; demandClasses?: string[] }
+  /**
+   * Demand classes are curated here because one class legitimately serves
+   * several objectives. Missions and transform allocations are not listed:
+   * each names the single objective it is for, so the link has one source of
+   * truth and cannot contradict itself. See objectiveLinks().
+   */
+  servedBy: { demandClasses?: string[] }
   state: 'proposed' | 'accepted'
   acceptedBy?: string
   acceptedAt?: ISO
@@ -84,7 +91,13 @@ export interface ResolvedMeasure {
   href?: string
 }
 
-const runTowers = () => TOWERS.filter((t) => !['S0', 'S1'].includes(t.state))
+/**
+ * Towers in run — the same population buildPortfolio() uses for the
+ * commercial and workforce figures. It must stay identical: a measure that
+ * averaged over a different set would report a rival number for the same
+ * concept, which is exactly what this layer exists to prevent.
+ */
+const runTowers = () => TOWERS.filter((t) => t.state === 'S4')
 const fmtPct = (n: number, dp = 1) => `${n.toFixed(dp)}%`
 const fmtHrs = (n: number) => `${Math.round(n).toLocaleString()} h`
 const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`
@@ -209,6 +222,36 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
       }
     }
   }
+}
+
+export interface ObjectiveLinks {
+  missions: { id: string; name: string; tower: string; goal: string }[]
+  allocations: (TransformAllocation & { tower: string })[]
+  /** Credits committed to this objective, and what they have returned so far. */
+  credits: number
+  yieldPromised: number
+  yieldRealised: number
+}
+
+/**
+ * What is actually working towards an objective, read from the things that
+ * name it rather than from a list kept alongside it.
+ */
+export function objectiveLinks(objectiveId: string): ObjectiveLinks {
+  const missions = MISSIONS.filter((m) => m.objectiveId === objectiveId).map((m) => ({ id: m.id, name: m.name, tower: m.tower, goal: m.goal }))
+  const allocations = TRANSFORM.flatMap((t) => t.allocations.filter((a) => a.objectiveId === objectiveId).map((a) => ({ ...a, tower: t.tower })))
+  return {
+    missions,
+    allocations,
+    credits: allocations.reduce((s, a) => s + a.credits, 0),
+    yieldPromised: allocations.reduce((s, a) => s + a.yieldPromised, 0),
+    yieldRealised: allocations.reduce((s, a) => s + (a.yieldRealised ?? 0), 0),
+  }
+}
+
+/** Transform spend approved without naming an objective — spend with no stated purpose. */
+export function unattributedAllocations(): (TransformAllocation & { tower: string })[] {
+  return TRANSFORM.flatMap((t) => t.allocations.filter((a) => !a.objectiveId).map((a) => ({ ...a, tower: t.tower })))
 }
 
 export interface ObjectiveProgress {

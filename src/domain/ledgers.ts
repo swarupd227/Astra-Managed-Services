@@ -105,9 +105,9 @@ export const TRANSFORM: TransformLedger[] = [
     bankedSavingsHrs: 1240, reinvestPct: 60, priceReductionPct: 40,
     creditsAccrued: 744, creditsCarriedIn: 121, creditsConsumed: 505, freezeState: 'none',
     allocations: [
-      { id: 'ta_007', title: 'Automate certificate rotation on the Mulesoft/FOCUS VM estate', credits: 300, approvedIn: 'gov_2026_11', state: 'delivered', yieldPromised: 190, yieldRealised: 214 },
-      { id: 'ta_031', title: 'Draft the missing Mulesoft integration runbook', credits: 260, approvedIn: 'gov_2027_02', state: 'executing', yieldPromised: 140 },
-      { id: 'ta_034', title: 'Retire legacy IEM in favor of Concur', credits: 380, approvedIn: 'gov_2027_02', state: 'approved', yieldPromised: 175 },
+      { id: 'ta_007', title: 'Automate certificate rotation on the Mulesoft/FOCUS VM estate', objectiveId: 'obj_ai_ops', credits: 300, approvedIn: 'gov_2026_11', state: 'delivered', yieldPromised: 190, yieldRealised: 214 },
+      { id: 'ta_031', title: 'Draft the missing Mulesoft integration runbook', objectiveId: 'obj_ai_ops', credits: 260, approvedIn: 'gov_2027_02', state: 'executing', yieldPromised: 140 },
+      { id: 'ta_034', title: 'Retire legacy IEM in favor of Concur', objectiveId: 'obj_modernization', credits: 380, approvedIn: 'gov_2027_02', state: 'approved', yieldPromised: 175 },
     ],
   },
   {
@@ -115,9 +115,9 @@ export const TRANSFORM: TransformLedger[] = [
     bankedSavingsHrs: 1610, reinvestPct: 60, priceReductionPct: 40,
     creditsAccrued: 966, creditsCarriedIn: 88, creditsConsumed: 640, freezeState: 'none',
     allocations: [
-      { id: 'ta_012', title: 'Autoscaling across workloads exiting the Chicago DC', credits: 180, approvedIn: 'gov_2026_10', state: 'delivered', yieldPromised: 130, yieldRealised: 158 },
-      { id: 'ta_028', title: 'Pipeline-only change enforcement (kill console drift)', credits: 460, approvedIn: 'gov_2027_01', state: 'verifying', yieldPromised: 205 },
-      { id: 'ta_040', title: 'Self-healing probes for tier-2 workloads ahead of the DC exit', credits: 220, approvedIn: 'gov_2027_02', state: 'approved', yieldPromised: 96 },
+      { id: 'ta_012', title: 'Autoscaling across workloads exiting the Chicago DC', objectiveId: 'obj_modernization', credits: 180, approvedIn: 'gov_2026_10', state: 'delivered', yieldPromised: 130, yieldRealised: 158 },
+      { id: 'ta_028', title: 'Pipeline-only change enforcement (kill console drift)', objectiveId: 'obj_ai_ops', credits: 460, approvedIn: 'gov_2027_01', state: 'verifying', yieldPromised: 205 },
+      { id: 'ta_040', title: 'Self-healing probes for tier-2 workloads ahead of the DC exit', objectiveId: 'obj_modernization', credits: 220, approvedIn: 'gov_2027_02', state: 'approved', yieldPromised: 96 },
     ],
   },
   {
@@ -125,9 +125,9 @@ export const TRANSFORM: TransformLedger[] = [
     bankedSavingsHrs: 2340, reinvestPct: 60, priceReductionPct: 40,
     creditsAccrued: 1404, creditsCarriedIn: 210, creditsConsumed: 980, freezeState: 'none',
     allocations: [
-      { id: 'ta_019', title: 'Self-service lockout recovery portal', credits: 420, approvedIn: 'gov_2026_09', state: 'delivered', yieldPromised: 1200, yieldRealised: 1388 },
-      { id: 'ta_036', title: 'Zero-touch catalog provisioning', credits: 560, approvedIn: 'gov_2027_01', state: 'delivered', yieldPromised: 620, yieldRealised: 690 },
-      { id: 'ta_044', title: 'Consolidate three endpoint-security agents onto one', credits: 300, approvedIn: 'gov_2027_02', state: 'executing', yieldPromised: 268 },
+      { id: 'ta_019', title: 'Self-service lockout recovery portal', objectiveId: 'obj_employee_experience', credits: 420, approvedIn: 'gov_2026_09', state: 'delivered', yieldPromised: 1200, yieldRealised: 1388 },
+      { id: 'ta_036', title: 'Zero-touch catalog provisioning', objectiveId: 'obj_employee_experience', credits: 560, approvedIn: 'gov_2027_01', state: 'delivered', yieldPromised: 620, yieldRealised: 690 },
+      { id: 'ta_044', title: 'Consolidate three endpoint-security agents onto one', objectiveId: 'obj_employee_experience', credits: 300, approvedIn: 'gov_2027_02', state: 'executing', yieldPromised: 268 },
     ],
   },
   {
@@ -136,7 +136,7 @@ export const TRANSFORM: TransformLedger[] = [
     creditsAccrued: 468, creditsCarriedIn: 34, creditsConsumed: 120, freezeState: 'frozen',
     freezeReason: 'XLA trust score breached target for Research & Analytics consumers — new credit allocation frozen until service is restored (§12.5).',
     allocations: [
-      { id: 'ta_022', title: 'Enforce data contracts on the Azure Data Factory customer feed', credits: 120, approvedIn: 'gov_2026_12', state: 'verifying', yieldPromised: 224 },
+      { id: 'ta_022', title: 'Enforce data contracts on the Azure Data Factory customer feed', objectiveId: 'obj_ai_ops', credits: 120, approvedIn: 'gov_2026_12', state: 'verifying', yieldPromised: 224 },
     ],
   },
   {
@@ -144,7 +144,7 @@ export const TRANSFORM: TransformLedger[] = [
     bankedSavingsHrs: 610, reinvestPct: 60, priceReductionPct: 40,
     creditsAccrued: 366, creditsCarriedIn: 0, creditsConsumed: 210, freezeState: 'none',
     allocations: [
-      { id: 'ta_025', title: 'Business-calendar-aware integration alarm thresholds', credits: 210, approvedIn: 'gov_2027_01', state: 'executing', yieldPromised: 90 },
+      { id: 'ta_025', title: 'Business-calendar-aware integration alarm thresholds', objectiveId: 'obj_ai_ops', credits: 210, approvedIn: 'gov_2027_01', state: 'executing', yieldPromised: 90 },
     ],
   },
 ]

@@ -315,6 +315,8 @@ export interface GlidepathEntry {
 export interface TransformAllocation {
   id: string
   title: string
+  /** The objective this spend is for. Credits with no objective are spend without a stated purpose. */
+  objectiveId?: string
   credits: number
   approvedIn: string
   state: 'approved' | 'executing' | 'delivered' | 'verifying'

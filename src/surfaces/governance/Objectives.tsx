@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, Check, Quote, Target, TriangleAlert } from 'lucide-react'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
-import { objectiveProgress, type MeasureState } from '@/domain/objectives'
-import { DEMAND_CLASSES, TRANSFORM } from '@/domain/ledgers'
+import { objectiveLinks, objectiveProgress, unattributedAllocations, type MeasureState } from '@/domain/objectives'
+import { DEMAND_CLASSES } from '@/domain/ledgers'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Button, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
@@ -36,6 +36,11 @@ export function Objectives() {
   const canAcceptObjectives = role.org === 'client' && role.canApprove
 
   const progress = React.useMemo(() => objectives.map(objectiveProgress), [objectives])
+  const links = React.useMemo(
+    () => Object.fromEntries(objectives.map((o) => [o.id, objectiveLinks(o.id)])),
+    [objectives],
+  )
+  const orphaned = React.useMemo(() => unattributedAllocations(), [])
   const accepted = objectives.filter((o) => o.state === 'accepted').length
   const measures = progress.flatMap((p) => p.measures)
   const unmeasured = measures.filter((m) => m.state === 'no_measure').length
@@ -137,25 +142,51 @@ export function Objectives() {
                   </div>
                 )}
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="label-cap">Served by</span>
-                  {(o.servedBy.demandClasses ?? []).map((id) => (
-                    <Link key={id} to="/governance/elimination">
-                      <Chip mono title={DEMAND_CLASSES.find((d) => d.id === id)?.name}>{id}</Chip>
-                    </Link>
-                  ))}
-                  {(o.servedBy.transformAllocations ?? []).map((id) => {
-                    const alloc = TRANSFORM.flatMap((t) => t.allocations).find((a) => a.id === id)
-                    return (
-                      <Link key={id} to="/governance/glidepath">
-                        <Chip mono title={alloc?.title}>{id}</Chip>
-                      </Link>
-                    )
-                  })}
-                  {!(o.servedBy.demandClasses ?? []).length && !(o.servedBy.transformAllocations ?? []).length && (
-                    <span className="text-2xs text-ink-3">nothing linked yet</span>
-                  )}
+                <div className="mt-3 grid gap-2 rounded border border-line bg-sunken p-3 sm:grid-cols-3">
+                  <div>
+                    <div className="label-cap">Standing missions</div>
+                    {links[o.id].missions.length ? (
+                      <ul className="mt-1 space-y-0.5">
+                        {links[o.id].missions.slice(0, 4).map((m) => (
+                          <li key={m.id} className="truncate text-2xs text-ink-2" title={m.goal}>· {m.name} — {m.tower.replace('twr_', '')}</li>
+                        ))}
+                        {links[o.id].missions.length > 4 && <li className="text-2xs text-ink-3">+{links[o.id].missions.length - 4} more</li>}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-2xs text-ink-3">None name this objective.</p>
+                    )}
+                    <Link to="/missions" className="mt-1 inline-block text-2xs text-brand-ink hover:underline">open missions →</Link>
+                  </div>
 
+                  <div>
+                    <div className="label-cap">Credits committed</div>
+                    {links[o.id].allocations.length ? (
+                      <>
+                        <p className="tnum mt-1 text-xs text-ink">{links[o.id].credits.toLocaleString()}</p>
+                        <p className="text-2xs leading-relaxed text-ink-3">
+                          across {links[o.id].allocations.length} allocation{links[o.id].allocations.length === 1 ? '' : 's'} · {links[o.id].yieldRealised.toLocaleString()} of {links[o.id].yieldPromised.toLocaleString()} promised hours realised
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-2xs text-ink-3">No transform spend names this objective.</p>
+                    )}
+                    <Link to="/governance/glidepath" className="mt-1 inline-block text-2xs text-brand-ink hover:underline">open ledger →</Link>
+                  </div>
+
+                  <div>
+                    <div className="label-cap">Demand classes</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(o.servedBy.demandClasses ?? []).map((id) => (
+                        <Link key={id} to="/governance/elimination">
+                          <Chip mono title={DEMAND_CLASSES.find((d) => d.id === id)?.name}>{id}</Chip>
+                        </Link>
+                      ))}
+                      {!(o.servedBy.demandClasses ?? []).length && <span className="text-2xs text-ink-3">none linked</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="ml-auto flex items-center gap-2">
                     {o.state === 'accepted' ? (
                       <span className="text-2xs text-ink-3">accepted by {o.acceptedBy} · {o.acceptedAt?.slice(0, 10)}</span>
@@ -178,6 +209,20 @@ export function Objectives() {
             )
           })}
         </div>
+
+        {orphaned.length > 0 && (
+          <Card className="mt-4" title="Transform spend with no stated objective" subtitle="Credits approved without naming what they are for">
+            <ul className="space-y-1">
+              {orphaned.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-baseline gap-2 text-2xs text-ink-2">
+                  <Chip mono>{a.id}</Chip>
+                  <span className="text-ink">{a.title}</span>
+                  <span className="tnum ml-auto text-ink-3">{a.credits.toLocaleString()} credits</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <Card className="mt-4" title="How an objective works here" subtitle="Why this tier exists" right={<Target size={13} className="text-ink-3" />}>
           <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
