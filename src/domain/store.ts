@@ -11,6 +11,7 @@ import type { BiasResult } from './biasSuite'
 import type { ConformanceRun } from './conformance'
 import type { Objective } from './objectives'
 import { OBJECTIVES } from './objectiveSeed'
+import type { CompileResult } from './objectiveCompiler'
 import { driftReport, type DriftReport } from './drift'
 import { modelChangeClocks, type ModelChange } from './changeLog'
 import { deletionManifest, manifestHash, nextAttestationDue, type Attestation, type DeletionCertificate } from './dataHandling'
@@ -143,6 +144,8 @@ interface State {
   simulateModelChange: (systemId: string) => void
   /** A named client owner accepts the measures proposed for an objective. Sealed as an approval. */
   acceptObjective: (id: string, by: string) => void
+  /** Replaces the objective set with a compiler proposal. Every objective still needs client acceptance. */
+  applyCompiledObjectives: (result: CompileResult, by: string) => void
   /** Records a training-exclusion attestation as a knowledge record and restarts the cadence. */
   attestTrainingExclusion: (by: string, vendorRef: string, scope: string) => void
   /** Deletes closed work, its runs and stale assertions for a tower under four-eyes, and seals the certificate. */
@@ -1130,6 +1133,46 @@ export const useAstra = create<State>((set, get) => ({
         ? `${o.gaps.length} gap${o.gaps.length === 1 ? '' : 's'} accepted as unmeasured — recorded with the acceptance.`
         : 'Every measure behind this objective resolves to a governed figure.',
       tone: o.gaps.length ? 'warn' : 'ok',
+      evidenceId: record.id,
+    })
+  },
+
+  /**
+   * The compiler proposes; this records the proposal as the working set.
+   * Nothing is accepted by applying it — every objective arrives proposed and
+   * still needs its client owner. What the compiler tried to invent is sealed
+   * alongside what it got right, because a proposal whose failures are
+   * invisible is worth less than one that shows them.
+   */
+  applyCompiledObjectives: (result, by) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('objcompile' + s.tick + s.evidence.length).slice(0, 10)}`,
+      at, kind: 'decision', actor: by,
+      summary: `Objective set compiled — ${result.objectives.length} proposed, ${result.rejections.length} measure${result.rejections.length === 1 ? '' : 's'} rejected`,
+      payload: {
+        note: result.note,
+        proposed: result.objectives.map((o) => ({
+          id: o.id,
+          statement: o.statement,
+          measures: o.measures.map((m) => ({ label: m.label, kind: m.source.kind, proxy: Boolean(m.proxy) })),
+          unmeasured: o.measures.filter((m) => m.source.kind === 'none').length,
+          gaps: o.gaps,
+        })),
+        rejected: result.rejections,
+        replaced: s.objectives.map((o) => ({ id: o.id, state: o.state })),
+        note2: 'Applying a compilation accepts nothing. Each objective requires its client owner.',
+      },
+      sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], objectives: result.objectives })
+    get().pushToast({
+      title: `${result.objectives.length} objectives proposed`,
+      body: result.rejections.length
+        ? `${result.rejections.length} proposed measure${result.rejections.length === 1 ? '' : 's'} did not resolve and ${result.rejections.length === 1 ? 'was' : 'were'} dropped. Each objective still needs its client owner.`
+        : 'Every proposed measure resolved. Each objective still needs its client owner.',
+      tone: result.rejections.length ? 'warn' : 'ok',
       evidenceId: record.id,
     })
   },

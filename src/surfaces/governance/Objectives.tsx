@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Check, Quote, Target, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, Check, Quote, Sparkles, Target, TriangleAlert } from 'lucide-react'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { objectiveLinks, objectiveProgress, unattributedAllocations, type MeasureState } from '@/domain/objectives'
@@ -8,6 +8,7 @@ import { DEMAND_CLASSES } from '@/domain/ledgers'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Button, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
+import { ObjectiveCompilerDrawer } from './ObjectiveCompilerDrawer'
 import { cn } from '@/lib/format'
 
 /* ==========================================================================
@@ -34,6 +35,7 @@ export function Objectives() {
    * same separation the platform applies to a gated action.
    */
   const canAcceptObjectives = role.org === 'client' && role.canApprove
+  const [compiling, setCompiling] = React.useState(false)
 
   const progress = React.useMemo(() => objectives.map(objectiveProgress), [objectives])
   const links = React.useMemo(
@@ -53,14 +55,21 @@ export function Objectives() {
         title="Objectives"
         subtitle="What the engagement was bought to achieve, and what the platform can evidence"
         actions={
-          <Button
-            size="sm" variant="default"
-            onClick={() => pushToast({ title: 'Objective statement exported', body: 'Each objective with its measures, their current figures, the accepted proxies and the declared gaps.', tone: 'ok' })}
-          >
-            <ArrowUpRight size={12} /> Export statement
-          </Button>
+          <>
+            <Button size="sm" variant="default" onClick={() => setCompiling(true)}>
+              <Sparkles size={12} /> Compile from a statement
+            </Button>
+            <Button
+              size="sm" variant="default"
+              onClick={() => pushToast({ title: 'Objective statement exported', body: 'Each objective with its measures, their current figures, the accepted proxies and the declared gaps.', tone: 'ok' })}
+            >
+              <ArrowUpRight size={12} /> Export statement
+            </Button>
+          </>
         }
       />
+
+      <ObjectiveCompilerDrawer open={compiling} onClose={() => setCompiling(false)} />
 
       <ProducedBy agents={['agt_herald']} what="resolving each measure to a governed figure — never computing one of its own" />
 

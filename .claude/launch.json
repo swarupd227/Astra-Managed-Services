@@ -8,6 +8,12 @@
       "port": 5180
     },
     {
+      "name": "astra-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "web"],
+      "port": 5180
+    },
+    {
       "name": "astra-gateway",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "gateway"],
