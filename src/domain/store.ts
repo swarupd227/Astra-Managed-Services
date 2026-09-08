@@ -9,6 +9,8 @@ import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiInc
 import type { RedTeamResult } from './redTeam'
 import type { BiasResult } from './biasSuite'
 import type { ConformanceRun } from './conformance'
+import type { Objective } from './objectives'
+import { OBJECTIVES } from './objectiveSeed'
 import { driftReport, type DriftReport } from './drift'
 import { modelChangeClocks, type ModelChange } from './changeLog'
 import { deletionManifest, manifestHash, nextAttestationDue, type Attestation, type DeletionCertificate } from './dataHandling'
@@ -83,6 +85,8 @@ interface State {
   drift: DriftReport | null
   /** Served-model changes the currency check has opened, with their notice clocks. */
   modelChanges: ModelChange[]
+  /** What the client is buying, and the measures proposed to evidence each one. */
+  objectives: Objective[]
   /** Training-exclusion attestations, newest first. */
   attestations: Attestation[]
   /** Deletion certificates, newest first. */
@@ -137,6 +141,8 @@ interface State {
   acceptModelChange: (id: string, by: string) => void
   /** Demonstration control: records a served model that differs from the registered one for a system. */
   simulateModelChange: (systemId: string) => void
+  /** A named client owner accepts the measures proposed for an objective. Sealed as an approval. */
+  acceptObjective: (id: string, by: string) => void
   /** Records a training-exclusion attestation as a knowledge record and restarts the cadence. */
   attestTrainingExclusion: (by: string, vendorRef: string, scope: string) => void
   /** Deletes closed work, its runs and stale assertions for a tower under four-eyes, and seals the certificate. */
@@ -256,6 +262,7 @@ export const useAstra = create<State>((set, get) => ({
   conformance: null,
   drift: null,
   modelChanges: [],
+  objectives: OBJECTIVES,
   attestations: ATTESTATIONS,
   deletions: [],
   mi: {
@@ -1085,6 +1092,46 @@ export const useAstra = create<State>((set, get) => ({
         if (sys) get().recordModelChange(sys.id, sys.model, `${sys.model}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`)
       })
       .catch(() => {})
+  },
+
+  /* -------------------------------- objectives ---------------------------- */
+
+  /**
+   * The mapping from an objective to the measures that evidence it is a
+   * proposal until a named client owner accepts it. Accepting it is a
+   * decision about what will count as progress, so it is sealed like one —
+   * including the gaps, which the client is accepting as unmeasured.
+   */
+  acceptObjective: (id, by) => {
+    const s = get()
+    const o = s.objectives.find((x) => x.id === id)
+    if (!o || o.state === 'accepted') return
+    const at = nowIso(s.clockOffsetMins)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('obj' + id + s.tick).slice(0, 10)}`,
+      at, kind: 'approval', actor: by,
+      summary: `Objective accepted — ${o.statement.split(':')[0]}`,
+      payload: {
+        objective: id,
+        source: o.source,
+        measures: o.measures.map((m) => ({ id: m.id, label: m.label, kind: m.source.kind, proxy: Boolean(m.proxy) })),
+        proxiesAccepted: o.measures.filter((m) => m.proxy).map((m) => m.label),
+        gapsAccepted: o.gaps,
+      },
+      sealed: true,
+    })
+    set({
+      evidence: [...s.evidence, record],
+      objectives: s.objectives.map((x) => (x.id === id ? { ...x, state: 'accepted', acceptedBy: by, acceptedAt: at } : x)),
+    })
+    get().pushToast({
+      title: 'Objective accepted',
+      body: o.gaps.length
+        ? `${o.gaps.length} gap${o.gaps.length === 1 ? '' : 's'} accepted as unmeasured — recorded with the acceptance.`
+        : 'Every measure behind this objective resolves to a governed figure.',
+      tone: o.gaps.length ? 'warn' : 'ok',
+      evidenceId: record.id,
+    })
   },
 
   /* ------------------------------ data handling --------------------------- */

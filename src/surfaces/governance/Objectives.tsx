@@ -1,0 +1,193 @@
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight, Check, Quote, Target, TriangleAlert } from 'lucide-react'
+import { useAstra } from '@/domain/store'
+import { ROLE_BY_ID } from '@/domain/reference'
+import { objectiveProgress, type MeasureState } from '@/domain/objectives'
+import { DEMAND_CLASSES, TRANSFORM } from '@/domain/ledgers'
+import { PageHeader } from '@/ui/domain'
+import { ProducedBy } from '@/ui/ProducedBy'
+import { Button, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
+import { cn } from '@/lib/format'
+
+/* ==========================================================================
+   Objectives — the tier above missions.
+
+   Every other screen reports mechanics: a tower, a class, an SLA. This one
+   reports the thing the engagement was bought to achieve, and is candid
+   where the platform cannot evidence it. An objective with an unmeasured
+   half says so on its own card rather than in a footnote.
+   ========================================================================== */
+
+const MEASURE_TONE: Record<MeasureState, 'ok' | 'warn' | 'neutral'> = { on_track: 'ok', at_risk: 'warn', no_measure: 'neutral' }
+const MEASURE_LABEL: Record<MeasureState, string> = { on_track: 'on track', at_risk: 'at risk', no_measure: 'no measure' }
+
+export function Objectives() {
+  const objectives = useAstra((s) => s.objectives)
+  const accept = useAstra((s) => s.acceptObjective)
+  const pushToast = useAstra((s) => s.pushToast)
+  const roleId = useAstra((s) => s.roleId)
+  const role = ROLE_BY_ID[roleId]
+  /**
+   * What counts as the client's progress is the client's to accept. A
+   * provider role may propose the mapping and must not sign it off — the
+   * same separation the platform applies to a gated action.
+   */
+  const canAcceptObjectives = role.org === 'client' && role.canApprove
+
+  const progress = React.useMemo(() => objectives.map(objectiveProgress), [objectives])
+  const accepted = objectives.filter((o) => o.state === 'accepted').length
+  const measures = progress.flatMap((p) => p.measures)
+  const unmeasured = measures.filter((m) => m.state === 'no_measure').length
+  const withGaps = objectives.filter((o) => o.gaps.length > 0).length
+  const proxies = measures.filter((m) => m.proxy).length
+
+  return (
+    <>
+      <PageHeader
+        title="Objectives"
+        subtitle="What the engagement was bought to achieve, and what the platform can evidence"
+        actions={
+          <Button
+            size="sm" variant="default"
+            onClick={() => pushToast({ title: 'Objective statement exported', body: 'Each objective with its measures, their current figures, the accepted proxies and the declared gaps.', tone: 'ok' })}
+          >
+            <ArrowUpRight size={12} /> Export statement
+          </Button>
+        }
+      />
+
+      <ProducedBy agents={['agt_herald']} what="resolving each measure to a governed figure — never computing one of its own" />
+
+      <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
+        <Metric size="sm" label="Objectives" value={objectives.length} hint="as the client stated them" />
+        <Metric size="sm" label="Accepted" value={`${accepted} / ${objectives.length}`} deltaTone={accepted === objectives.length ? 'ok' : 'warn'} hint="measures agreed by the named owner" />
+        <Metric size="sm" label="Measures on track" value={`${measures.filter((m) => m.state === 'on_track').length} / ${measures.filter((m) => m.state !== 'no_measure').length}`} deltaTone={measures.some((m) => m.state === 'at_risk') ? 'warn' : 'ok'} />
+        <Metric size="sm" label="Unmeasured" value={unmeasured} deltaTone={unmeasured ? 'warn' : 'ok'} hint="stated, but nothing here evidences it" />
+        <Metric size="sm" label="Objectives with gaps" value={withGaps} deltaTone={withGaps ? 'warn' : 'ok'} hint={`${proxies} accepted proxy measure${proxies === 1 ? '' : 's'}`} />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {unmeasured > 0 && (
+          <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
+            <div className="flex items-center gap-1.5">
+              <TriangleAlert size={12} className="text-warn" />
+              <span className="label-cap">What this platform cannot tell you</span>
+            </div>
+            <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
+              {unmeasured} of {measures.length} measures across these objectives resolve to nothing. They are listed on their objective with the reason. An objective statement that showed only the measurable half would read better and be worth less.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {progress.map((p) => {
+            const o = p.objective
+            return (
+              <Card
+                key={o.id}
+                title={o.statement.split(':')[0]}
+                subtitle={`${o.source} · owner ${o.owner} · ${o.horizon}`}
+                right={
+                  <span className="flex items-center gap-1.5">
+                    <Chip tone={p.state === 'on_track' ? 'ok' : p.state === 'at_risk' ? 'warn' : 'neutral'}>
+                      {p.state === 'unmeasurable' ? 'not measurable' : p.state === 'on_track' ? 'on track' : 'at risk'}
+                    </Chip>
+                    <Chip tone={o.state === 'accepted' ? 'ok' : 'info'}>{o.state}</Chip>
+                  </span>
+                }
+              >
+                <blockquote className="flex gap-2 rounded border border-line bg-sunken p-3">
+                  <Quote size={12} className="mt-0.5 shrink-0 text-ink-3" />
+                  <p className="text-2xs leading-relaxed text-ink-2">{o.statement}</p>
+                </blockquote>
+
+                <div className="mt-3">
+                  <Table>
+                    <thead>
+                      <tr><Th>Measure</Th><Th align="right">Now</Th><Th align="right">Target</Th><Th>Where it comes from</Th><Th>State</Th></tr>
+                    </thead>
+                    <tbody>
+                      {p.measures.map((m) => (
+                        <Tr key={m.id} className={m.state === 'no_measure' ? 'bg-warn/[0.05]' : undefined}>
+                          <Td className="max-w-[280px] text-2xs leading-snug text-ink">
+                            {m.label}
+                            {m.proxy && <Chip tone="warn" className="ml-1.5">proxy</Chip>}
+                            {m.proxyNote && <span className="mt-0.5 block text-[10px] leading-snug text-ink-3">{m.proxyNote}</span>}
+                          </Td>
+                          <Td align="right" className={cn('tnum text-2xs', m.state === 'no_measure' ? 'text-ink-3' : 'text-ink')}>{m.display}</Td>
+                          <Td align="right" className="tnum text-2xs text-ink-2">{m.target ?? '—'}</Td>
+                          <Td className="max-w-[320px] text-2xs leading-snug text-ink-2">
+                            {m.detail}
+                            {m.href && m.state !== 'no_measure' && <Link to={m.href} className="ml-1 text-brand-ink hover:underline">open →</Link>}
+                          </Td>
+                          <Td><Chip tone={MEASURE_TONE[m.state]}>{MEASURE_LABEL[m.state]}</Chip></Td>
+                        </Tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+
+                {o.gaps.length > 0 && (
+                  <div className="mt-3 rounded border border-warn/40 bg-warn/[0.05] p-3">
+                    <div className="label-cap text-warn">What this objective needs that we cannot evidence</div>
+                    <ul className="mt-1.5 space-y-1">
+                      {o.gaps.map((g) => <li key={g} className="text-2xs leading-relaxed text-ink-2">· {g}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="label-cap">Served by</span>
+                  {(o.servedBy.demandClasses ?? []).map((id) => (
+                    <Link key={id} to="/governance/elimination">
+                      <Chip mono title={DEMAND_CLASSES.find((d) => d.id === id)?.name}>{id}</Chip>
+                    </Link>
+                  ))}
+                  {(o.servedBy.transformAllocations ?? []).map((id) => {
+                    const alloc = TRANSFORM.flatMap((t) => t.allocations).find((a) => a.id === id)
+                    return (
+                      <Link key={id} to="/governance/glidepath">
+                        <Chip mono title={alloc?.title}>{id}</Chip>
+                      </Link>
+                    )
+                  })}
+                  {!(o.servedBy.demandClasses ?? []).length && !(o.servedBy.transformAllocations ?? []).length && (
+                    <span className="text-2xs text-ink-3">nothing linked yet</span>
+                  )}
+
+                  <span className="ml-auto flex items-center gap-2">
+                    {o.state === 'accepted' ? (
+                      <span className="text-2xs text-ink-3">accepted by {o.acceptedBy} · {o.acceptedAt?.slice(0, 10)}</span>
+                    ) : (
+                      <Button
+                        size="sm" variant="primary" disabled={!canAcceptObjectives}
+                        title={
+                          canAcceptObjectives
+                            ? 'Accept these measures — including the gaps — as what will count as progress'
+                            : 'What counts as the client\'s progress is the client\'s to accept. The provider does not hold this pen.'
+                        }
+                        onClick={() => accept(o.id, role.person)}
+                      >
+                        <Check size={11} /> Accept measures
+                      </Button>
+                    )}
+                  </span>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+
+        <Card className="mt-4" title="How an objective works here" subtitle="Why this tier exists" right={<Target size={13} className="text-ink-3" />}>
+          <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
+            <li>· A measure never computes a figure of its own — it resolves to one the ledgers already serve, so an objective cannot report progress the rest of the platform would contradict.</li>
+            <li>· A proxy is allowed and must be labelled. Whether a proxy is acceptable evidence for an objective is the client's judgement, recorded when they accept it.</li>
+            <li>· Accepting an objective seals the gaps alongside the measures: the client is agreeing what will count as progress <em>and</em> what will go unmeasured. Only a client-side owner can accept — the provider proposes the mapping and does not sign it off.</li>
+            <li>· Objectives sit above missions. A mission is a standing delegation on one tower; an objective is what several missions and eliminations are jointly for.</li>
+          </ul>
+        </Card>
+      </div>
+    </>
+  )
+}

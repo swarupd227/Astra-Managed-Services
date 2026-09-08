@@ -92,6 +92,7 @@ export const SURFACES: Surface[] = [
     users: 'Client executives, service governance, audit',
     items: [
       { to: '/governance/executive', label: 'Executive Home', desc: 'One page of service truth and the decisions awaiting you' },
+      { to: '/governance/objectives', label: 'Objectives', desc: 'What the engagement was bought to achieve, and what the platform can evidence' },
       { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
       { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
       { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },
