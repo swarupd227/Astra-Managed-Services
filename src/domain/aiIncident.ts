@@ -129,6 +129,10 @@ export function detectFabrication(p: AgentProposal, ids: EstateIds = estateIds()
   if (cu && cu.human_verified > cu.assertions) {
     details.push(`Claims ${cu.human_verified} human-verified assertions out of ${cu.assertions} retrieved.`)
   }
+  // A citation that resolves to nothing is the plainest fabrication there is:
+  // the proposal named the record it relied on, and the record is not there.
+  const badCitations = (cu?.cited ?? []).filter((id) => !ids.known.has(id))
+  if (badCitations.length) details.push(`Cites records that do not exist in the estate: ${badCitations.join(', ')}.`)
 
   const prose = [p.routing_note, p.finding?.title, p.finding?.detail, ...(p.steps ?? []).map((s) => `${s.label} ${s.compensation}`)].filter(Boolean).join('\n')
   const unresolved = citedIds(prose).filter((id) => !ids.known.has(id))

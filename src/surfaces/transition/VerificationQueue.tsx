@@ -145,6 +145,15 @@ export function VerificationQueue() {
                     <div className="flex justify-between gap-2"><dt className="text-ink-3">Asserted</dt><dd className="text-ink-2">{ago(current.assertedAt)}</dd></div>
                     <div className="flex justify-between gap-2"><dt className="text-ink-3">TTL</dt><dd className="text-ink-2">{current.ttlDays} days</dd></div>
                   </dl>
+                  {current.provenance && (
+                    <div className="mt-2 rounded border border-line bg-sunken p-2">
+                      <div className="label-cap">Go and look</div>
+                      <p className="mt-1 break-all font-mono text-[10px] leading-relaxed text-ink-2">{current.provenance.sourceRef}</p>
+                      <p className="mt-1 text-[10px] text-ink-3">
+                        read {ago(current.provenance.retrievedAt)} · claim hash <span className="font-mono">{current.provenance.contentHash.slice(0, 12)}…</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="px-4 py-3">

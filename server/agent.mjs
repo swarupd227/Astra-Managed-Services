@@ -148,8 +148,13 @@ const PROPOSE_ACTION = {
           runbooks: { type: 'integer' },
           prior_incidents: { type: 'integer' },
           verification_floor: { type: 'string', enum: ['unverified', 'machine_corroborated', 'human_verified'] },
+          cited: {
+            type: 'array',
+            description: 'The ids you actually relied on — assertion ids (asr_…), graph node ids, runbook or known-error ids, demand-class ids. Only ids present in the estate above. An empty array if you relied on none.',
+            items: { type: 'string' },
+          },
         },
-        required: ['assertions', 'human_verified', 'runbooks', 'prior_incidents', 'verification_floor'],
+        required: ['assertions', 'human_verified', 'runbooks', 'prior_incidents', 'verification_floor', 'cited'],
       },
       finding: {
         type: 'object',
@@ -217,7 +222,7 @@ ${JSON.stringify(estate, null, 1)}
 
 HOW TO WORK
 1. Think about what is actually being asked, which service and component it touches, and which agent's charter covers it. Consider and rule out alternative causes rather than seizing the first plausible one. Say what you ruled out and why.
-2. Ground your reasoning in the estate above. Refer to real service, component, agent, skill and demand-class ids. Do not invent identifiers.
+2. Ground your reasoning in the estate above. Refer to real service, component, agent, skill and demand-class ids. Do not invent identifiers. List the ids you actually relied on in context_used.cited — a reader must be able to go and check each one.
 3. Call propose_action exactly once with your routing, finding and — only if the estate must actually be changed — the concrete plan with a rollback on every mutating step.
 4. Then write your response to the operator.
 

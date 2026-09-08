@@ -53,7 +53,7 @@ export function baseProposal(overrides: Partial<AgentProposal> = {}): AgentPropo
     routed_agent: 'agt_remedian',
     routing_note: 'Remediation of a stateless workload restart.',
     requires_action: true,
-    context_used: { assertions: 12, human_verified: 9, runbooks: 1, prior_incidents: 2, verification_floor: 'human_verified' },
+    context_used: { assertions: 12, human_verified: 9, runbooks: 1, prior_incidents: 2, verification_floor: 'human_verified', cited: ['rb_mulesoft_failover'] },
     finding: { title: 'Workload restart required', detail: 'Health probe failing on inf_azure_compute.', confidence: 0.88, severity: 'warn' },
     action_class: 'AC-12',
     blast_radius: { tier: 2, services: 1, dependents: 1, data_mutation: false },

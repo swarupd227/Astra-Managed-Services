@@ -1,4 +1,4 @@
-import { Rng } from './rng'
+import { Rng, digest } from './rng'
 import { TOWERS } from './estate'
 import { ACTION_CLASSES } from './reference'
 import type { Assertion, AutonomyScheduleCell } from './types'
@@ -40,6 +40,7 @@ export const ASSERTIONS: Assertion[] = CLAIMS.map((c, i) => {
   const sources: Assertion['source'][] = ['code_analysis', 'telemetry_inference', 'ticket_mining', 'human_statement']
   const source = sources[i % 4]
   const conflict = c.subject === 'if_ftp_legacy' || c.predicate === 'CONFLICTS_WITH'
+  const assertedDays = rng.int(1, 22)
   return {
     id: `asr_${String(4100 + i)}`,
     subject: c.subject,
@@ -54,7 +55,19 @@ export const ASSERTIONS: Assertion[] = CLAIMS.map((c, i) => {
             : 'structured SME interview capture',
     confidence: rng.float(0.62, 0.97, 2),
     verification: conflict ? 'machine_corroborated' : rng.pickWeighted([['unverified', 6], ['machine_corroborated', 4]] as const),
-    assertedAt: daysAgo(rng.int(1, 22)),
+    assertedAt: daysAgo(assertedDays),
+    // A pointer precise enough to go and look, plus a hash of the claim as
+    // asserted — so a verifier can check the source, and a later edit to it
+    // is detectable rather than assumed away.
+    provenance: {
+      sourceRef:
+        source === 'code_analysis' ? `repo://kearney/${c.subject.replace(/^[a-z]+_/, '')}@${digest(c.subject).slice(0, 7)}:${c.predicate.toLowerCase()}.config`
+          : source === 'telemetry_inference' ? `azure-monitor://traces?target=${c.subject}&window=30d&asserted=${daysAgo(assertedDays).slice(0, 10)}`
+            : source === 'ticket_mining' ? `servicenow://query?subject=${c.subject}&window=14mo&sample=${240 + i * 17}`
+              : `interview://${daysAgo(assertedDays + 2).slice(0, 10)}/session-${12 + (i % 7)}?sme=A.%20Ferreira`,
+      retrievedAt: daysAgo(assertedDays + 1),
+      contentHash: digest(`${c.subject}|${c.predicate}|${c.object}|${c.narrative}`),
+    },
     ttlDays: c.tier <= 1 ? 90 : 180,
     conflictsWith: conflict ? (c.subject === 'if_ftp_legacy' ? 'CMDB declares this interface active' : 'Attachment C.4 declares 13,134 incidents/year') : undefined,
     narrative: c.narrative,

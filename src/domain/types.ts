@@ -67,6 +67,13 @@ export interface Assertion {
   conflictsWith?: string
   narrative: string
   tier: 0 | 1 | 2 | 3
+  /**
+   * Where the claim came from, precisely enough to go and look: the record,
+   * the repository path and commit, or the query and window it was inferred
+   * from. `contentHash` covers the claim as asserted, so a later edit to the
+   * source is detectable rather than assumed away.
+   */
+  provenance?: { sourceRef: string; retrievedAt: ISO; contentHash: string }
 }
 
 /* ----------------------------------- Work ---------------------------------- */

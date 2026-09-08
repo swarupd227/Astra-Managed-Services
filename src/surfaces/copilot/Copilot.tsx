@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { buildSuggestions, decide, execute, runIntent, type Beat, type AgentProposal } from '@/domain/agentRuntime'
 import { AGENT_BY_ID } from '@/domain/estate'
+import { resolveCitations } from '@/domain/citations'
 import { AC, ROLE_BY_ID } from '@/domain/reference'
 import { useAstra, useWorkList } from '@/domain/store'
 import { NOW } from '@/domain/workSeed'
@@ -33,6 +34,35 @@ function AgentLine({ agentId, children, tone = 'agent' }: { agentId: string; chi
         </span>
       </div>
       <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * The records the agent said it relied on, resolved back to their narrative
+ * and the screen where a human can go and check. A count is not a citation.
+ */
+function CitedRecords({ ids }: { ids: string[] }) {
+  const assertions = useAstra((s) => s.assertions)
+  const cited = React.useMemo(() => resolveCitations(ids, assertions), [ids, assertions])
+  return (
+    <div className="border-t border-line px-3 py-2">
+      <div className="label-cap">Relied on ({cited.length})</div>
+      <ul className="mt-1.5 space-y-1">
+        {cited.map((c) => (
+          <li key={c.id} className="flex flex-wrap items-baseline gap-1.5 text-2xs leading-relaxed">
+            <Chip mono tone={c.kind === 'unresolved' ? 'crit' : 'neutral'}>{c.id}</Chip>
+            {c.verification && (
+              <Chip tone={c.verification === 'human_verified' ? 'ok' : c.verification === 'stale' ? 'warn' : 'info'}>
+                {c.verification.replace(/_/g, '-')}
+              </Chip>
+            )}
+            <span className="text-ink-2">{c.label}</span>
+            <span className="min-w-0 flex-1 text-ink-3">— {c.excerpt}</span>
+            {c.href && <Link to={c.href} className="shrink-0 text-brand-ink hover:underline">check →</Link>}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -90,6 +120,7 @@ function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; onGate?:
                 </div>
               ))}
             </div>
+            {beat.cited.length > 0 && <CitedRecords ids={beat.cited} />}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-3 py-1.5 text-2xs text-ink-3">
               <span>Verification floor enforced: <span className="font-mono text-ink-2">{beat.floor}</span></span>
               <span className="ml-auto tnum">

@@ -21,7 +21,7 @@ import { suspensionContext, type Suspension } from './suspensions'
 export type Beat =
   | { t: 'route'; intent: string; confidence: number; agent: string; note: string }
   | { t: 'think'; agent: string; text: string; streaming?: boolean }
-  | { t: 'retrieve'; agent: string; assertions: number; humanVerified: number; runbooks: number; priors: number; pkg: string; floor: string; tokensUsed: number; tokenBudget: number }
+  | { t: 'retrieve'; agent: string; assertions: number; humanVerified: number; runbooks: number; priors: number; pkg: string; floor: string; tokensUsed: number; tokenBudget: number; cited: string[] }
   | { t: 'finding'; title: string; detail: string; confidence: number; severity: 'info' | 'warn' | 'crit' }
   | { t: 'plan'; skill: string; success: number; runs: number; steps: { label: string; ac?: string; compensation?: string }[] }
   | { t: 'policy'; result: EngineResult; agentId: string; policyName: string; advisory?: boolean }
@@ -45,7 +45,7 @@ export interface AgentProposal {
   routed_agent: string
   routing_note: string
   requires_action: boolean
-  context_used: { assertions: number; human_verified: number; runbooks: number; prior_incidents: number; verification_floor: string }
+  context_used: { assertions: number; human_verified: number; runbooks: number; prior_incidents: number; verification_floor: string; cited?: string[] }
   finding: { title: string; detail: string; confidence: number; severity: 'info' | 'warn' | 'crit' }
   action_class: string
   blast_radius: { tier: number; services: number; dependents: number; data_mutation: boolean }
@@ -466,6 +466,7 @@ export async function runIntent(
           pkg: `pkg_${Math.abs(hash(utterance)).toString(16).slice(0, 4)}`,
           floor: proposal.context_used.verification_floor,
           tokensUsed: 0, tokenBudget: 6000,
+          cited: proposal.context_used.cited ?? [],
         })
         onBeat({ t: 'finding', ...proposal.finding })
 
