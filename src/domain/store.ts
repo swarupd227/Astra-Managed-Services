@@ -8,6 +8,7 @@ import { ROLE_BY_ID } from './reference'
 import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiIncidentSignal, type OversightAudit } from './aiIncident'
 import type { RedTeamResult } from './redTeam'
 import type { BiasResult } from './biasSuite'
+import type { ConformanceRun } from './conformance'
 import { driftReport, type DriftReport } from './drift'
 import { modelChangeClocks, type ModelChange } from './changeLog'
 import { deletionManifest, manifestHash, nextAttestationDue, type Attestation, type DeletionCertificate } from './dataHandling'
@@ -76,6 +77,8 @@ interface State {
   redTeam: { at: string; results: RedTeamResult[] } | null
   /** The last matched-pair bias suite over the decision path. */
   bias: BiasResult | null
+  /** The last contract-conformance run — the auditor's golden set. */
+  conformance: ConformanceRun | null
   /** The last drift computation — the source of every agent's driftAlarm. */
   drift: DriftReport | null
   /** Served-model changes the currency check has opened, with their notice clocks. */
@@ -124,6 +127,8 @@ interface State {
   recordRedTeam: (results: RedTeamResult[], by: string) => void
   /** Records a bias-suite run — pairs tested, disparities found — as a verification record. */
   recordBias: (result: BiasResult, by: string) => void
+  /** Records a contract-conformance run. Available to read-only roles: it asserts nothing and changes nothing. */
+  recordConformance: (run: ConformanceRun, by: string) => void
   /** Recomputes drift for every agent; raises or clears alarms with evidence, and returns the report. */
   runDriftMonitor: (by: string) => DriftReport
   /** Opens a model-change notice when the served model differs from the registered one (idempotent per system + served id). */
@@ -248,6 +253,7 @@ export const useAstra = create<State>((set, get) => ({
   oversightAudit: null,
   redTeam: null,
   bias: null,
+  conformance: null,
   drift: null,
   modelChanges: [],
   attestations: ATTESTATIONS,
@@ -940,6 +946,30 @@ export const useAstra = create<State>((set, get) => ({
       title: result.invariant ? 'Bias suite: decision path is cohort-blind' : `Bias suite: ${result.disparities.length} disparities`,
       body: `${result.pairs} matched pairs across ${result.cohorts.length} cohorts — mode, gates, floor and detectors compared.`,
       tone: result.invariant ? 'ok' : 'crit',
+      evidenceId: record.id,
+    })
+  },
+
+  recordConformance: (run, by) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const failed = run.results.filter((r) => !r.holds)
+    const record = appendRecord(s.evidence, {
+      id: `ev_${digest('conf' + s.tick + s.evidence.length).slice(0, 10)}`,
+      at, kind: 'verification', actor: by,
+      summary: `Contract conformance — ${run.held} of ${run.total} commitments held`,
+      payload: {
+        held: run.held, total: run.total,
+        failed: failed.map((f) => ({ id: f.caseId, commitment: f.commitment, clause: f.clause, expected: f.expected, observed: f.observed })),
+        runBy: by,
+      },
+      sealed: true,
+    })
+    set({ evidence: [...s.evidence, record], conformance: { ...run, at } })
+    get().pushToast({
+      title: failed.length ? `Conformance: ${failed.length} commitment${failed.length === 1 ? '' : 's'} not held` : 'Conformance: every commitment held',
+      body: `${run.total} cases against the live policy engine. The run is a verification record in the chain.`,
+      tone: failed.length ? 'crit' : 'ok',
       evidenceId: record.id,
     })
   },

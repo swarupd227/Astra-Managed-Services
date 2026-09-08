@@ -35,6 +35,7 @@ import { Registers } from './surfaces/governance/Registers'
 import { EvidenceExplorer } from './surfaces/governance/EvidenceExplorer'
 import { Reports } from './surfaces/governance/Reports'
 import { AiIncidents } from './surfaces/governance/AiIncidents'
+import { AssuranceSandbox } from './surfaces/governance/AssuranceSandbox'
 
 import { FleetView } from './surfaces/atlas/FleetView'
 import { AgentRecord } from './surfaces/atlas/AgentRecord'
@@ -83,6 +84,7 @@ const router = createHashRouter([
       { path: 'governance/evidence', element: <EvidenceExplorer /> },
       { path: 'governance/reports', element: <Reports /> },
       { path: 'governance/ai-incidents', element: <AiIncidents /> },
+      { path: 'governance/assurance', element: <AssuranceSandbox /> },
 
       { path: 'atlas/fleet', element: <FleetView /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },
