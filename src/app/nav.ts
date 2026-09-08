@@ -98,6 +98,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/evidence', label: 'Evidence Explorer', desc: 'Search any action; verify the hash chain; export' },
       { to: '/governance/ai-incidents', label: 'AI Incidents', desc: 'Fabrication, injection, oversight and cohort findings — with notification and RCA clocks' },
       { to: '/governance/assurance', label: 'Assurance Sandbox', desc: 'Run the conformance set, the red team, the bias suite and the chain check yourself' },
+      { to: '/governance/ai-pack', label: 'AI Governance Pack', desc: 'NIST AI RMF and ISO/IEC 42001 mapped to the records the platform holds' },
       { to: '/governance/reports', label: 'Reports', desc: 'Governed semantic layer, signed extracts, natural-language queries' },
     ],
   },
