@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { ClipboardCopy, FileText, Users } from 'lucide-react'
 import { useAstra, useWorkList } from '@/domain/store'
-import { TOWERS, TOWER_BY_ID } from '@/domain/estate'
+import { AGENT_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { HISTORY } from '@/domain/metrics'
 import { PageHeader, PriorityChip, SlaClock, StateChip, Assignee } from '@/ui/domain'
@@ -55,7 +55,7 @@ export function ShiftBoard() {
       exceptions: [
         'Data Platform credit allocation remains frozen — XLA trust score 68.2 against a target of 75 (§12.5).',
         'Bursar carries a drift alarm; sampled review doubled until the next evaluation suite completes.',
-        'Kearney IEM Time-Entry Bot is on probation after air_0019. Its AC-58 proposals remain four-eyes gated.',
+        `${AGENT_BY_ID.agt_cl_procure?.name ?? 'The client-owned agent'} is on probation after air_0019. Its AC-58 proposals remain four-eyes gated.`,
       ],
       watch: [
         'Quarter-end volume ramp begins Thursday — Sentinel thresholds are calendar-aware from 2027-02-20.',
