@@ -1,12 +1,12 @@
 import React from 'react'
-import { CircleAlert, Info, LifeBuoy, ShieldCheck } from 'lucide-react'
+import { CircleAlert, LifeBuoy } from 'lucide-react'
 import {
-  CONSUMER, cohortExperience, issuesAffecting, selfServeOffers, workplaceLimits,
+  CONSUMER, cohortExperience, issuesAffecting, selfServeOffers,
 } from '@/domain/workplace'
 import { useAstra } from '@/domain/store'
 import { PageHeader } from '@/ui/domain'
 import { Button, Card, Chip, Metric } from '@/ui/primitives'
-import { num, pct } from '@/lib/format'
+import { pct } from '@/lib/format'
 import { cn } from '@/lib/format'
 
 /* ==========================================================================
@@ -32,7 +32,6 @@ export function MyWorkplace() {
   const issues = React.useMemo(() => issuesAffecting(), [])
   const offers = React.useMemo(() => selfServeOffers(), [])
   const experience = React.useMemo(() => cohortExperience(), [])
-  const limits = React.useMemo(() => workplaceLimits(), [])
 
   const available = offers.filter((o) => o.available)
   const raisedTotal = CONSUMER.raised.reduce((s, r) => s + r.count, 0)
@@ -45,25 +44,22 @@ export function MyWorkplace() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
-        <Metric size="sm" label="Affecting your systems" value={issues.length} deltaTone={issues.length ? 'warn' : 'ok'} hint="already known — no need to report" />
+        <Metric size="sm" label="Affecting your systems" value={issues.length} deltaTone={issues.length ? 'warn' : 'ok'} />
         <Metric size="sm" label="Raised by you" value={raisedTotal} hint={`this period, across ${CONSUMER.raised.length} kinds of problem`} />
-        <Metric size="sm" label="Self-service available" value={`${available.length} / ${offers.length}`} deltaTone={available.length ? 'ok' : 'warn'} hint="routes that actually exist today" />
-        <Metric size="sm" label="Service against target" value={`${experience.filter((e) => e.meeting).length} / ${experience.length}`} deltaTone={experience.every((e) => e.meeting) ? 'ok' : 'warn'} hint="for everyone, not for you" />
+        <Metric size="sm" label="Self-service available" value={`${available.length} / ${offers.length}`} deltaTone={available.length ? 'ok' : 'warn'} />
+        <Metric size="sm" label="Service against target" value={`${experience.filter((e) => e.meeting).length} / ${experience.length}`} deltaTone={experience.every((e) => e.meeting) ? 'ok' : 'warn'} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <Card
           title="Known issues"
-          subtitle="Matched through the systems you depend on"
+         
           right={<CircleAlert size={13} className="text-ink-3" />}
         >
           {issues.length === 0 ? (
-            <p className="text-2xs leading-relaxed text-ink-2">Nothing open against the systems on your list. That is not the same as nothing being wrong — it means nothing has been reported and detected against them.</p>
+            <p className="text-2xs text-ink-3">Nothing open against the systems on your list.</p>
           ) : (
             <>
-              <p className="mb-2 text-2xs leading-relaxed text-ink-2">
-                These are open against something you use. If one of them is what you were about to report, it is already in hand and reporting it again will not move it.
-              </p>
               <ul className="space-y-1.5">
                 {issues.slice(0, 6).map((i) => (
                   <li key={i.work.id} className="rounded border border-line bg-sunken p-2.5">
@@ -89,7 +85,7 @@ export function MyWorkplace() {
         <Card
           className="mt-4"
           title="Recurring requests"
-          subtitle="Raised repeatedly, and whether a route exists yet"
+         
           right={<LifeBuoy size={13} className="text-ink-3" />}
         >
           <ul className="space-y-2">
@@ -118,14 +114,6 @@ export function MyWorkplace() {
                     )}
                   </span>
                 </div>
-                {o.unavailableReason && (
-                  <p className="mt-1.5 text-[10px] leading-snug text-ink-3">{o.unavailableReason}</p>
-                )}
-                {o.available && o.projectedRemoval !== null && (
-                  <p className="mt-1.5 text-[10px] leading-snug text-ink-3">
-                    Around {pct(o.projectedRemoval * 100, 0)} of this kind of request is expected to stop needing anyone at all.
-                  </p>
-                )}
               </li>
             ))}
           </ul>
@@ -134,7 +122,6 @@ export function MyWorkplace() {
         <Card
           className="mt-4"
           title="Service performance"
-          subtitle="For everyone it covers — not a measure of your week"
         >
           <div className="grid gap-3 sm:grid-cols-2">
             {experience.map((e) => (
@@ -147,33 +134,11 @@ export function MyWorkplace() {
                   {['nps_score', 'trust_score', 'friction_index'].includes(e.metric) ? e.attainment.toFixed(1) : pct(e.attainment)}
                   <span className="ml-1.5 text-2xs text-ink-3">target {e.target}</span>
                 </p>
-                <p className="mt-0.5 text-[10px] leading-snug text-ink-3">
-                  Across {num(e.volumeMtd)} this month. Yours is one of them.
-                </p>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card
-          className="mt-4"
-          title="Limits of this view"
-          subtitle="The absences are deliberate"
-          right={<Info size={13} className="text-ink-3" />}
-        >
-          <ul className="space-y-1.5">
-            {limits.map((l) => (
-              <li key={l} className="text-2xs leading-relaxed text-ink-2">· {l}</li>
-            ))}
-          </ul>
-
-          <div className="mt-3 flex items-start gap-2 rounded border border-info/40 bg-info/[0.06] p-3">
-            <ShieldCheck size={12} className="mt-0.5 shrink-0 text-info" />
-            <p className="text-2xs leading-relaxed text-ink-2">
-              Everywhere else in this platform an engineer sits between an agent and the person who acts on what it said, and that engineer is the last place a wrong answer gets caught. On this page there is nobody. So an answer written for you is held to a higher standard of evidence than the same answer shown to an engineer — where the knowledge behind it has not been checked by a person, the agent is not allowed to give it to you on its own.
-            </p>
-          </div>
-        </Card>
       </div>
     </>
   )

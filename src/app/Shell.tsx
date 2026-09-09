@@ -540,8 +540,8 @@ function SurfaceGuard({ children }: { children: React.ReactNode }) {
       <div className="max-w-md rounded-md border border-line bg-surface p-5 text-center">
         <ShieldAlert size={18} className="mx-auto text-warn" />
         <h2 className="mt-2 font-display text-sm font-semibold text-ink">{owning?.name} is not yours to see</h2>
-        <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-          You are viewing as <span className="text-ink">{role.title}</span>, and this role holds {role.surfaces.length === 1 ? 'one surface' : `${role.surfaces.length} surfaces`}. The link is shown greyed rather than hidden so the shape of the platform stays honest, but the page itself does not open.
+        <p className="mt-1.5 text-2xs text-ink-3">
+          Viewing as {role.title}
         </p>
         <button
           onClick={() => nav(role.home)}

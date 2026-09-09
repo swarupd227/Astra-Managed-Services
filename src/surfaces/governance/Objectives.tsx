@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Check, Quote, Sparkles, Target, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, Check, Quote, Sparkles } from 'lucide-react'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { objectiveLinks, objectiveProgress, unattributedAllocations, type MeasureState } from '@/domain/objectives'
@@ -82,17 +82,6 @@ export function Objectives() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {unmeasured > 0 && (
-          <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
-            <div className="flex items-center gap-1.5">
-              <TriangleAlert size={12} className="text-warn" />
-              <span className="label-cap">Unmeasured measures</span>
-            </div>
-            <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-              {unmeasured} of {measures.length} measures across these objectives resolve to nothing. They are listed on their objective with the reason. An objective statement that showed only the measurable half would read better and be worth less.
-            </p>
-          </div>
-        )}
 
         <div className="space-y-4">
           {progress.map((p) => {
@@ -233,14 +222,6 @@ export function Objectives() {
           </Card>
         )}
 
-        <Card className="mt-4" title="Objective model" subtitle="Why this tier exists" right={<Target size={13} className="text-ink-3" />}>
-          <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
-            <li>· A measure never computes a figure of its own — it resolves to one the ledgers already serve, so an objective cannot report progress the rest of the platform would contradict.</li>
-            <li>· A proxy is allowed and must be labelled. Whether a proxy is acceptable evidence for an objective is the client's judgement, recorded when they accept it.</li>
-            <li>· Accepting an objective seals the gaps alongside the measures: the client is agreeing what will count as progress <em>and</em> what will go unmeasured. Only a client-side owner can accept — the provider proposes the mapping and does not sign it off.</li>
-            <li>· Objectives sit above missions. A mission is a standing delegation on one tower; an objective is what several missions and eliminations are jointly for.</li>
-          </ul>
-        </Card>
       </div>
     </>
   )
