@@ -22,6 +22,15 @@ export interface ActionContext {
   model?: { id: string; vendor: string; version: string; whitelisted: boolean; changed?: boolean }
   /** Which suspensions bear on this action. `any` is what most rules want. */
   suspensions?: { any: boolean; global: boolean; tower: boolean; agent: boolean; actionClass: boolean; function: boolean }
+  /**
+   * Whether the output of this action reaches an end user directly. Every
+   * other path in this platform puts an operator between the model and the
+   * person who acts on what it said; that operator is the last place a
+   * fabrication gets caught. When the answer goes straight to a consultant
+   * there is no such place, and the verification floor has to rise to
+   * compensate.
+   */
+  audience?: { endUser: boolean }
 }
 
 const GRADE_RANK: Record<string, number> = { A: 4, B: 3, C: 2, D: 1 }

@@ -61,7 +61,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         id: `role-${r.id}`,
         group: 'Assume role',
         label: r.title,
-        hint: `${r.person} · ${r.org === 'client' ? 'Client' : 'Artizent'}`,
+        hint: `${r.person} · ${r.org === 'client' ? 'Client' : r.org === 'consumer' ? 'Service consumer' : 'Artizent'}`,
         run: () => { setRole(r.id); nav(r.home) },
       }),
     )

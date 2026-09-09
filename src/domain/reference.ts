@@ -153,6 +153,23 @@ export const ROLES: Role[] = [
     description: 'Same queues and knowledge as Artizent engineers — capability transfer as a product feature.',
     canApprove: false,
   },
+  {
+    /**
+     * The person the service is for, as opposed to the people who run it or
+     * buy it. Their scope is deliberately a single surface: a consultant has
+     * no business seeing the estate, and a portal that leaks the provider's
+     * screens to an end user has confused transparency with exposure.
+     */
+    id: 'consumer',
+    title: 'Consultant (service consumer)',
+    org: 'consumer',
+    person: 'H. Dalgleish',
+    home: '/workplace',
+    surfaces: ['workplace'],
+    description: 'Sees what affects the systems they use and what the service can do about it. Nothing about the estate, and no second set of figures.',
+    canApprove: false,
+    readOnly: true,
+  },
 ]
 
 export const ROLE_BY_ID = Object.fromEntries(ROLES.map((r) => [r.id, r])) as Record<string, Role>

@@ -430,12 +430,12 @@ export interface InnovationItem {
 /* ---------------------------------- Roles ---------------------------------- */
 
 /** Navigation groups follow the engagement lifecycle, plus two cross-cutting ones. */
-export type SurfaceId = 'transition' | 'run' | 'transform' | 'governance' | 'platform'
+export type SurfaceId = 'transition' | 'run' | 'transform' | 'governance' | 'platform' | 'workplace'
 
 export interface Role {
   id: string
   title: string
-  org: 'client' | 'artizent'
+  org: 'client' | 'artizent' | 'consumer'
   person: string
   home: string
   surfaces: SurfaceId[]

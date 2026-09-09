@@ -43,6 +43,22 @@ export const PINNED: NavItem[] = [
  */
 export const SURFACES: Surface[] = [
   {
+    /**
+     * The only surface facing the person the service is for rather than the
+     * people who run or buy it. One item by design: a consultant has no
+     * business seeing the estate, and a portal that leaks the provider's
+     * screens to an end user has confused transparency with exposure.
+     */
+    id: 'workplace',
+    name: 'My Workplace',
+    short: 'Workplace',
+    tagline: 'What affects the systems you use, and what the service can do about it',
+    users: 'Consultants and everyone else the service is actually for',
+    items: [
+      { to: '/workplace', label: 'My Workplace', desc: 'Known issues, self-service where it genuinely exists, and how the service has been running' },
+    ],
+  },
+  {
     id: 'transition',
     name: 'Transition',
     short: 'Transition',

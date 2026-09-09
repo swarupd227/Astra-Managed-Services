@@ -168,10 +168,10 @@ function RoleSwitcher() {
             </p>
           </div>
           <div className="max-h-[52vh] overflow-y-auto py-1">
-            {(['artizent', 'client'] as const).map((org) => (
+            {(['artizent', 'client', 'consumer'] as const).map((org) => (
               <div key={org}>
                 <div className="px-3 py-1 text-2xs font-medium uppercase tracking-[0.09em] text-ink-3">
-                  {org === 'artizent' ? 'Artizent' : CLIENT.short}
+                  {org === 'artizent' ? 'Artizent' : org === 'client' ? CLIENT.short : `${CLIENT.short} — service consumer`}
                 </div>
                 {ROLES.filter((r) => r.org === org).map((r) => (
                   <button
