@@ -42,6 +42,7 @@ import { ClientEffort } from './surfaces/governance/ClientEffort'
 import { Programmes } from './surfaces/governance/Programmes'
 import { Headroom } from './surfaces/governance/Headroom'
 import { MyWorkplace } from './surfaces/workplace/MyWorkplace'
+import { Inventory } from './surfaces/governance/Inventory'
 
 import { FleetView } from './surfaces/atlas/FleetView'
 import { AgentRecord } from './surfaces/atlas/AgentRecord'
@@ -97,6 +98,7 @@ const router = createHashRouter([
       { path: 'governance/programmes', element: <Programmes /> },
       { path: 'governance/headroom', element: <Headroom /> },
       { path: 'workplace', element: <MyWorkplace /> },
+      { path: 'governance/inventory', element: <Inventory /> },
 
       { path: 'atlas/fleet', element: <FleetView /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },

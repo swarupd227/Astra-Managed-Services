@@ -112,6 +112,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/client-effort', label: 'Client Effort', desc: 'What the client declares about their own staff — held and aged, never measured here' },
       { to: '/governance/programmes', label: 'Programmes', desc: 'Target end states and burn-down — what is evidenced gone, not what was declared done' },
       { to: '/governance/headroom', label: 'Growth Headroom', desc: 'Whether the service absorbs growth — and whether it has yet been asked to' },
+      { to: '/governance/inventory', label: 'Application Inventory', desc: "What the client's record says, beside what the platform observes" },
       { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
       { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
       { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },

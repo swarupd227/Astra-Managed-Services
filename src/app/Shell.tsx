@@ -497,16 +497,59 @@ export function Shell() {
 
       <MiBanner />
       <BrakeBanner />
+      {/* SurfaceGuard is defined below; see the note there on why dimming was not enough. */}
 
       <div className="flex min-h-0 flex-1">
         <Sidebar collapsed={collapsed} />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <Outlet />
+          <SurfaceGuard><Outlet /></SurfaceGuard>
         </main>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <Toasts />
+    </div>
+  )
+}
+
+/* --------------------------------------------------------------------------
+   Surface guard.
+
+   The sidebar dims a surface a role does not hold, which is fine when every
+   role is a member of the delivery organisation and the dimming is a hint
+   about relevance. It stopped being fine when a consumer role arrived: the
+   whole claim about that role is that a consultant has no business seeing
+   the estate, and a claim enforced only by greying out a link is not
+   enforced at all — the route was still reachable by typing it.
+   -------------------------------------------------------------------------- */
+
+function SurfaceGuard({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation()
+  const nav = useNavigate()
+  const role = ROLE_BY_ID[useAstra((s) => s.roleId)]
+
+  // Pinned items belong to every role; everything else belongs to a surface.
+  const pinned = PINNED.some((p) => pathname.startsWith(p.to))
+  const owning = SURFACES.find((s) => s.items.some((i) => pathname.startsWith(i.to)))
+  const permitted = pinned || !owning || role.surfaces.includes(owning.id as SurfaceId)
+
+  if (permitted) return <>{children}</>
+
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+      <div className="max-w-md rounded-md border border-line bg-surface p-5 text-center">
+        <ShieldAlert size={18} className="mx-auto text-warn" />
+        <h2 className="mt-2 font-display text-sm font-semibold text-ink">{owning?.name} is not yours to see</h2>
+        <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
+          You are viewing as <span className="text-ink">{role.title}</span>, and this role holds {role.surfaces.length === 1 ? 'one surface' : `${role.surfaces.length} surfaces`}. The link is shown greyed rather than hidden so the shape of the platform stays honest, but the page itself does not open.
+        </p>
+        <button
+          onClick={() => nav(role.home)}
+          className="mt-3 rounded border border-line-strong bg-raised px-3 py-1.5 text-2xs text-ink hover:bg-sunken"
+        >
+          Back to {role.title === 'Consultant (service consumer)' ? 'my workplace' : 'your home'}
+        </button>
+      </div>
     </div>
   )
 }

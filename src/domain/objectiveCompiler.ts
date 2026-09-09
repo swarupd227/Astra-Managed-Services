@@ -4,6 +4,7 @@ import { ATTESTATION_DAYS, EFFORT_DECLARATIONS } from './clientEffort'
 import { PROGRAMMES } from './programmes'
 import { DEFLECTION_BASELINES } from './deflection'
 import { DEMAND_DRIVERS } from './headroom'
+import { INVENTORY } from './inventory'
 import { runCost, streamGateway } from './agentRuntime'
 import type { MeasureSource, Objective, ObjectiveMeasure } from './objectives'
 
@@ -108,6 +109,16 @@ export function measureCatalogue(): CatalogueEntry[] {
       label: 'Forecast growth the service could take at flat effort',
       detail: `Forward-looking, against ${DEMAND_DRIVERS.length} client-declared business driver${DEMAND_DRIVERS.length === 1 ? '' : 's'} · withheld entirely where no driver is declared, since extrapolating the observed curve forecasts the transition rather than the business`,
     },
+    {
+      kind: 'inventory', ref: 'under_support',
+      label: 'Systems under support — the modernisation denominator',
+      detail: `${INVENTORY.length} applications reconciled between the client's own record and what this platform observes · reported as a floor, since applications nobody has found are by definition not counted`,
+    },
+    {
+      kind: 'inventory', ref: 'record_accuracy',
+      label: "Where the client's own application record matches what we observe",
+      detail: 'The four ways they disagree — retired but live, live but unrecorded, supported but never seen, supported but untelemetered — each mean something different and are reported separately',
+    },
   ]
 }
 
@@ -156,9 +167,10 @@ export interface CompileResult {
 
 const KINDS = new Set([
   'sla', 'demand_class', 'tower_avg', 'glidepath_banked', 'glidepath_trajectory',
-  'innovation_verified', 'spend_ratio', 'client_effort', 'programme_burndown', 'deflection_rate', 'growth', 'none',
+  'innovation_verified', 'spend_ratio', 'client_effort', 'programme_burndown', 'deflection_rate', 'growth', 'inventory', 'none',
 ])
 const GROWTH_FIELDS = new Set(['absorption', 'headroom'])
+const INVENTORY_FIELDS = new Set(['under_support', 'record_accuracy'])
 const ATTRIBUTIONS = new Set(['automation', 'elimination', 'acceleration', 'avoidance'])
 const TOWER_FIELDS = new Set(['autonomyEligibleVolume', 'verificationCoverage'])
 const EFFORT_FIELDS = new Set(['released', 'strategic_gained'])
@@ -220,6 +232,10 @@ function validateMeasure(m: CompiledMeasure, index: number): { measure?: Objecti
     case 'growth': {
       if (!GROWTH_FIELDS.has(m.ref)) return { reason: `"${m.ref}" is not a growth field — use "absorption" or "headroom"` }
       return { measure: { ...commonUnvalidated, source: { kind: 'growth', field: m.ref as 'absorption' } } }
+    }
+    case 'inventory': {
+      if (!INVENTORY_FIELDS.has(m.ref)) return { reason: `"${m.ref}" is not an inventory field — use "under_support" or "record_accuracy"` }
+      return { measure: { ...commonUnvalidated, source: { kind: 'inventory', field: m.ref as 'under_support' } } }
     }
     case 'none': {
       if (!m.why?.trim()) return { reason: 'declared unmeasurable without saying why' }

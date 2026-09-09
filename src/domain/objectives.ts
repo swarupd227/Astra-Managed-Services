@@ -5,6 +5,7 @@ import { ATTESTATION_DAYS, clientEffortSummary } from './clientEffort'
 import { PROGRAMMES, burnDown } from './programmes'
 import { deflectionSummary } from './deflection'
 import { headroomSummary } from './headroom'
+import { inventorySummary } from './inventory'
 import { num, usd } from '@/lib/format'
 import type { GlidepathEntry, ISO, TransformAllocation } from './types'
 
@@ -47,6 +48,8 @@ export type MeasureSource =
   | { kind: 'deflection_rate'; attributedOnly: boolean }
   /** Whether growth was absorbed, or capacity for forecast growth. */
   | { kind: 'growth'; field: 'absorption' | 'headroom' }
+  /** Systems under support, or how far the client's record matches reality. */
+  | { kind: 'inventory'; field: 'under_support' | 'record_accuracy' }
   /** No measure exists. The reason is required: this is the honest case, not the empty one. */
   | { kind: 'none'; why: string }
 
@@ -347,6 +350,36 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
         target: m.target === undefined ? null : fmtPct(m.target),
         state: ok ? 'on_track' : 'at_risk',
         href: '/governance/headroom',
+      }
+    }
+
+    /**
+     * The denominator modernisation never had — reported as a floor, since
+     * the applications nobody has found are by definition not in it.
+     */
+    case 'inventory': {
+      const inv = inventorySummary()
+      if (m.source.field === 'under_support') {
+        const ok = m.target === undefined ? true : inv.denominator <= m.target
+        return {
+          ...base,
+          display: `${inv.denominator}`,
+          detail: `${inv.recordedInSupport} the client's record lists, plus ${inv.byReconciliation.unrecorded} found and not listed · a floor, not a total · ${inv.inProgramme} of them in a retirement programme`,
+          target: m.target === undefined ? null : String(m.target),
+          state: ok ? 'on_track' : 'at_risk',
+          href: '/governance/inventory',
+        }
+      }
+      const share = inv.reconciledShare * 100
+      const disagreeing = inv.items.length - inv.byReconciliation.reconciled
+      const ok = m.target === undefined ? share >= 90 : share >= m.target
+      return {
+        ...base,
+        display: fmtPct(share),
+        detail: `${disagreeing} of ${inv.items.length} applications where the client's record and this platform disagree · ${num(inv.disputedIncidents)} incidents a year attach to them`,
+        target: m.target === undefined ? null : fmtPct(m.target),
+        state: ok ? 'on_track' : 'at_risk',
+        href: '/governance/inventory',
       }
     }
   }
