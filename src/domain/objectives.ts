@@ -4,6 +4,7 @@ import { MISSIONS } from './missions'
 import { ATTESTATION_DAYS, clientEffortSummary } from './clientEffort'
 import { PROGRAMMES, burnDown } from './programmes'
 import { deflectionSummary } from './deflection'
+import { headroomSummary } from './headroom'
 import { num, usd } from '@/lib/format'
 import type { GlidepathEntry, ISO, TransformAllocation } from './types'
 
@@ -44,6 +45,8 @@ export type MeasureSource =
   | { kind: 'programme_burndown'; id: string }
   /** Share of arrivals no longer arriving, against agreed baselines. */
   | { kind: 'deflection_rate'; attributedOnly: boolean }
+  /** Whether growth was absorbed, or capacity for forecast growth. */
+  | { kind: 'growth'; field: 'absorption' | 'headroom' }
   /** No measure exists. The reason is required: this is the honest case, not the empty one. */
   | { kind: 'none'; why: string }
 
@@ -306,6 +309,44 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
         target: m.target === undefined ? null : fmtPct(m.target),
         state: ok ? 'on_track' : 'at_risk',
         href: '/governance/elimination',
+      }
+    }
+
+    /**
+     * Absorption is measurable and may honestly report that it has not been
+     * tested; headroom needs a declared business driver and withholds
+     * itself where there is none. Both routes can end in no measure, and
+     * that is the correct answer rather than a failure of the measure.
+     */
+    case 'growth': {
+      const h = headroomSummary()
+      if (m.source.field === 'absorption') {
+        if (h.absorption === 'untested') {
+          return {
+            ...base, display: 'no measure', target: null, state: 'no_measure',
+            detail: h.absorptionNote,
+          }
+        }
+        return {
+          ...base,
+          display: fmtPct(h.businessGrowthPct),
+          detail: `Business-caused demand against ${fmtPct(h.effortChangePct)} effort · ${Math.round(h.selfInflictedShare * 100)}% of rising volume is not the client growing`,
+          target: m.target === undefined ? null : fmtPct(m.target),
+          state: h.absorption === 'absorbed' ? 'on_track' : 'at_risk',
+          href: '/governance/headroom',
+        }
+      }
+      if (h.headroomPct === null) {
+        return { ...base, display: 'no measure', target: null, state: 'no_measure', detail: h.headroomWithheld ?? 'No forecast to hold capacity against.' }
+      }
+      const ok = m.target === undefined ? h.headroomPct >= 50 : h.headroomPct >= m.target
+      return {
+        ...base,
+        display: fmtPct(h.headroomPct),
+        detail: `Of ${num(Math.round(h.forecastIncrementalYr))} incremental arrivals a year implied by ${h.drivers.length} declared driver${h.drivers.length === 1 ? '' : 's'} · ${h.undeclared.length} further drivers named but unquantified`,
+        target: m.target === undefined ? null : fmtPct(m.target),
+        state: ok ? 'on_track' : 'at_risk',
+        href: '/governance/headroom',
       }
     }
   }

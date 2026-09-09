@@ -40,6 +40,7 @@ import { AiGovernancePack } from './surfaces/governance/AiGovernancePack'
 import { Objectives } from './surfaces/governance/Objectives'
 import { ClientEffort } from './surfaces/governance/ClientEffort'
 import { Programmes } from './surfaces/governance/Programmes'
+import { Headroom } from './surfaces/governance/Headroom'
 
 import { FleetView } from './surfaces/atlas/FleetView'
 import { AgentRecord } from './surfaces/atlas/AgentRecord'
@@ -93,6 +94,7 @@ const router = createHashRouter([
       { path: 'governance/objectives', element: <Objectives /> },
       { path: 'governance/client-effort', element: <ClientEffort /> },
       { path: 'governance/programmes', element: <Programmes /> },
+      { path: 'governance/headroom', element: <Headroom /> },
 
       { path: 'atlas/fleet', element: <FleetView /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },

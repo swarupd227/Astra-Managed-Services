@@ -3,6 +3,7 @@ import { TOWERS } from './estate'
 import { ATTESTATION_DAYS, EFFORT_DECLARATIONS } from './clientEffort'
 import { PROGRAMMES } from './programmes'
 import { DEFLECTION_BASELINES } from './deflection'
+import { DEMAND_DRIVERS } from './headroom'
 import { runCost, streamGateway } from './agentRuntime'
 import type { MeasureSource, Objective, ObjectiveMeasure } from './objectives'
 
@@ -97,6 +98,16 @@ export function measureCatalogue(): CatalogueEntry[] {
       label: 'Deflection rate — total fall against agreed baselines',
       detail: 'Includes the fall nobody can explain. Larger, and weaker: an unexplained fall is a question, not evidence.',
     },
+    {
+      kind: 'growth', ref: 'absorption',
+      label: 'Growth absorbed without a proportional rise in effort',
+      detail: 'Backward-looking and honest about not having been tested: only demand caused by the client growing counts, and transition friction and service defects are excluded rather than summed in. May report that absorption has not been tested at all.',
+    },
+    {
+      kind: 'growth', ref: 'headroom',
+      label: 'Forecast growth the service could take at flat effort',
+      detail: `Forward-looking, against ${DEMAND_DRIVERS.length} client-declared business driver${DEMAND_DRIVERS.length === 1 ? '' : 's'} · withheld entirely where no driver is declared, since extrapolating the observed curve forecasts the transition rather than the business`,
+    },
   ]
 }
 
@@ -145,8 +156,9 @@ export interface CompileResult {
 
 const KINDS = new Set([
   'sla', 'demand_class', 'tower_avg', 'glidepath_banked', 'glidepath_trajectory',
-  'innovation_verified', 'spend_ratio', 'client_effort', 'programme_burndown', 'deflection_rate', 'none',
+  'innovation_verified', 'spend_ratio', 'client_effort', 'programme_burndown', 'deflection_rate', 'growth', 'none',
 ])
+const GROWTH_FIELDS = new Set(['absorption', 'headroom'])
 const ATTRIBUTIONS = new Set(['automation', 'elimination', 'acceleration', 'avoidance'])
 const TOWER_FIELDS = new Set(['autonomyEligibleVolume', 'verificationCoverage'])
 const EFFORT_FIELDS = new Set(['released', 'strategic_gained'])
@@ -204,6 +216,10 @@ function validateMeasure(m: CompiledMeasure, index: number): { measure?: Objecti
     case 'deflection_rate': {
       if (!DEFLECTION_REFS.has(m.ref)) return { reason: `"${m.ref}" is not a deflection variant — use "attributed" or "total"` }
       return { measure: { ...commonUnvalidated, source: { kind: 'deflection_rate', attributedOnly: m.ref === 'attributed' } } }
+    }
+    case 'growth': {
+      if (!GROWTH_FIELDS.has(m.ref)) return { reason: `"${m.ref}" is not a growth field — use "absorption" or "headroom"` }
+      return { measure: { ...commonUnvalidated, source: { kind: 'growth', field: m.ref as 'absorption' } } }
     }
     case 'none': {
       if (!m.why?.trim()) return { reason: 'declared unmeasurable without saying why' }
