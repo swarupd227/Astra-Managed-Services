@@ -98,7 +98,7 @@ export function BriefHome() {
             {/* §A6: every brief ends in asks. A report that creates no
                 obligations proves it was information, not operations. */}
             <Card
-              title="What I need from you"
+              title="Awaiting your decision"
               subtitle={yours.length ? 'Ranked by SLA urgency, blast radius and age' : undefined}
               right={<Chip tone={yours.length ? 'warn' : 'ok'}>{yours.length}</Chip>}
             >

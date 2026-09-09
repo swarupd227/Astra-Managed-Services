@@ -145,7 +145,7 @@ export function ShadowScoreboard() {
             </div>
 
             <div className="mt-3 rounded border border-line p-3">
-              <div className="label-cap">Why they differed</div>
+              <div className="label-cap">Divergence</div>
               <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">{dis.why}</p>
             </div>
 

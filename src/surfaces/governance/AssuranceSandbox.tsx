@@ -116,7 +116,7 @@ export function AssuranceSandbox() {
                       <tr>
                         <Td colSpan={5} className="bg-sunken">
                           <div className="py-2">
-                            <div className="label-cap">Why the engine decided that</div>
+                            <div className="label-cap">Decision basis</div>
                             <ul className="mt-1 space-y-0.5">
                               {r.reasons.map((x) => <li key={x} className="text-2xs text-ink-2">· {x}</li>)}
                             </ul>
@@ -177,7 +177,7 @@ export function AssuranceSandbox() {
           </Card>
 
           <div className="space-y-4">
-            <Card title="Controls you can run" subtitle="Each writes a verification record; none of them changes anything">
+            <Card title="Available controls" subtitle="Each writes a verification record; none of them changes anything">
               <ul className="space-y-2">
                 <li className="flex flex-wrap items-center gap-2 rounded border border-line p-2.5">
                   <Crosshair size={12} className="shrink-0 text-ink-3" />
@@ -204,7 +204,7 @@ export function AssuranceSandbox() {
               )}
             </Card>
 
-            <Card title="What this is for" subtitle="Schedule O §(k) — customer benchmarking">
+            <Card title="Purpose" subtitle="Schedule O §(k) — customer benchmarking">
               <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
                 <li>· Every control on this page is read-only and available to a read-only role. A customer who can run the benchmark themselves does not need to give seven days' notice to ask for it.</li>
                 <li>· Each run appends a verification record naming who ran it, so the fact that the customer exercised the control is itself auditable.</li>

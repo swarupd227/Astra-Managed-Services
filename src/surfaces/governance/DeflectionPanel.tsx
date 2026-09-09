@@ -50,7 +50,7 @@ export function DeflectionPanel() {
         <div className="mt-3 rounded border border-warn/40 bg-warn/[0.06] p-3">
           <div className="flex items-center gap-1.5">
             <TriangleAlert size={12} className="text-warn" />
-            <span className="label-cap text-warn">Most of the fall is unattributed</span>
+            <span className="label-cap text-warn">Unattributed fall</span>
           </div>
           <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
             {num(Math.round(s.unexplainedVolume))} of {num(Math.round(s.fallVolume))} fewer arrivals a year cannot be traced to anything in the glidepath ledger. Demand that stopped for reasons nobody can name is a question about those classes, not evidence that anything was deflected — so the attributed rate is the one to quote, and it is the smaller of the two by a wide margin.
@@ -98,7 +98,7 @@ export function DeflectionPanel() {
 
       {s.readings.some((r) => r.withheld || r.warnings.length) && (
         <div className="mt-3 rounded border border-line bg-sunken p-3">
-          <div className="label-cap">What each of these needs read alongside it</div>
+          <div className="label-cap">Per-class caveats</div>
           <ul className="mt-1.5 space-y-1.5">
             {s.readings.filter((r) => r.withheld || r.warnings.length).map((r) => (
               <li key={r.baseline.demandClass} className="text-2xs leading-relaxed text-ink-2">

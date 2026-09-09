@@ -99,7 +99,7 @@ export function AiGovernancePack() {
           <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
             <div className="flex items-center gap-1.5">
               <TriangleAlert size={12} className="text-warn" />
-              <span className="label-cap">Read this before the pack</span>
+              <span className="label-cap">Pack scope</span>
             </div>
             <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
               {gaps.length > 0 && <>{gaps.length} control{gaps.length === 1 ? '' : 's'} {gaps.length === 1 ? 'is' : 'are'} a gap: {gaps.map((g) => g.control.split('.')[0]).join('; ')}. </>}
@@ -139,7 +139,7 @@ export function AiGovernancePack() {
           )
         })}
 
-        <Card title="How to read this pack" subtitle="What it is, and what it is not" right={<BookCheck size={13} className="text-ink-3" />}>
+        <Card title="Pack structure" subtitle="What it is, and what it is not" right={<BookCheck size={13} className="text-ink-3" />}>
           <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
             <li>· Every figure is read from stored records at the moment you open the page. Nothing on this page is authored, so it cannot drift from the system it describes.</li>
             <li>· A control that has not been run this period says so. {role.readOnly ? 'You can run any of them yourself' : 'They can be run'} from the <Link to="/governance/assurance" className="text-brand-ink hover:underline">Assurance Sandbox</Link>, and the state here changes to match.</li>

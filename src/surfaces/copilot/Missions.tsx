@@ -81,7 +81,7 @@ function MissionCard({ m }: { m: Mission }) {
       <div className="mt-3 rounded border border-line bg-sunken px-3 py-2.5">
         <div className="flex items-center gap-1.5">
           <ShieldCheck size={12} className="shrink-0 text-ok" />
-          <span className="label-cap">The mission cannot widen policy</span>
+          <span className="label-cap">Policy precedence</span>
         </div>
         <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
           On <span className="font-mono">{sample}</span>, where the engine would return{' '}

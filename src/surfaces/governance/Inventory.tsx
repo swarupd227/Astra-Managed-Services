@@ -54,14 +54,14 @@ export function Inventory() {
         <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
           <div className="flex items-center gap-1.5">
             <ScanSearch size={12} className="text-warn" />
-            <span className="label-cap text-warn">Why this is two columns</span>
+            <span className="label-cap text-warn">Reconciliation basis</span>
           </div>
           <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
             "Reduce the number of systems under support" needs a count, and a count alone would have been the wrong answer here. The client's application record lists the legacy time-entry system as replaced, and it is the highest-volume live application in its tower. So the record and the observation are shown side by side. Neither is authoritative on its own, and progress reported against one is not the same number as progress reported against the other.
           </p>
         </div>
 
-        <Card title="Where they disagree" subtitle="Four kinds of disagreement, each meaning something different" right={<TriangleAlert size={13} className="text-warn" />}>
+        <Card title="Reconciliation" subtitle="Four kinds of disagreement, each meaning something different" right={<TriangleAlert size={13} className="text-warn" />}>
           <div className="grid gap-2 sm:grid-cols-2">
             {ORDER.filter((r) => r !== 'reconciled').map((r) => (
               <div key={r} className={cn('rounded border p-3', inv.byReconciliation[r] ? 'border-warn/40 bg-warn/[0.05]' : 'border-line bg-sunken')}>
@@ -120,7 +120,7 @@ export function Inventory() {
           </ul>
         </Card>
 
-        <Card className="mt-4" title="Before you quote the count" subtitle="Each of these bounds what the denominator means">
+        <Card className="mt-4" title="Caveats" subtitle="Each of these bounds what the denominator means">
           <ul className="space-y-1.5">
             {inv.caveats.map((c) => (
               <li key={c} className="text-2xs leading-relaxed text-ink-2">· {c}</li>

@@ -126,7 +126,7 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
         )}
 
         <div>
-          <span className="label-cap">The objectives, as the client stated them</span>
+          <span className="label-cap">Objectives as stated</span>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -166,7 +166,7 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
           <>
             {result.note && (
               <div className="rounded border border-line bg-sunken p-3">
-                <div className="label-cap">What the compiler wants you to know</div>
+                <div className="label-cap">Compiler note</div>
                 <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">{result.note}</p>
               </div>
             )}
@@ -260,7 +260,7 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
 
         {!running && !result && !refusal && !error && (
           <div className="rounded border border-line bg-sunken p-3">
-            <div className="label-cap">What the compiler may and may not do</div>
+            <div className="label-cap">Compiler constraints</div>
             <ul className="mt-1.5 space-y-1 text-2xs leading-relaxed text-ink-2">
               <li>· It is given a catalogue of the measures this platform can actually take, and every measure it returns is resolved against that catalogue. An id that does not exist never becomes a measure.</li>
               <li>· It is required to say "no measure" with a reason where nothing evidences an objective. A compiler that always finds a measure is lying, and an objective half of which cannot be measured is the one worth knowing about before signature.</li>

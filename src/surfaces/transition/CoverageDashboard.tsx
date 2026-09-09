@@ -152,7 +152,7 @@ export function CoverageDashboard() {
             </dl>
 
             <div className="mt-3 rounded border border-line bg-sunken p-2.5">
-              <div className="flex items-center gap-1.5"><Radar size={11} className="text-brand-ink" /><span className="label-cap">Why it matters commercially</span></div>
+              <div className="flex items-center gap-1.5"><Radar size={11} className="text-brand-ink" /><span className="label-cap">Commercial impact</span></div>
               <div className="mt-2 flex items-center gap-2">
                 <Sparkline data={[...HISTORY.verificationCoverage, verifiedVolumeCoverage()]} tone="ok" showLast width={90} />
                 <span className="text-2xs text-ink-3">autonomy-eligible volume, 7 quarters</span>

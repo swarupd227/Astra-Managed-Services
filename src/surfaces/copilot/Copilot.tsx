@@ -244,7 +244,7 @@ function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; onGate?:
               </ul>
             </div>
             <div>
-              <div className="label-cap">Why this mode</div>
+              <div className="label-cap">Mode rationale</div>
               <ul className="mt-1 space-y-0.5 text-2xs text-ink-2">
                 {r.reasons.slice(0, 4).map((x) => <li key={x}>· {x}</li>)}
               </ul>

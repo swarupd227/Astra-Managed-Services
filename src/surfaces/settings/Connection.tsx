@@ -265,7 +265,7 @@ export function Connection() {
             </Card>
           )}
 
-          <Card title="How the key is handled" subtitle="Local gateway, loopback only">
+          <Card title="Key handling" subtitle="Local gateway, loopback only">
             <ul className="space-y-1.5 text-2xs leading-relaxed text-ink-2">
               <li>· The key is held by the gateway process on <span className="font-mono">127.0.0.1:8787</span>. It is never included in the browser bundle and is never returned by any endpoint — the app only ever sees a masked form.</li>
               <li>· <span className="font-mono">ANTHROPIC_API_KEY</span> in the environment takes precedence over anything saved here.</li>

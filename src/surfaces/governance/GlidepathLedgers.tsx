@@ -99,7 +99,7 @@ export function GlidepathLedgers() {
                 </div>
               </Card>
 
-              <Card title="What each attribution means" subtitle="Attribution taxonomy">
+              <Card title="Attribution definitions" subtitle="Attribution taxonomy">
                 <ul className="space-y-2.5">
                   {byAttrib.map((a) => (
                     <li key={a.key} className="border-b border-line/60 pb-2.5 last:border-b-0 last:pb-0">

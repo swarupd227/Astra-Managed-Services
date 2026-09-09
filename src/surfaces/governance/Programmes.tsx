@@ -42,7 +42,7 @@ export function Programmes() {
         <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
           <div className="flex items-center gap-1.5">
             <CircleHelp size={12} className="text-warn" />
-            <span className="label-cap">Declared done, and evidenced done</span>
+            <span className="label-cap">Completion basis</span>
           </div>
           <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
             These are two separate facts and this page never merges them. Demand falling to nothing is strong evidence that a decommission happened, and it is not the decommission — a system nobody used this quarter is not a system that has been switched off. The remaining count quoted against an objective is the evidenced one, which is the larger and less comfortable of the two.
@@ -136,7 +136,7 @@ export function Programmes() {
                 <div className="mt-3 rounded border border-warn/40 bg-warn/[0.05] p-3">
                   <div className="flex items-center gap-1.5">
                     <TriangleAlert size={12} className="text-warn" />
-                    <span className="label-cap text-warn">Declared done without conclusive evidence</span>
+                    <span className="label-cap text-warn">Unevidenced completions</span>
                   </div>
                   <ul className="mt-1.5 space-y-1">
                     {b.assertedOnly.map((i) => (
@@ -152,7 +152,7 @@ export function Programmes() {
                 <div className="mt-3 rounded border border-line bg-sunken p-3">
                   <div className="flex items-center gap-1.5">
                     <Flag size={12} className="text-ink-3" />
-                    <span className="label-cap">Descoped, not done</span>
+                    <span className="label-cap">Descoped</span>
                   </div>
                   <ul className="mt-1.5 space-y-1">
                     {b.descoped.map((i) => (

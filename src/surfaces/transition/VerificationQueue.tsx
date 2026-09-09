@@ -157,7 +157,7 @@ export function VerificationQueue() {
                 </div>
 
                 <div className="px-4 py-3">
-                  <div className="label-cap">What to check</div>
+                  <div className="label-cap">Verification checklist</div>
                   {current.conflictsWith ? (
                     <div className="mt-1.5 rounded border border-crit/40 bg-crit/[0.07] p-2.5">
                       <p className="text-2xs font-medium text-crit">Contradiction detected</p>
@@ -203,7 +203,7 @@ export function VerificationQueue() {
             {/* D8 — the loop the correction closes, shown where corrections
                 are made rather than on a separate screen. */}
             <Card
-              title="What you have taught"
+              title="Your verifications"
               subtitle="Each correction, and what the platform computed it reaches"
               right={<Chip tone={lessons.length ? 'ok' : 'neutral'}>{lessons.length}</Chip>}
             >

@@ -58,7 +58,7 @@ export function ClientEffort() {
         <div className="mb-4 rounded-md border border-info/40 bg-info/[0.06] p-3">
           <div className="flex items-center gap-1.5">
             <BookLock size={12} className="text-info" />
-            <span className="label-cap">Whose book this is</span>
+            <span className="label-cap">Source of these figures</span>
           </div>
           <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
             The glidepath ledger measures our effort against a contracted baseline. An objective about releasing the client's <em>own</em> people is a different baseline held on the other side of the boundary, and there are no client timesheets, queues or headcount in this platform. The dishonest fix would be to take our banked hours, assert that some share of them landed on client staff, and print a figure. Instead the client declares their own split and signs it. What follows is theirs; our part is to hold it, age it, show how it was arrived at, and set it beside our own hours so a disagreement between the two books stays visible.
@@ -83,7 +83,7 @@ export function ClientEffort() {
                 <thead>
                   <tr>
                     <Th>Declaration</Th><Th align="right">Run FTE</Th><Th align="right">Strategic FTE</Th>
-                    <Th>How it was arrived at</Th><Th>Signed by</Th>
+                    <Th>Basis</Th><Th>Signed by</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,7 +153,7 @@ export function ClientEffort() {
           ))}
         </div>
 
-        <Card className="mt-4" title="Before you use these figures" subtitle="Every one of these applies today" right={<TriangleAlert size={13} className="text-warn" />}>
+        <Card className="mt-4" title="Caveats" subtitle="Every one of these applies today" right={<TriangleAlert size={13} className="text-warn" />}>
           <ul className="space-y-1.5">
             {s.caveats.map((c) => (
               <li key={c} className="text-2xs leading-relaxed text-ink-2">· {c}</li>

@@ -40,20 +40,20 @@ export function MyWorkplace() {
   return (
     <>
       <PageHeader
-        title={`Good morning, ${CONSUMER.name}`}
-        subtitle={`${CONSUMER.title} · ${CONSUMER.office}`}
+        title="My workplace"
+        subtitle={`${CONSUMER.name} · ${CONSUMER.title} · ${CONSUMER.office}`}
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
-        <Metric size="sm" label="Affecting what you use" value={issues.length} deltaTone={issues.length ? 'warn' : 'ok'} hint="already known — no need to report" />
-        <Metric size="sm" label="You raised" value={raisedTotal} hint={`this period, across ${CONSUMER.raised.length} kinds of problem`} />
-        <Metric size="sm" label="You can fix yourself" value={`${available.length} / ${offers.length}`} deltaTone={available.length ? 'ok' : 'warn'} hint="routes that actually exist today" />
+        <Metric size="sm" label="Affecting your systems" value={issues.length} deltaTone={issues.length ? 'warn' : 'ok'} hint="already known — no need to report" />
+        <Metric size="sm" label="Raised by you" value={raisedTotal} hint={`this period, across ${CONSUMER.raised.length} kinds of problem`} />
+        <Metric size="sm" label="Self-service available" value={`${available.length} / ${offers.length}`} deltaTone={available.length ? 'ok' : 'warn'} hint="routes that actually exist today" />
         <Metric size="sm" label="Service against target" value={`${experience.filter((e) => e.meeting).length} / ${experience.length}`} deltaTone={experience.every((e) => e.meeting) ? 'ok' : 'warn'} hint="for everyone, not for you" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <Card
-          title="Already known, already being worked"
+          title="Known issues"
           subtitle="Matched through the systems you depend on"
           right={<CircleAlert size={13} className="text-ink-3" />}
         >
@@ -88,8 +88,8 @@ export function MyWorkplace() {
 
         <Card
           className="mt-4"
-          title="Things you keep having to ask for"
-          subtitle="What you raised, and whether there is a route yet"
+          title="Recurring requests"
+          subtitle="Raised repeatedly, and whether a route exists yet"
           right={<LifeBuoy size={13} className="text-ink-3" />}
         >
           <ul className="space-y-2">
@@ -133,7 +133,7 @@ export function MyWorkplace() {
 
         <Card
           className="mt-4"
-          title="How the service has been running"
+          title="Service performance"
           subtitle="For everyone it covers — not a measure of your week"
         >
           <div className="grid gap-3 sm:grid-cols-2">
@@ -157,7 +157,7 @@ export function MyWorkplace() {
 
         <Card
           className="mt-4"
-          title="What this page will not tell you"
+          title="Limits of this view"
           subtitle="The absences are deliberate"
           right={<Info size={13} className="text-ink-3" />}
         >

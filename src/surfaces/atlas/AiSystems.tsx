@@ -384,7 +384,7 @@ export function AiSystems() {
               )}
             </Card>
 
-            <Card title="How this is enforced" subtitle="The registry is not a policy document; it is the only path a call can take">
+            <Card title="Enforcement" subtitle="The registry is not a policy document; it is the only path a call can take">
               <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
                 <li>· The gateway resolves the configured model against this registry for the purpose each phase serves. A model that is not listed, is revoked, is still pending, sits outside the residency rules, or is not approved for that purpose is refused before any vendor request is made.</li>
                 <li>· A new system enters as pending with a {registry.noticeHours}-hour notice clock. Approval before the clock ends needs a typed override, which is recorded against the system and in the evidence chain.</li>

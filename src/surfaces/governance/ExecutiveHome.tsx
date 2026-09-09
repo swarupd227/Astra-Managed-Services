@@ -254,7 +254,7 @@ export function ExecutiveHome() {
           {/* §A3.2 — decisions are the destination. The executive discharges
               governance from the briefing itself. */}
           <Card
-            title="What I need from you"
+            title="Awaiting your decision"
             subtitle="Open conditions, overdue obligations, and proposals the workforce raised"
             right={<Chip tone={awaiting ? 'warn' : 'ok'}>{awaiting}</Chip>}
           >

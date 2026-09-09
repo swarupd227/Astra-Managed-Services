@@ -127,7 +127,7 @@ export function ResolverWorkspace() {
                 <Button size="sm" variant="ghost" onClick={() => nav(`/operate/work/${selected.id}`)}>Full detail</Button>
               </div>
 
-              <Card dense title="What the agents have already done" >
+              <Card dense title="Agent activity" >
                 <ol className="space-y-2">
                   {selected.narrative.filter((n) => n.actorKind === 'agent').map((n) => (
                     <li key={n.id} className="flex gap-2">

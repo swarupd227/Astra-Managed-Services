@@ -86,7 +86,7 @@ export function Objectives() {
           <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
             <div className="flex items-center gap-1.5">
               <TriangleAlert size={12} className="text-warn" />
-              <span className="label-cap">What this platform cannot tell you</span>
+              <span className="label-cap">Unmeasured measures</span>
             </div>
             <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
               {unmeasured} of {measures.length} measures across these objectives resolve to nothing. They are listed on their objective with the reason. An objective statement that showed only the measurable half would read better and be worth less.
@@ -119,7 +119,7 @@ export function Objectives() {
                 <div className="mt-3">
                   <Table>
                     <thead>
-                      <tr><Th>Measure</Th><Th align="right">Now</Th><Th align="right">Target</Th><Th>Where it comes from</Th><Th>State</Th></tr>
+                      <tr><Th>Measure</Th><Th align="right">Now</Th><Th align="right">Target</Th><Th>Source</Th><Th>State</Th></tr>
                     </thead>
                     <tbody>
                       {p.measures.map((m) => (
@@ -144,7 +144,7 @@ export function Objectives() {
 
                 {o.gaps.length > 0 && (
                   <div className="mt-3 rounded border border-warn/40 bg-warn/[0.05] p-3">
-                    <div className="label-cap text-warn">What this objective needs that we cannot evidence</div>
+                    <div className="label-cap text-warn">Declared gaps</div>
                     <ul className="mt-1.5 space-y-1">
                       {o.gaps.map((g) => <li key={g} className="text-2xs leading-relaxed text-ink-2">· {g}</li>)}
                     </ul>
@@ -233,7 +233,7 @@ export function Objectives() {
           </Card>
         )}
 
-        <Card className="mt-4" title="How an objective works here" subtitle="Why this tier exists" right={<Target size={13} className="text-ink-3" />}>
+        <Card className="mt-4" title="Objective model" subtitle="Why this tier exists" right={<Target size={13} className="text-ink-3" />}>
           <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
             <li>· A measure never computes a figure of its own — it resolves to one the ledgers already serve, so an objective cannot report progress the rest of the platform would contradict.</li>
             <li>· A proxy is allowed and must be labelled. Whether a proxy is acceptable evidence for an objective is the client's judgement, recorded when they accept it.</li>

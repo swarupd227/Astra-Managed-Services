@@ -48,14 +48,14 @@ export function Headroom() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <Card
-          title="Has growth been absorbed?"
+          title="Absorption"
           subtitle="Backward-looking, from the ledgers"
           right={<Chip tone={verdictTone}>{h.absorption === 'untested' ? 'not tested' : h.absorption === 'absorbed' ? 'absorbed' : 'not absorbed'}</Chip>}
         >
           <div className={cn('rounded border p-3', h.absorption === 'untested' ? 'border-warn/40 bg-warn/[0.06]' : 'border-line bg-sunken')}>
             <div className="flex items-center gap-1.5">
               <CircleHelp size={12} className={h.absorption === 'untested' ? 'text-warn' : 'text-ink-3'} />
-              <span className={cn('label-cap', h.absorption === 'untested' && 'text-warn')}>The verdict, and why</span>
+              <span className={cn('label-cap', h.absorption === 'untested' && 'text-warn')}>Verdict</span>
             </div>
             <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">{h.absorptionNote}</p>
           </div>
@@ -81,7 +81,7 @@ export function Headroom() {
 
         <Card
           className="mt-4"
-          title="What is actually rising"
+          title="Rising demand by cause"
           subtitle={`${num(h.risingVolumeYr)} arrivals a year across rising classes — shown by cause, never summed`}
           right={<TrendingUp size={13} className="text-ink-3" />}
         >
@@ -158,7 +158,7 @@ export function Headroom() {
           <div className="mt-3 rounded border border-warn/40 bg-warn/[0.05] p-3">
             <div className="flex items-center gap-1.5">
               <TriangleAlert size={12} className="text-warn" />
-              <span className="label-cap text-warn">Drivers named but never quantified</span>
+              <span className="label-cap text-warn">Unquantified drivers</span>
             </div>
             <ul className="mt-1.5 space-y-1.5">
               {h.undeclared.map((u) => (
@@ -171,7 +171,7 @@ export function Headroom() {
           </div>
         </Card>
 
-        <Card className="mt-4" title="Before you quote any of this" subtitle="Each applies to the figures above">
+        <Card className="mt-4" title="Caveats" subtitle="Each applies to the figures above">
           <ul className="space-y-1.5">
             {h.warnings.map((w) => (
               <li key={w} className="text-2xs leading-relaxed text-ink-2">· {w}</li>
