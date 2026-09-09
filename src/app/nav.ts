@@ -93,6 +93,8 @@ export const SURFACES: Surface[] = [
     items: [
       { to: '/governance/executive', label: 'Executive Home', desc: 'One page of service truth and the decisions awaiting you' },
       { to: '/governance/objectives', label: 'Objectives', desc: 'What the engagement was bought to achieve, and what the platform can evidence' },
+      { to: '/governance/client-effort', label: 'Client Effort', desc: 'What the client declares about their own staff — held and aged, never measured here' },
+      { to: '/governance/programmes', label: 'Programmes', desc: 'Target end states and burn-down — what is evidenced gone, not what was declared done' },
       { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
       { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
       { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },

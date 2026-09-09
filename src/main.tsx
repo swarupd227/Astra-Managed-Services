@@ -38,6 +38,8 @@ import { AiIncidents } from './surfaces/governance/AiIncidents'
 import { AssuranceSandbox } from './surfaces/governance/AssuranceSandbox'
 import { AiGovernancePack } from './surfaces/governance/AiGovernancePack'
 import { Objectives } from './surfaces/governance/Objectives'
+import { ClientEffort } from './surfaces/governance/ClientEffort'
+import { Programmes } from './surfaces/governance/Programmes'
 
 import { FleetView } from './surfaces/atlas/FleetView'
 import { AgentRecord } from './surfaces/atlas/AgentRecord'
@@ -89,6 +91,8 @@ const router = createHashRouter([
       { path: 'governance/assurance', element: <AssuranceSandbox /> },
       { path: 'governance/ai-pack', element: <AiGovernancePack /> },
       { path: 'governance/objectives', element: <Objectives /> },
+      { path: 'governance/client-effort', element: <ClientEffort /> },
+      { path: 'governance/programmes', element: <Programmes /> },
 
       { path: 'atlas/fleet', element: <FleetView /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },

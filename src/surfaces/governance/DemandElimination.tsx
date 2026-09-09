@@ -13,6 +13,7 @@ import type { DemandClassRec } from '@/domain/types'
 import { volumeRemoved } from '@/domain/metrics'
 import { proposalFor } from '@/domain/proposals'
 import { ProducedBy } from '@/ui/ProducedBy'
+import { DeflectionPanel } from './DeflectionPanel'
 
 const STATE_TONE: Record<DemandClassRec['eliminationState'], 'neutral' | 'info' | 'brand' | 'agent' | 'ok'> = {
   none: 'neutral', candidate: 'info', approved: 'brand', verifying: 'agent', eliminated: 'ok',
@@ -170,6 +171,8 @@ export function DemandElimination() {
             </Table>
           </Card>
         </div>
+
+        <DeflectionPanel />
       </div>
 
       <Drawer

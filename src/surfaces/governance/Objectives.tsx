@@ -171,9 +171,9 @@ export function Objectives() {
                     <div className="label-cap">Credits committed</div>
                     {links[o.id].allocations.length ? (
                       <>
-                        <p className="tnum mt-1 text-xs text-ink">{links[o.id].credits.toLocaleString()}</p>
+                        <p className="tnum mt-1 text-xs text-ink">{links[o.id].credits.toLocaleString('en-GB')}</p>
                         <p className="text-2xs leading-relaxed text-ink-3">
-                          across {links[o.id].allocations.length} allocation{links[o.id].allocations.length === 1 ? '' : 's'} · {links[o.id].yieldRealised.toLocaleString()} of {links[o.id].yieldPromised.toLocaleString()} promised hours realised
+                          across {links[o.id].allocations.length} allocation{links[o.id].allocations.length === 1 ? '' : 's'} · {links[o.id].yieldRealised.toLocaleString('en-GB')} of {links[o.id].yieldPromised.toLocaleString('en-GB')} promised hours realised
                         </p>
                       </>
                     ) : (
@@ -226,7 +226,7 @@ export function Objectives() {
                 <li key={a.id} className="flex flex-wrap items-baseline gap-2 text-2xs text-ink-2">
                   <Chip mono>{a.id}</Chip>
                   <span className="text-ink">{a.title}</span>
-                  <span className="tnum ml-auto text-ink-3">{a.credits.toLocaleString()} credits</span>
+                  <span className="tnum ml-auto text-ink-3">{a.credits.toLocaleString('en-GB')} credits</span>
                 </li>
               ))}
             </ul>
