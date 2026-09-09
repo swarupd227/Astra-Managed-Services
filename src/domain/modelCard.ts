@@ -72,7 +72,7 @@ export function agentCard(agent: Agent, ctx: CardContext = {}): ModelCard {
       {
         title: 'Evaluation',
         rows: [
-          { label: 'Replay suite', value: `${agent.evaluation.suiteId} — score ${agent.evaluation.score.toFixed(3)} over ${agent.evaluation.replayN.toLocaleString()} cases, last ${d(agent.evaluation.lastRun)}`, tone: agent.evaluation.score >= 0.9 ? 'ok' : 'warn' },
+          { label: 'Replay suite', value: `${agent.evaluation.suiteId} — score ${agent.evaluation.score.toFixed(3)} over ${agent.evaluation.replayN.toLocaleString('en-GB')} cases, last ${d(agent.evaluation.lastRun)}`, tone: agent.evaluation.score >= 0.9 ? 'ok' : 'warn' },
           { label: 'Suites covering its classes', value: suites.length ? suites.map((s) => `${s.name} (${s.pass.toFixed(3)}, ${s.regression} regression${s.regression === 1 ? '' : 's'})`).join('; ') : 'none' },
           { label: 'Live success, 90 days', value: agent.evaluation.liveSuccess90d ? `${(agent.evaluation.liveSuccess90d * 100).toFixed(1)}%` : 'not yet live' },
           { label: 'Red team', value: rt ? `${rt.results.filter((r) => r.pass).length} of ${rt.results.length} controls held, ${d(rt.at)}` : 'not run this session', tone: rt ? (rt.results.every((r) => r.pass) ? 'ok' : 'crit') : 'neutral' },

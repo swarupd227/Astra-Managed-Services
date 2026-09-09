@@ -54,7 +54,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       out.push({ id: `agt-${a.id}`, group: 'Agents', label: a.name, hint: a.codename, run: () => nav(`/atlas/agent/${a.id}`) }),
     )
     TOWERS.forEach((t) =>
-      out.push({ id: `twr-${t.id}`, group: 'Towers', label: t.name, hint: `${t.state} · ${t.entities.toLocaleString()} entities`, run: () => nav(`/operate/board?tower=${t.id}`) }),
+      out.push({ id: `twr-${t.id}`, group: 'Towers', label: t.name, hint: `${t.state} · ${t.entities.toLocaleString('en-GB')} entities`, run: () => nav(`/operate/board?tower=${t.id}`) }),
     )
     ROLES.forEach((r) =>
       out.push({

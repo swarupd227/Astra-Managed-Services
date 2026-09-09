@@ -508,7 +508,7 @@ export async function runIntent(
         const usd = runCost(ev.inputTokens, ev.outputTokens)
         onBeat({
           t: 'cost', usd,
-          note: `${ev.inputTokens.toLocaleString()} in / ${ev.outputTokens.toLocaleString()} out${ev.cacheRead ? ` · ${ev.cacheRead.toLocaleString()} cached` : ''}`,
+          note: `${ev.inputTokens.toLocaleString('en-GB')} in / ${ev.outputTokens.toLocaleString('en-GB')} out${ev.cacheRead ? ` · ${ev.cacheRead.toLocaleString('en-GB')} cached` : ''}`,
           inputTokens: ev.inputTokens, outputTokens: ev.outputTokens, model: ev.model,
           system: ev.system, registered: ev.registered, mismatch: ev.mismatch,
         })
@@ -623,7 +623,7 @@ export async function execute(
       } else if (ev.type === 'usage') {
         onBeat({
           t: 'cost', usd: runCost(ev.inputTokens, ev.outputTokens),
-          note: `outcome narrative · ${ev.inputTokens.toLocaleString()} in / ${ev.outputTokens.toLocaleString()} out`,
+          note: `outcome narrative · ${ev.inputTokens.toLocaleString('en-GB')} in / ${ev.outputTokens.toLocaleString('en-GB')} out`,
           inputTokens: ev.inputTokens, outputTokens: ev.outputTokens, model: ev.model,
         })
       }

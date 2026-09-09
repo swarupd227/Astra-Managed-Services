@@ -210,7 +210,7 @@ export function ExecutiveHome() {
               <span className="flex shrink-0 items-center gap-2">
                 {state === 'streaming' && <Chip tone="agent"><Dot tone="agent" pulse />writing</Chip>}
                 {state === 'done' && usage && (
-                  <span className="tnum text-2xs text-ink-3" title={`${usage.inputTokens.toLocaleString()} in / ${usage.outputTokens.toLocaleString()} out · ${usage.model}`}>
+                  <span className="tnum text-2xs text-ink-3" title={`${usage.inputTokens.toLocaleString('en-GB')} in / ${usage.outputTokens.toLocaleString('en-GB')} out · ${usage.model}`}>
                     ${usage.usd.toFixed(3)}
                   </span>
                 )}

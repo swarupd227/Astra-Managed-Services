@@ -76,7 +76,7 @@ export function buildPack(ctx: PackContext): PackControl[] {
       id: 'gv_policy', fn: 'GOVERN', iso: '42001 §6.2 · objectives and policy',
       control: 'Autonomy is decided by versioned policy-as-code, not by the agent or the operator.',
       evidence: 'Policy register with version and source; every decision sealed with its full input vector.',
-      figure: `${POLICIES.length} policies · ${POLICIES.reduce((n, p) => n + p.rules.length, 0)} rules · ${kinds(ctx.evidence, 'decision').toLocaleString()} decision records`,
+      figure: `${POLICIES.length} policies · ${POLICIES.reduce((n, p) => n + p.rules.length, 0)} rules · ${kinds(ctx.evidence, 'decision').toLocaleString('en-GB')} decision records`,
       state: 'evidenced', href: '/atlas/policy',
     },
     {
@@ -137,7 +137,7 @@ export function buildPack(ctx: PackContext): PackControl[] {
       id: 'ms_replay', fn: 'MEASURE', iso: '42001 §9.1 · performance evaluation',
       control: 'Agents are scored on replay suites built from this client\'s own history before any promotion.',
       evidence: 'Evaluation suites with pass scores and open regressions.',
-      figure: `${SUITES.length} suites · ${SUITES.reduce((n, s) => n + s.cases, 0).toLocaleString()} cases · ${SUITES.reduce((n, s) => n + s.regression, 0)} open regressions`,
+      figure: `${SUITES.length} suites · ${SUITES.reduce((n, s) => n + s.cases, 0).toLocaleString('en-GB')} cases · ${SUITES.reduce((n, s) => n + s.regression, 0)} open regressions`,
       state: 'evidenced', href: '/atlas/evaluation',
     },
     {
@@ -183,9 +183,9 @@ export function buildPack(ctx: PackContext): PackControl[] {
       evidence: 'Chain verification recomputing every digest from genesis.',
       figure: ctx.verification
         ? ctx.verification.valid
-          ? `intact · ${ctx.verification.checked.toLocaleString()} records`
+          ? `intact · ${ctx.verification.checked.toLocaleString('en-GB')} records`
           : `BROKEN from sequence ${ctx.verification.firstBreakSeq}`
-        : `${ctx.evidence.length.toLocaleString()} records, not verified this period`,
+        : `${ctx.evidence.length.toLocaleString('en-GB')} records, not verified this period`,
       state: ctx.verification ? (ctx.verification.valid ? 'evidenced' : 'gap') : 'not_exercised',
       href: '/governance/evidence',
     },
@@ -195,7 +195,7 @@ export function buildPack(ctx: PackContext): PackControl[] {
       id: 'mg_oversight', fn: 'MANAGE', iso: '42001 §8.1 · operational control',
       control: 'A consequential action waits for a named human, and the approval is recorded before the action is.',
       evidence: 'Approval records preceding action records; an oversight audit over the chain itself.',
-      figure: `${kinds(ctx.evidence, 'approval').toLocaleString()} approvals · ${kinds(ctx.evidence, 'action').toLocaleString()} actions`,
+      figure: `${kinds(ctx.evidence, 'approval').toLocaleString('en-GB')} approvals · ${kinds(ctx.evidence, 'action').toLocaleString('en-GB')} actions`,
       state: 'evidenced', href: '/operate/approvals',
     },
     {

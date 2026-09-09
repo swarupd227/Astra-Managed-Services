@@ -87,7 +87,7 @@ export function AssuranceSandbox() {
         />
         <Metric
           size="sm" label="Evidence chain" value={verification ? (verification.valid ? 'intact' : 'broken') : '—'}
-          deltaTone={verification ? (verification.valid ? 'ok' : 'crit') : undefined} hint={`${evidence.length.toLocaleString()} records`}
+          deltaTone={verification ? (verification.valid ? 'ok' : 'crit') : undefined} hint={`${evidence.length.toLocaleString('en-GB')} records`}
         />
       </div>
 
@@ -198,7 +198,7 @@ export function AssuranceSandbox() {
               {verification && (
                 <p className={cn('mt-2 text-2xs leading-relaxed', verification.valid ? 'text-ok' : 'text-crit')}>
                   {verification.valid
-                    ? `Chain intact — ${verification.checked.toLocaleString()} records recomputed in ${verification.durationMs} ms, root ${verification.rootHash.slice(0, 12)}…`
+                    ? `Chain intact — ${verification.checked.toLocaleString('en-GB')} records recomputed in ${verification.durationMs} ms, root ${verification.rootHash.slice(0, 12)}…`
                     : `Chain broken from sequence ${verification.firstBreakSeq} — ${verification.brokenIds.length} record(s) affected.`}
                 </p>
               )}
