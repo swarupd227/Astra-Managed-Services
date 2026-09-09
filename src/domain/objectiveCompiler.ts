@@ -1,5 +1,8 @@
 import { SLAS, DEMAND_CLASSES } from './ledgers'
 import { TOWERS } from './estate'
+import { ATTESTATION_DAYS, EFFORT_DECLARATIONS } from './clientEffort'
+import { PROGRAMMES } from './programmes'
+import { DEFLECTION_BASELINES } from './deflection'
 import { runCost, streamGateway } from './agentRuntime'
 import type { MeasureSource, Objective, ObjectiveMeasure } from './objectives'
 
@@ -68,6 +71,32 @@ export function measureCatalogue(): CatalogueEntry[] {
     { kind: 'glidepath_trajectory', ref: '', label: 'Glidepath actual against contracted', detail: 'Weighted by baseline hours across towers in run' },
     { kind: 'innovation_verified', ref: '', label: 'Innovation value realised and verified', detail: 'From the innovation register, failures included' },
     { kind: 'spend_ratio', ref: '', label: 'Model spend against human cost displaced', detail: 'Fleet-wide, 30 days' },
+    {
+      kind: 'client_effort', ref: 'released',
+      label: 'Client staff released from run-the-business work (FTE)',
+      detail: `Declared and signed by the client's own function leads, not measured by this platform · ${EFFORT_DECLARATIONS.length} declarations across ${new Set(EFFORT_DECLARATIONS.map((d) => d.function)).size} functions · declarations older than ${ATTESTATION_DAYS} days are excluded rather than carried forward`,
+    },
+    {
+      kind: 'client_effort', ref: 'strategic_gained',
+      label: 'Client staff now on strategic work (FTE)',
+      detail: 'The other half of the same declaration. Released and redeployed are different facts: people can leave rather than move.',
+    },
+    ...PROGRAMMES.map((p) => ({
+      kind: 'programme_burndown' as const,
+      ref: p.id,
+      label: `${p.name} — scope remaining`,
+      detail: `${p.items.length} scope items, target ${p.targetEndAt.slice(0, 7)} · counts only items evidenced gone, not items declared done`,
+    })),
+    {
+      kind: 'deflection_rate', ref: 'attributed',
+      label: 'Deflection rate — the attributed fall only',
+      detail: `Share of arrivals no longer arriving that the glidepath ledger can attribute · across ${DEFLECTION_BASELINES.length} agreed baselines · the defensible one of the two`,
+    },
+    {
+      kind: 'deflection_rate', ref: 'total',
+      label: 'Deflection rate — total fall against agreed baselines',
+      detail: 'Includes the fall nobody can explain. Larger, and weaker: an unexplained fall is a question, not evidence.',
+    },
   ]
 }
 
@@ -114,9 +143,14 @@ export interface CompileResult {
   note: string
 }
 
-const KINDS = new Set(['sla', 'demand_class', 'tower_avg', 'glidepath_banked', 'glidepath_trajectory', 'innovation_verified', 'spend_ratio', 'none'])
+const KINDS = new Set([
+  'sla', 'demand_class', 'tower_avg', 'glidepath_banked', 'glidepath_trajectory',
+  'innovation_verified', 'spend_ratio', 'client_effort', 'programme_burndown', 'deflection_rate', 'none',
+])
 const ATTRIBUTIONS = new Set(['automation', 'elimination', 'acceleration', 'avoidance'])
 const TOWER_FIELDS = new Set(['autonomyEligibleVolume', 'verificationCoverage'])
+const EFFORT_FIELDS = new Set(['released', 'strategic_gained'])
+const DEFLECTION_REFS = new Set(['attributed', 'total'])
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 28)
 
@@ -159,6 +193,18 @@ function validateMeasure(m: CompiledMeasure, index: number): { measure?: Objecti
       return { measure: { ...commonUnvalidated, source: { kind: 'innovation_verified' } } }
     case 'spend_ratio':
       return { measure: { ...commonUnvalidated, source: { kind: 'spend_ratio' } } }
+    case 'client_effort': {
+      if (!EFFORT_FIELDS.has(m.ref)) return { reason: `"${m.ref}" is not a client-effort field — use "released" or "strategic_gained"` }
+      return { measure: { ...commonUnvalidated, source: { kind: 'client_effort', field: m.ref as 'released' } } }
+    }
+    case 'programme_burndown': {
+      if (!PROGRAMMES.some((p) => p.id === m.ref)) return { reason: `no programme with id "${m.ref}" exists` }
+      return { measure: { ...commonUnvalidated, source: { kind: 'programme_burndown', id: m.ref } } }
+    }
+    case 'deflection_rate': {
+      if (!DEFLECTION_REFS.has(m.ref)) return { reason: `"${m.ref}" is not a deflection variant — use "attributed" or "total"` }
+      return { measure: { ...commonUnvalidated, source: { kind: 'deflection_rate', attributedOnly: m.ref === 'attributed' } } }
+    }
     case 'none': {
       if (!m.why?.trim()) return { reason: 'declared unmeasurable without saying why' }
       return { measure: { ...commonUnvalidated, source: { kind: 'none', why: m.why } } }

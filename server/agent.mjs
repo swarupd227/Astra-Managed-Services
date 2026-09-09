@@ -204,6 +204,46 @@ const PROPOSE_ACTION = {
   },
 }
 
+/**
+ * The measure kinds the model may emit are derived from the catalogue it was
+ * given, never listed here. A hand-kept enum is a third place to update
+ * alongside the catalogue and the validator, and when it drifts the failure
+ * is silent and expensive: the model reads a measure in the catalogue, finds
+ * it absent from the enum, and reports the objective as unmeasurable — which
+ * is exactly the answer this whole feature exists to avoid giving falsely.
+ */
+const proposeObjectivesTool = (catalogue) => ({
+  ...PROPOSE_OBJECTIVES,
+  input_schema: {
+    ...PROPOSE_OBJECTIVES.input_schema,
+    properties: {
+      ...PROPOSE_OBJECTIVES.input_schema.properties,
+      objectives: {
+        ...PROPOSE_OBJECTIVES.input_schema.properties.objectives,
+        items: {
+          ...PROPOSE_OBJECTIVES.input_schema.properties.objectives.items,
+          properties: {
+            ...PROPOSE_OBJECTIVES.input_schema.properties.objectives.items.properties,
+            measures: {
+              ...PROPOSE_OBJECTIVES.input_schema.properties.objectives.items.properties.measures,
+              items: {
+                ...PROPOSE_OBJECTIVES.input_schema.properties.objectives.items.properties.measures.items,
+                properties: {
+                  ...PROPOSE_OBJECTIVES.input_schema.properties.objectives.items.properties.measures.items.properties,
+                  kind: {
+                    type: 'string',
+                    enum: [...new Set((catalogue ?? []).map((c) => c.kind)), 'none'],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+})
+
 const PROPOSE_OBJECTIVES = {
   name: 'propose_objectives',
   description:
@@ -233,11 +273,9 @@ const PROPOSE_OBJECTIVES = {
                 additionalProperties: false,
                 properties: {
                   label: { type: 'string', description: 'What this measure tells the reader, in plain words.' },
-                  kind: {
-                    type: 'string',
-                    enum: ['sla', 'demand_class', 'tower_avg', 'glidepath_banked', 'glidepath_trajectory', 'innovation_verified', 'spend_ratio', 'none'],
-                  },
-                  ref: { type: 'string', description: 'The catalogue ref for this kind — an SLA id, a demand-class id, a tower field, or an attribution. Empty string where the kind needs none.' },
+                  /** Replaced per-request from the catalogue — see proposeObjectivesTool. */
+                  kind: { type: 'string' },
+                  ref: { type: 'string', description: 'The ref shown against this kind in the catalogue, copied verbatim — an SLA id, a demand-class id, a tower field, an attribution, a programme id, or the variant a kind names. Empty string only where the catalogue shows the ref empty.' },
                   target: { type: 'number', description: 'The target value, or -1 when the measure carries its own target or has none.' },
                   direction: { type: 'string', enum: ['up', 'down'] },
                   proxy: { type: 'boolean', description: 'True when this stands in for something the platform cannot measure directly.' },
@@ -485,7 +523,7 @@ async function handleAgent(body, res) {
         isBrief ? briefPrompt(portfolio) : isOutcome ? outcomePrompt(estate) : isCompile ? compilerPrompt(catalogue) : systemPrompt(estate),
         canary,
       ),
-      tools: narrating ? undefined : [isCompile ? PROPOSE_OBJECTIVES : PROPOSE_ACTION],
+      tools: narrating ? undefined : [isCompile ? proposeObjectivesTool(catalogue) : PROPOSE_ACTION],
       messages: isBrief
         ? [{ role: 'user', content: 'Brief me.' }]
         : isOutcome

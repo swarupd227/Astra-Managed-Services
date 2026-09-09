@@ -1,6 +1,10 @@
 import { AGENTS, TOWERS } from './estate'
 import { DEMAND_CLASSES, GLIDEPATH, INNOVATION, SLAS, TRANSFORM, bankedHours } from './ledgers'
 import { MISSIONS } from './missions'
+import { ATTESTATION_DAYS, clientEffortSummary } from './clientEffort'
+import { PROGRAMMES, burnDown } from './programmes'
+import { deflectionSummary } from './deflection'
+import { num, usd } from '@/lib/format'
 import type { GlidepathEntry, ISO, TransformAllocation } from './types'
 
 /* ==========================================================================
@@ -34,6 +38,12 @@ export type MeasureSource =
   | { kind: 'innovation_verified' }
   /** Model spend against human cost displaced, across the fleet. */
   | { kind: 'spend_ratio' }
+  /** Client-declared FTE released from run work. Their book, not ours. */
+  | { kind: 'client_effort'; field: 'released' | 'strategic_gained' }
+  /** A programme's remaining scope — evidenced completion only. */
+  | { kind: 'programme_burndown'; id: string }
+  /** Share of arrivals no longer arriving, against agreed baselines. */
+  | { kind: 'deflection_rate'; attributedOnly: boolean }
   /** No measure exists. The reason is required: this is the honest case, not the empty one. */
   | { kind: 'none'; why: string }
 
@@ -99,8 +109,8 @@ export interface ResolvedMeasure {
  */
 const runTowers = () => TOWERS.filter((t) => t.state === 'S4')
 const fmtPct = (n: number, dp = 1) => `${n.toFixed(dp)}%`
-const fmtHrs = (n: number) => `${Math.round(n).toLocaleString()} h`
-const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`
+const fmtHrs = (n: number) => `${num(Math.round(n))} h`
+const fmtUsd = (n: number) => usd(Math.round(n), 0)
 
 /**
  * Resolves a measure to the figure the ledgers already serve. Never computes
@@ -120,7 +130,7 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
       return {
         ...base,
         display: sla.metric === 'nps_score' || sla.metric === 'trust_score' || sla.metric === 'friction_index' ? sla.attainmentMtd.toFixed(1) : fmtPct(sla.attainmentMtd),
-        detail: `${sla.name} · ${sla.kind.toUpperCase()} · ${sla.volumeMtd.toLocaleString()} in scope this month, ${sla.breachesMtd} breach${sla.breachesMtd === 1 ? '' : 'es'}`,
+        detail: `${sla.name} · ${sla.kind.toUpperCase()} · ${sla.volumeMtd.toLocaleString('en-GB')} in scope this month, ${sla.breachesMtd} breach${sla.breachesMtd === 1 ? '' : 'es'}`,
         target: String(sla.attainmentTarget),
         state: ok ? 'on_track' : 'at_risk',
         href: '/governance/sla',
@@ -185,7 +195,7 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
       return {
         ...base,
         display: fmtHrs(dc.hoursYr),
-        detail: `${dc.name} · ${dc.volumeYr.toLocaleString()}/yr · elimination ${dc.eliminationState.replace(/_/g, ' ')}${dc.projectedRemoval ? ` · ${Math.round(dc.projectedRemoval * 100)}% projected removal` : ''}`,
+        detail: `${dc.name} · ${dc.volumeYr.toLocaleString('en-GB')}/yr · elimination ${dc.eliminationState.replace(/_/g, ' ')}${dc.projectedRemoval ? ` · ${Math.round(dc.projectedRemoval * 100)}% projected removal` : ''}`,
         target: dc.projectedRemoval ? fmtHrs(dc.hoursYr * (1 - dc.projectedRemoval)) : null,
         state: moving ? 'on_track' : 'at_risk',
         href: '/governance/elimination',
@@ -219,6 +229,83 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
         target: `≤ ${fmtPct(target, 0)}`,
         state: value <= target ? 'on_track' : 'at_risk',
         href: '/atlas/tokenops',
+      }
+    }
+
+    /**
+     * The client's own declaration about their own staff. The platform holds
+     * it and ages it; it does not measure it. A figure whose declarations
+     * have gone stale is withheld rather than carried forward, which is why
+     * this measure can legitimately resolve to no measure at all.
+     */
+    case 'client_effort': {
+      const s = clientEffortSummary()
+      const value = m.source.field === 'released' ? s.releasedFte : s.strategicGained
+      const live = s.functions.length - s.staleCount
+      if (live === 0) {
+        return {
+          ...base,
+          display: 'no measure', target: null, state: 'no_measure',
+          detail: `Every client function's declaration is beyond the ${ATTESTATION_DAYS}-day attestation window. The last figures are not reported as current.`,
+        }
+      }
+      const ok = m.target === undefined ? value > 0 : value >= m.target
+      const caveat = s.staleCount ? `, ${s.staleCount} excluded as stale` : ''
+      const weak = s.estimatedCount ? ` · ${s.estimatedCount} resting on an estimate` : ''
+      return {
+        ...base,
+        display: `${value.toFixed(1)} FTE`,
+        detail: `Declared by ${live} of ${s.functions.length} client functions${caveat}${weak} · corroborated by ${Math.round(s.corroboratingHours).toLocaleString('en-GB')} h banked in the classes they name`,
+        target: m.target === undefined ? null : `${m.target.toFixed(1)} FTE`,
+        state: ok ? 'on_track' : 'at_risk',
+        href: '/governance/client-effort',
+      }
+    }
+
+    /** Remaining scope, counting only what is evidenced gone. */
+    case 'programme_burndown': {
+      const id = m.source.id
+      const p = PROGRAMMES.find((x) => x.id === id)
+      if (!p) return { ...base, display: 'unresolved', detail: `No programme with id ${id}.`, target: null, state: 'no_measure' }
+      const b = burnDown(p)
+      const asserted = b.assertedOnly.length
+      // Descoped items leave the denominator, so the display must use the
+      // live count rather than the original total — quoting "of 8" against a
+      // remaining figure measured out of 7 would misstate both.
+      const live = b.total - b.descoped.length
+      return {
+        ...base,
+        display: `${b.remainingEvidenced} of ${live}`,
+        detail: `${p.name} · ${b.overdue.length} past target date${asserted ? ` · ${asserted} declared done but not evidenced` : ''}${b.descoped.length ? ` · ${b.descoped.length} descoped and out of the denominator` : ''} · ${b.projectedEndAt ? `at the observed rate, complete ${b.projectedEndAt.slice(0, 7)}` : 'nothing evidenced complete yet, so no rate to project from'}`,
+        target: p.targetEndAt.slice(0, 7),
+        state: b.onSchedule === true ? 'on_track' : 'at_risk',
+        href: '/governance/programmes',
+      }
+    }
+
+    /**
+     * Only the attributed half of a fall is evidence that anything was
+     * deflected. Both are offered because a client is entitled to see the
+     * gap between them, and the unattributed variant carries the warning.
+     */
+    case 'deflection_rate': {
+      const s = deflectionSummary()
+      const value = m.source.attributedOnly ? s.attributedRate : s.rate
+      if (value === null) {
+        return { ...base, display: 'no measure', target: null, state: 'no_measure', detail: 'No demand class has both an agreed baseline and a long enough observation window to state a rate.' }
+      }
+      const pct = value * 100
+      const ok = m.target === undefined ? pct > 0 : pct >= m.target
+      const unattributed = Math.round(s.unexplainedVolume).toLocaleString('en-GB')
+      return {
+        ...base,
+        display: fmtPct(pct),
+        detail: m.source.attributedOnly
+          ? `Attributed fall only, weighted by baseline volume · ${s.withheldCount} class${s.withheldCount === 1 ? '' : 'es'} withheld for too short a window`
+          : `Total fall against agreed baselines · ${unattributed} of ${Math.round(s.fallVolume).toLocaleString('en-GB')} fewer arrivals a year are unattributed and are not evidence of deflection`,
+        target: m.target === undefined ? null : fmtPct(m.target),
+        state: ok ? 'on_track' : 'at_risk',
+        href: '/governance/elimination',
       }
     }
   }
