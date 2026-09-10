@@ -536,9 +536,6 @@ function LiveRail({ beats, running }: { beats: Beat[]; running: boolean }) {
       <div className="px-3 py-2.5">
         <div className="label-cap">Run cost</div>
         <div className="tnum mt-1 font-display text-lg font-semibold text-ink">{cost ? usd(cost) : '—'}</div>
-        <p className="mt-0.5 text-2xs leading-relaxed text-ink-3">
-          Metered by agent, skill and step. Budgets are policy: a soft breach alerts, a hard breach degrades the tier or drops to advise.
-        </p>
       </div>
     </aside>
   )

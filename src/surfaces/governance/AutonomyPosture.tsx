@@ -110,7 +110,7 @@ export function AutonomyPosture() {
           <Card
             className="mt-4"
             title="Requested by the workforce"
-            subtitle="Open permission requests — agents making their own case for trust (§A5.2)"
+            subtitle="Open permission requests (§A5.2)"
             right={<Chip tone="agent">{pendingRequests.length}</Chip>}
           >
             <ul className="space-y-2">
@@ -193,15 +193,15 @@ export function AutonomyPosture() {
               <ul className="space-y-2 text-2xs leading-relaxed text-ink-2">
                 <li className="flex gap-2">
                   <Chip tone="crit" mono>AC-71</Chip>
-                  <span>Data deletion and purge is irreversible. Never agent-executed at any level, on any tower, by platform rule.</span>
+                  <span>Never agent-executed, at any level — platform rule</span>
                 </li>
                 <li className="flex gap-2">
                   <Chip tone="warn" mono>AC-58</Chip>
-                  <span>IAM and entitlement change is capped at L2 with a four-eyes second control — a client decision recorded in dec_2027_010 on segregation-of-duties grounds.</span>
+                  <span>Capped at L2 with a four-eyes second control — dec_2027_010</span>
                 </li>
                 <li className="flex gap-2">
                   <Chip tone="warn" mono>AC-37</Chip>
-                  <span>Human pull-request review on code fixes is a permanent floor across every service line. Forge accelerates the work; it never merges it.</span>
+                  <span>Human pull-request review on every code fix — permanent floor</span>
                 </li>
               </ul>
             </Card>

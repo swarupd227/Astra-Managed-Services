@@ -160,7 +160,6 @@ export function ResolverWorkspace() {
                   >
                     <ThumbsDown size={11} /> Not useful
                   </Button>
-                  <span className="ml-auto text-2xs text-ink-3">one keystroke · feeds the evaluation service</span>
                 </div>
               </Card>
 
@@ -174,8 +173,7 @@ export function ResolverWorkspace() {
                       <span className="tnum">{pct(selected.autonomy.planConfidence * 100, 0)}</span> plan confidence.
                     </p>
                     <p className="text-ink-3">
-                      Estimated manual path <span className="tnum text-ink-2">{mins(selected.economics.estManualMins)}</span>. Adopting the
-                      agent plan puts the effort delta into the Glidepath Ledger under <span className="text-ink-2">acceleration</span>, pending verification.
+                      Estimated manual path <span className="tnum text-ink-2">{mins(selected.economics.estManualMins)}</span> · attribution <span className="text-ink-2">acceleration</span>, pending verification
                     </p>
                   </div>
 

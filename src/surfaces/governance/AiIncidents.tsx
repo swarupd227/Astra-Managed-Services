@@ -60,7 +60,7 @@ export function AiIncidents() {
     <>
       <PageHeader
         title="AI Incidents"
-        subtitle="Four classes, one detector each — with the notification and RCA clocks the contract sets"
+        subtitle="Four classes, one detector each"
         actions={
           <Button size="sm" variant="default" disabled={!role.canApprove} onClick={() => runAudit(role.person)}>
             <FileSearch size={12} /> Run oversight audit
@@ -68,7 +68,7 @@ export function AiIncidents() {
         }
       />
 
-      <ProducedBy agents={['agt_sentinel']} what="the detectors — groundedness, tool anomaly, the gateway classifiers, the chain audit and the cohort monitor" />
+      <ProducedBy agents={['agt_sentinel']} what="running the incident detectors" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Open incidents" value={open.length} deltaTone={open.length ? 'warn' : 'ok'} hint={`${incidents.length} in total`} />
@@ -79,9 +79,9 @@ export function AiIncidents() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <Card title="Incident register" subtitle="Every detection, its clocks, and what has been done about it">
+        <Card title="Incident register" subtitle="Detections, clocks and actions">
           {incidents.length === 0 ? (
-            <Empty title="No AI Incidents recorded" body="Detectors run inline on every proposal and at the gateway. Run the oversight audit, or use the demonstration control below, to see one raised." />
+            <Empty title="No AI Incidents recorded" body="No incidents recorded." />
           ) : (
             <Table>
               <thead>
@@ -138,12 +138,9 @@ export function AiIncidents() {
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Card
             title="Oversight audit"
-            subtitle="Runs on the evidence chain itself, so the runtime cannot bypass it"
+            subtitle="Runs on the evidence chain"
             right={<ShieldAlert size={13} className="text-ink-3" />}
           >
-            <p className="text-2xs leading-relaxed text-ink-2">
-              Every executed action whose decision was approve-first must have its approval earlier in the chain, and nothing may execute while the platform-wide brake is on. A failure raises an oversight-failure incident.
-            </p>
             {audit ? (
               <div className="mt-3 rounded border border-line bg-sunken p-3">
                 <div className="flex items-center gap-2">
@@ -186,7 +183,7 @@ export function AiIncidents() {
 
           <Card
             title="Cohort monitor"
-            subtitle="Disparity in priority, gating and agent handling across declared cohorts"
+            subtitle="Priority, gating and agent handling by cohort"
             right={<Users size={13} className="text-ink-3" />}
           >
             <Table>
@@ -227,9 +224,6 @@ export function AiIncidents() {
                 })}
               </tbody>
             </Table>
-            <p className="mt-2 text-2xs leading-relaxed text-ink-3">
-              Cohorts are declared by the estate, not the platform. A cohort flags only with n ≥ {report.minN} and a two-proportion |z| ≥ {report.threshold} on at least one metric — a population, never a single case.
-            </p>
           </Card>
         </div>
       </div>

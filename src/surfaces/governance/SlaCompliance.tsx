@@ -64,7 +64,7 @@ export function SlaCompliance() {
 
       <ProducedBy
         agents={["agt_sentinel", "agt_herald"]}
-        what="validating each clock event and computing the credits that follow from them"
+        what="validating clock events and computing credits"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
@@ -162,8 +162,6 @@ export function SlaCompliance() {
               <div className="flex items-center justify-around">
                 <Gauge value={3.1} target={5} label="% of clock time paused" />
                 <div className="text-2xs leading-relaxed text-ink-3">
-                  <p>Pauses require a typed reason and, where policy demands, client acknowledgement.</p>
-                  <p className="mt-2">Pause abuse is itself a reported metric. Reclassification after intake needs dual confirmation and is reported separately.</p>
                 </div>
               </div>
               <dl className="mt-3 space-y-1.5 border-t border-line pt-3 text-2xs">

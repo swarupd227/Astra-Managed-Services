@@ -83,11 +83,6 @@ function MissionCard({ m }: { m: Mission }) {
           <ShieldCheck size={12} className="shrink-0 text-ok" />
           <span className="label-cap">Policy precedence</span>
         </div>
-        <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-          On <span className="font-mono">{sample}</span>, where the engine would return{' '}
-          <AutonomyChip mode="supervised" /> this mission returns <AutonomyChip mode={ceiling.mode} />.{' '}
-          {ceiling.narrowedBy ?? 'It adds no ceiling of its own — the engine stands unchanged.'}
-        </p>
         {m.constraints.deny.length > 0 && (
           <p className="mt-1.5 text-2xs text-ink-3">
             Denied outright: <span className="font-mono">{m.constraints.deny.join(', ')}</span>
@@ -187,7 +182,7 @@ function Composer({ onClose }: { onClose: () => void }) {
   return (
     <Card
       title="Delegate a mission"
-      subtitle="State the outcome and the limits. The workforce plans it and reads the plan back before acting."
+      subtitle="Outcome, limits and budgets"
       right={<Button size="sm" variant="ghost" onClick={onClose}><X size={12} /></Button>}
     >
       <Field label="Goal" hint="An outcome, not a task. The workforce decides how.">
@@ -231,7 +226,7 @@ function Composer({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <p className="mt-1.5 text-2xs text-ink-3">
-          AC-71 and AC-58 are denied on every mission — a platform floor no delegation can loosen.
+          AC-71 and AC-58 are denied on every mission.
         </p>
       </div>
 
@@ -257,7 +252,6 @@ function Composer({ onClose }: { onClose: () => void }) {
         <Button variant="primary" disabled={!goal.trim() || !team.length} onClick={submit}>
           <Send size={12} /> Delegate
         </Button>
-        <span className="text-2xs text-ink-3">The Autonomy Policy Engine still decides every action inside it.</span>
       </div>
     </Card>
   )
@@ -279,7 +273,7 @@ export function Missions() {
     <>
       <PageHeader
         title="Missions"
-        subtitle="Standing delegation — a goal, a workforce, and budgets that make autonomy finite"
+        subtitle="Standing delegations with goals and budgets"
         meta={
           <Chip tone={atRisk ? 'warn' : 'ok'}>
             <Dot tone={atRisk ? 'warn' : 'ok'} pulse={active.length > 0} />
@@ -307,7 +301,7 @@ export function Missions() {
           {composing && <Composer onClose={() => setComposing(false)} />}
 
           {all.length === 0 ? (
-            <Empty title="No missions" body="Delegate one to give the workforce a goal rather than a queue." />
+            <Empty title="No missions" body="No missions yet." />
           ) : (
             all
               .sort((a, b) => Number(b.state === 'active') - Number(a.state === 'active'))

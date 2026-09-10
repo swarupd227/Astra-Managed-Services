@@ -61,7 +61,7 @@ export function AssuranceSandbox() {
     <>
       <PageHeader
         title="Assurance Sandbox"
-        subtitle="Run the platform's controls yourself — nothing here needs the provider"
+        subtitle="Assurance controls you can run"
         meta={role.readOnly ? <Chip tone="neutral">read-only role · full access here</Chip> : undefined}
         actions={
           <Button size="sm" variant="primary" disabled={busy !== null} onClick={() => recordConformance(runConformance(), role.person)}>
@@ -94,7 +94,7 @@ export function AssuranceSandbox() {
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <Card
           title="Contract conformance"
-          subtitle="What the platform promises, checked against the engine that is actually deployed"
+          subtitle="Promised behaviour against the deployed engine"
         >
           <Table>
             <thead>
@@ -137,13 +137,10 @@ export function AssuranceSandbox() {
               })}
             </tbody>
           </Table>
-          <p className="mt-3 text-2xs leading-relaxed text-ink-3">
-            These are not replays of past decisions. The seeded history was produced by a simplified heuristic rather than by this evaluator, so comparing against it would measure the seed, not the policy. Each case instead states a commitment and tests whether the deployed engine still honours it.
-          </p>
         </Card>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Card title="Decision probe" subtitle="The same evaluator the runtime uses, on an input vector you choose">
+          <Card title="Decision probe" subtitle="Production evaluator on an input you choose">
             <select value={probe} onChange={(e) => setProbe(e.target.value)} className={cn(selectClass, 'w-full')}>
               {CONFORMANCE_CASES.map((c) => <option key={c.id} value={c.id}>{c.commitment}</option>)}
             </select>
@@ -177,21 +174,21 @@ export function AssuranceSandbox() {
           </Card>
 
           <div className="space-y-4">
-            <Card title="Available controls" subtitle="Each writes a verification record; none of them changes anything">
+            <Card title="Available controls" subtitle="Read-only; each run is recorded">
               <ul className="space-y-2">
                 <li className="flex flex-wrap items-center gap-2 rounded border border-line p-2.5">
                   <Crosshair size={12} className="shrink-0 text-ink-3" />
-                  <span className="min-w-0 flex-1 text-2xs text-ink-2">Red-team library — {RED_TEAM_CASES.length} cases against the gateway's classifier, the registry and the detectors</span>
+                  <span className="min-w-0 flex-1 text-2xs text-ink-2">Red-team library — {RED_TEAM_CASES.length} cases</span>
                   <Button size="sm" variant="default" disabled={busy !== null} onClick={runRed}>{busy === 'red' ? 'Running…' : 'Run'}</Button>
                 </li>
                 <li className="flex flex-wrap items-center gap-2 rounded border border-line p-2.5">
                   <FlaskConical size={12} className="shrink-0 text-ink-3" />
-                  <span className="min-w-0 flex-1 text-2xs text-ink-2">Bias suite — {BIAS_CASES.length} cases × {COHORTS.length} cohorts, matched pairs over the decision path</span>
+                  <span className="min-w-0 flex-1 text-2xs text-ink-2">Bias suite — {BIAS_CASES.length} cases × {COHORTS.length} cohorts, matched pairs</span>
                   <Button size="sm" variant="default" disabled={busy !== null} onClick={() => recordBias(runBiasSuite(COHORTS, BIAS_CASES), role.person)}>Run</Button>
                 </li>
                 <li className="flex flex-wrap items-center gap-2 rounded border border-line p-2.5">
                   <ShieldCheck size={12} className="shrink-0 text-ink-3" />
-                  <span className="min-w-0 flex-1 text-2xs text-ink-2">Evidence chain — recompute every hash from genesis and report the first break</span>
+                  <span className="min-w-0 flex-1 text-2xs text-ink-2">Evidence chain — full recompute</span>
                   <Button size="sm" variant="default" disabled={busy !== null} onClick={runChainVerification}>Verify</Button>
                 </li>
               </ul>
@@ -204,19 +201,6 @@ export function AssuranceSandbox() {
               )}
             </Card>
 
-            <Card title="Purpose" subtitle="Schedule O §(k) — customer benchmarking">
-              <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
-                <li>· Every control on this page is read-only and available to a read-only role. A customer who can run the benchmark themselves does not need to give seven days' notice to ask for it.</li>
-                <li>· Each run appends a verification record naming who ran it, so the fact that the customer exercised the control is itself auditable.</li>
-                <li>· The decision probe runs the production evaluator, not a copy: what it shows is what the runtime would decide on the same inputs.</li>
-                <li>· For the full evidence trail behind any of this, open the <Link to="/governance/evidence" className="text-brand-ink hover:underline">Evidence Explorer</Link>.</li>
-              </ul>
-              {conformance?.at && (
-                <p className="mt-2 text-2xs text-ink-3">
-                  Last conformance run sealed to the chain. <EvidenceLink id={evidence.filter((e) => e.summary.startsWith('Contract conformance')).at(-1)?.id ?? ''} />
-                </p>
-              )}
-            </Card>
           </div>
         </div>
       </div>

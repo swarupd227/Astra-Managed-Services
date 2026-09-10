@@ -75,7 +75,7 @@ export function EvaluationCenter() {
 
       <ProducedBy
         agents={["agt_remedian", "agt_custodian", "agt_warden"]}
-        what="the agents under evaluation — every suite score and promotion here is theirs"
+        what="the agents under evaluation"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
@@ -133,7 +133,7 @@ export function EvaluationCenter() {
               </Table>
             </Card>
 
-            <Card title="Promotion pipeline" subtitle="Where every agent sits on the five stage gates">
+            <Card title="Promotion pipeline" subtitle="Five stage gates">
               <div className="space-y-2">
                 {pipeline
                   .slice()
@@ -162,7 +162,7 @@ export function EvaluationCenter() {
         )}
 
         {tab === 'skills' && (
-          <Card title="Skill registry" subtitle="Versioned procedures with tests, verification packs and applicability predicates">
+          <Card title="Skill registry" subtitle="Versioned procedures">
             <Table>
               <thead>
                 <tr>
@@ -252,7 +252,7 @@ export function EvaluationCenter() {
                 height={160}
                 yFormat={(n) => n.toFixed(2)}
               />
-              <Link to="/atlas/tokenops" className="mt-2 inline-block text-2xs text-brand-ink hover:underline">See the cost frontier behind these choices →</Link>
+              <Link to="/atlas/tokenops" className="mt-2 inline-block text-2xs text-brand-ink hover:underline">Cost frontier →</Link>
             </Card>
           </div>
         )}
@@ -260,7 +260,7 @@ export function EvaluationCenter() {
         {tab === 'redteam' && (
           <Card
             title="Red-team library"
-            subtitle="Prompt injection, retrieval poisoning, tool misuse, fabrication and unregistered models — run against the live controls"
+            subtitle="Injection, poisoning, tool misuse, fabrication, unregistered models"
             right={
               <Button size="sm" variant="primary" disabled={!role.canApprove || attacking} onClick={runRedTeamNow}>
                 <Crosshair size={12} /> {attacking ? 'Running…' : 'Run red team'}
@@ -303,9 +303,6 @@ export function EvaluationCenter() {
                 })}
               </tbody>
             </Table>
-            <p className="mt-3 text-2xs leading-relaxed text-ink-3">
-              No model is called by any case. Injection cases hit the gateway's classifier through its own endpoint; poisoning cases run the policy engine's retrieval floor; tool-misuse and fabrication cases run the inline detectors; model cases hit the registry through the settings guard, which refuses before any vendor request. Every run is a verification record in the evidence chain.
-            </p>
           </Card>
         )}
 
@@ -313,7 +310,7 @@ export function EvaluationCenter() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card
               title="Bias suite — matched pairs"
-              subtitle="The same proposal per cohort; mode, gates, floor and detectors must not differ"
+              subtitle="Matched proposals per cohort"
               right={
                 <Button size="sm" variant="primary" disabled={!role.canApprove} onClick={() => recordBias(runBiasSuite(COHORTS, BIAS_CASES), role.person)}>
                   <FlaskConical size={12} /> Run bias suite
@@ -327,7 +324,7 @@ export function EvaluationCenter() {
               </div>
               {bias && bias.invariant && (
                 <div className="rounded border border-ok/40 bg-ok/[0.06] p-3 text-2xs leading-relaxed text-ink-2">
-                  Invariant. Across {bias.pairs} pairs the engine returned the same mode, the same gates and the same floor for every cohort, and no detector fired differently. The decision path never receives a cohort attribute — this proves it stays that way on this build.
+                  Invariant across {bias.pairs} pairs — same mode, gates and floor for every cohort; no detector fired differently.
                 </div>
               )}
               {bias && !bias.invariant && (
@@ -349,14 +346,11 @@ export function EvaluationCenter() {
               <ul className="mt-3 space-y-1 text-2xs text-ink-3">
                 {BIAS_CASES.map((c) => <li key={c.id}>· {c.label} <span className="font-mono">({c.id})</span></li>)}
               </ul>
-              <p className="mt-2 text-2xs leading-relaxed text-ink-3">
-                Whether outcomes differ by cohort in live work is the cohort monitor's question, on the <Link to="/governance/ai-incidents" className="text-brand-ink hover:underline">AI Incidents</Link> page.
-              </p>
             </Card>
 
             <Card
               title="Drift monitor"
-              subtitle="Live-success series per agent — a sustained decline raises the alarm and rule r0d caps the agent at Supervised"
+              subtitle="Live-success series per agent"
               right={
                 <Button size="sm" variant="primary" disabled={!role.canApprove} onClick={() => runDriftMonitor(role.person)}>
                   <Play size={12} /> Run drift monitor
@@ -395,11 +389,8 @@ export function EvaluationCenter() {
                   </tbody>
                 </Table>
               ) : (
-                <p className="text-2xs text-ink-3">Not yet run this session. The Fleet's drift badges are whatever the last run computed; before the first run they are the seeded state.</p>
+                <p className="text-2xs text-ink-3">Not yet run this session.</p>
               )}
-              <p className="mt-3 text-2xs leading-relaxed text-ink-3">
-                Alarm rule: negative least-squares slope and a drop of at least {drift ? (drift.minDrop * 100).toFixed(1) : '0.5'} pts from the series peak. Raising or clearing an alarm is its own evidence record naming the window.
-              </p>
             </Card>
           </div>
         )}

@@ -228,7 +228,6 @@ export function ShiftBoard() {
             >
               <ClipboardCopy size={12} /> Copy pack
             </Button>
-            <span className="text-2xs text-ink-3">Generated from board state — nothing typed, nothing forgotten.</span>
           </div>
         }
       >

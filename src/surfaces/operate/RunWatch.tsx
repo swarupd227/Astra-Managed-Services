@@ -50,7 +50,7 @@ export function RunWatch() {
         <div className="mx-auto max-w-3xl">
           <Card
             title="Run Theater"
-            subtitle="Steps light as they execute, gates open on approval, rollbacks stay visible but dormant"
+            subtitle="Live execution"
             bodyClass="p-0"
           >
             <RunTheater run={run} className="min-h-[380px]" />

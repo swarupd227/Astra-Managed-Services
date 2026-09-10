@@ -166,7 +166,7 @@ export function AiSystems() {
         }
       />
 
-      <ProducedBy agents={['agt_herald']} what="reading the gateway's registry — what a call can resolve to, and nothing else" />
+      <ProducedBy agents={['agt_herald']} what="reading the gateway's registry" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Approved systems" value={approved.length} />
@@ -322,13 +322,13 @@ export function AiSystems() {
                   {registry.residency.note && <p className="pt-1 leading-relaxed text-ink-3">{registry.residency.note}</p>}
                 </dl>
               ) : (
-                <p className="text-2xs text-ink-3">Add a residency block to the registry to pin regions and require zero-retention attestations.</p>
+                <p className="text-2xs text-ink-3">No residency block configured.</p>
               )}
             </Card>
 
             <Card
               title="Training-exclusion attestation"
-              subtitle="No customer data trains, tunes, evaluates or improves a model for anyone else — attested on a cadence"
+              subtitle="Vendor attestations"
               right={<FileCheck2 size={13} className={attestationOverdue ? 'text-crit' : 'text-ok'} />}
             >
               {lastAttestation ? (
@@ -357,7 +357,7 @@ export function AiSystems() {
 
             <Card
               title="Certified deletion"
-              subtitle="Irreversible, so never by an agent: two named humans, a manifest, and the chain's root hash at the moment of deletion"
+              subtitle="Two signers, a manifest and the chain root hash"
               right={<Trash2 size={13} className="text-ink-3" />}
             >
               {deletions.length === 0 ? (
@@ -384,14 +384,6 @@ export function AiSystems() {
               )}
             </Card>
 
-            <Card title="Enforcement" subtitle="The registry is not a policy document; it is the only path a call can take">
-              <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
-                <li>· The gateway resolves the configured model against this registry for the purpose each phase serves. A model that is not listed, is revoked, is still pending, sits outside the residency rules, or is not approved for that purpose is refused before any vendor request is made.</li>
-                <li>· A new system enters as pending with a {registry.noticeHours}-hour notice clock. Approval before the clock ends needs a typed override, which is recorded against the system and in the evidence chain.</li>
-                <li>· The settings screen may only select among approved systems — it cannot introduce one.</li>
-                <li>· Every completed call reports the model the vendor actually served; a difference from the registered model is recorded as the start of the change-notice clock.</li>
-              </ul>
-            </Card>
           </div>
         )}
       </div>
@@ -420,7 +412,7 @@ function DeletionDrawer({ open, onClose }: { open: boolean; onClose: () => void 
   const valid = tower && second.trim() && !sameSigner && reason.trim() && (manifest.workIds.length + manifest.assertionIds.length) > 0
 
   return (
-    <Drawer open={open} onClose={onClose} title="Certify a deletion" subtitle="Closed work, its runs and stale assertions for one tower — never open work, never the chain" width="max-w-[520px]">
+    <Drawer open={open} onClose={onClose} title="Certify a deletion" subtitle="Closed work, runs and stale assertions for one tower" width="max-w-[520px]">
       <div className="space-y-3 p-4">
         <Field label="Scope — tower">
           <select value={tower} onChange={(e) => setTower(e.target.value)} className={selectClass}>
@@ -443,9 +435,6 @@ function DeletionDrawer({ open, onClose }: { open: boolean; onClose: () => void 
           </Button>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
-        <p className="text-2xs leading-relaxed text-ink-3">
-          AC-71 rules: no agent may execute this at any level. The certificate records both signers, the counts, the digest of the ordered manifest and the evidence chain's root hash immediately before deletion, and is itself the next sealed record.
-        </p>
       </div>
     </Drawer>
   )
@@ -495,7 +484,7 @@ function RequestDrawer({ open, onClose, purposeOptions, regions, onSubmit }: {
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="Request a new AI system" subtitle="Enters the registry as pending; the notice clock starts now" width="max-w-[520px]">
+    <Drawer open={open} onClose={onClose} title="Request a new AI system" subtitle="Enters as pending; the notice clock starts" width="max-w-[520px]">
       <div className="space-y-3 p-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="Vendor"><input value={vendor} onChange={(e) => setVendor(e.target.value)} className={inputClass} placeholder="e.g. Anthropic" /></Field>

@@ -142,14 +142,14 @@ export function Connection() {
             <div className="rounded-md border border-crit/45 bg-crit/[0.06] p-3">
               <p className="text-xs font-medium text-ink">The agent gateway is not running.</p>
               <p className="mt-1 text-2xs leading-relaxed text-ink-2">
-                It holds the API key so the browser never sees it. Start it from the project folder:
+                Start the gateway from the project folder:
               </p>
               <pre className="mt-2 rounded border border-line bg-sunken px-2.5 py-1.5 font-mono text-2xs text-ink">npm run dev</pre>
               <p className="mt-1.5 text-2xs text-ink-3">That starts the gateway and this app together.</p>
             </div>
           )}
 
-          <Card title="Anthropic API key" subtitle="Held by the local gateway process, never sent to the browser">
+          <Card title="Anthropic API key" subtitle="Held by the local gateway">
             {configured && (
               <div className="mb-3 flex flex-wrap items-center gap-2 rounded border border-ok/40 bg-ok/[0.06] px-3 py-2">
                 <Check size={13} className="shrink-0 text-ok" />
@@ -265,14 +265,6 @@ export function Connection() {
             </Card>
           )}
 
-          <Card title="Key handling" subtitle="Local gateway, loopback only">
-            <ul className="space-y-1.5 text-2xs leading-relaxed text-ink-2">
-              <li>· The key is held by the gateway process on <span className="font-mono">127.0.0.1:8787</span>. It is never included in the browser bundle and is never returned by any endpoint — the app only ever sees a masked form.</li>
-              <li>· <span className="font-mono">ANTHROPIC_API_KEY</span> in the environment takes precedence over anything saved here.</li>
-              <li>· "Remember on this machine" writes <span className="font-mono">.env.local</span> with owner-only permissions. It is git-ignored.</li>
-              <li>· Model choice applies to agent runs on the Copilot. Opus 5 is the default; the platform's own routing would place cheaper tiers on extraction and drafting steps.</li>
-            </ul>
-          </Card>
         </div>
       </div>
     </>

@@ -85,9 +85,9 @@ function Row({ r }: { r: ForecastRow }) {
             )}
           </span>
         ) : r.state === 'capped' ? (
-          <span className="text-ink-3">Platform floor — no evidence changes this</span>
+          <span className="text-ink-3">Platform floor</span>
         ) : r.state === 'evidence_met' ? (
-          <span className="text-ink-2">Evidence gate passed — needs a governance decision, not more runs</span>
+          <span className="text-ink-2">Awaiting governance decision</span>
         ) : r.agreement !== null ? (
           <span className="text-ink-3">Shadow agreement {r.agreement}%</span>
         ) : (
@@ -118,7 +118,7 @@ export function AutonomyForecast() {
   return (
     <Card
       title="Autonomy forecast"
-      subtitle="Projected eligibility at the rate each class is actually accumulating evidence — and what is stopping the rest"
+      subtitle="Projected eligibility by action class"
       right={<Chip tone={summary.blocked ? 'crit' : 'ok'}>{summary.blocked} blocked</Chip>}
     >
       <div className="grid grid-cols-2 gap-3 border-b border-line pb-3 sm:grid-cols-4">
@@ -150,11 +150,6 @@ export function AutonomyForecast() {
         </Table>
       </div>
 
-      <p className="mt-3 text-2xs leading-relaxed text-ink-3">
-        Dates are executions-to-gate divided by the rate this class has actually run at over the
-        engagement. A class with a named blocker gets no date until the blocker clears — the
-        forecast declines to guess rather than filling the column.
-      </p>
     </Card>
   )
 }

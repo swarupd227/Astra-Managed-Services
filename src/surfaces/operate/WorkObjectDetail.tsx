@@ -79,7 +79,7 @@ function RunPane({ woId }: { woId: string }) {
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
 
-  if (!run) return <Empty title="No run planned" body="This work object has not yet been planned into an orchestrated execution." />
+  if (!run) return <Empty title="No run planned" body="Not yet planned." />
 
   const done = run.steps.filter((s) => s.state === 'done').length
   const canAbort = ['executing', 'verifying'].includes(run.state) && role.canApprove
@@ -134,9 +134,6 @@ function RunPane({ woId }: { woId: string }) {
         ))}
       </ol>
 
-      <div className="shrink-0 border-t border-line bg-raised px-3 py-2 text-2xs leading-relaxed text-ink-3">
-        Every mutating step declares a compensation or takes a gate. Verification runs before Resolved.
-      </div>
     </div>
   )
 }
@@ -248,16 +245,14 @@ export function WorkObjectDetail() {
                   <div className="rounded border border-ok/35 bg-ok/[0.07] p-2.5">
                     <p className="text-2xs leading-relaxed text-ink-2">
                       <span className="tnum font-medium text-ok">{mins(savedMins)}</span> of effort delta, attributed to{' '}
-                      <span className="text-ink">{wo.economics.attribution}</span>. It does not count as a saving yet — the ledger banks
-                      it only after the demand class's actual volume decay is verified in telemetry for 60 to 90 days.
+                      <span className="text-ink">{wo.economics.attribution}</span> · not yet banked
                     </p>
                   </div>
                 )}
                 <div className="rounded border border-line bg-sunken p-2.5 text-2xs leading-relaxed text-ink-3">
-                  Cost to serve this object: <span className="tnum text-ink-2">{usd(wo.economics.tokensUsd)}</span> of model spend against{' '}
-                  <span className="tnum text-ink-2">{usd((savedMins / 60) * 78)}</span> of displaced human cost at the contracted blended rate —
-                  a ratio of {savedMins > 0 ? pct((wo.economics.tokensUsd / Math.max(0.01, (savedMins / 60) * 78)) * 100, 1) : '—'}.
-                  The platform publishes this ratio because a provider that hides its AI costs will eventually hide its AI failures.
+                  Cost to serve: <span className="tnum text-ink-2">{usd(wo.economics.tokensUsd)}</span> model spend against{' '}
+                  <span className="tnum text-ink-2">{usd((savedMins / 60) * 78)}</span> displaced human cost · ratio{' '}
+                  {savedMins > 0 ? pct((wo.economics.tokensUsd / Math.max(0.01, (savedMins / 60) * 78)) * 100, 1) : '—'}
                 </div>
               </div>
             )}

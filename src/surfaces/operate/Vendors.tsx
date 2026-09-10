@@ -42,7 +42,7 @@ export function Vendors() {
     <>
       <PageHeader title="Vendors" subtitle="Suppliers, contracts, response commitments and held work" />
 
-      <ProducedBy agents={['agt_diagnost', 'agt_herald']} what="assembling the evidence for a vendor case, and drafting escalations" />
+      <ProducedBy agents={['agt_diagnost', 'agt_herald']} what="assembling vendor case evidence" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Vendors" value={s.positions.length} />

@@ -97,7 +97,7 @@ export function VerificationQueue() {
         {!current ? (
           <Empty
             title="Queue clear"
-            body="Every assertion in this slice carries a human verdict. Archivist will raise re-verification work objects as TTLs lapse or telemetry contradicts what the graph believes."
+            body="Every assertion in this slice is verified."
           />
         ) : (
           <div className="mx-auto max-w-3xl space-y-3">
@@ -163,7 +163,7 @@ export function VerificationQueue() {
                       <p className="text-2xs font-medium text-crit">Contradiction detected</p>
                       <p className="mt-1 text-2xs leading-relaxed text-ink-2">{current.conflictsWith}</p>
                       <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-                        Telemetry and the declared record disagree. Your verdict decides which the graph carries.
+                        Telemetry and the declared record disagree.
                       </p>
                     </div>
                   ) : (
@@ -182,7 +182,6 @@ export function VerificationQueue() {
                     <Button variant="primary" onClick={() => act('correct')}>Save &amp; verify</Button>
                     <Button variant="ghost" onClick={() => setCorrecting(false)}>Cancel</Button>
                   </div>
-                  <p className="mt-1.5 text-2xs text-ink-3">The original value is retained in the evidence record — corrections are history, not overwrites.</p>
                 </div>
               )}
 
@@ -204,7 +203,7 @@ export function VerificationQueue() {
                 are made rather than on a separate screen. */}
             <Card
               title="Your verifications"
-              subtitle="Each correction, and what the platform computed it reaches"
+              subtitle="Corrections and their reach"
               right={<Chip tone={lessons.length ? 'ok' : 'neutral'}>{lessons.length}</Chip>}
             >
               <LearningFeed limit={4} />

@@ -68,7 +68,7 @@ export function FleetView() {
 
       <ProducedBy
         agents={["agt_herald"]}
-        what="compiling this fleet record from each agent employment record and its live ledgers"
+        what="compiling each agent's employment record"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">

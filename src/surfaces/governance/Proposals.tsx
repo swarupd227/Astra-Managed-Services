@@ -166,7 +166,7 @@ export function Proposals() {
     <>
       <PageHeader
         title="Proposals"
-        subtitle="Everything the workforce raised unprompted — claim, evidence, value, and the decision it wants"
+        subtitle="Raised by agents — claim, evidence, value, decision"
         meta={
           <Chip tone={overdue.length ? 'crit' : 'brand'}>
             <Dot tone={overdue.length ? 'crit' : 'brand'} pulse={open.length > 0} />
@@ -197,10 +197,7 @@ export function Proposals() {
           <div className="flex items-start gap-2 rounded-md border border-line bg-sunken px-3 py-2.5">
             <TrendingUp size={13} className="mt-px shrink-0 text-brand-ink" />
             <p className="text-2xs leading-relaxed text-ink-2">
-              AG-3 targets <span className="font-medium text-ink">≥ 40%</span> of governance decision
-              items originated by agent proposals by R2. This surface is the measurement — before it
-              existed, agent-raised work was scattered across three screens and the share had no
-              denominator.
+              AG-3 target: <span className="font-medium text-ink">≥ 40%</span> of governance decision items originated by agent proposals by R2.
             </p>
           </div>
 

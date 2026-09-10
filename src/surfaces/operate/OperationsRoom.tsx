@@ -51,7 +51,7 @@ export function OperationsRoom() {
     <>
       <PageHeader
         title="Operations Room"
-        subtitle="Who is working, on what, and what is needed from you"
+        subtitle="Workforce activity and decisions needed"
         meta={
           <Chip tone={yours ? 'warn' : 'ok'}>
             <Dot tone={yours ? 'warn' : 'ok'} pulse={yours > 0} />
@@ -101,9 +101,6 @@ export function OperationsRoom() {
             <Button variant="primary" className="w-full justify-center" onClick={() => nav('/missions')}>
               <Target size={12} /> Delegate…
             </Button>
-            <p className="mt-1.5 text-center text-2xs text-ink-3">
-              Hand the workforce a goal, not a ticket
-            </p>
           </div>
         </section>
       </div>

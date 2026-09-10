@@ -44,7 +44,7 @@ export function MimMode() {
 
         <ProducedBy
           agents={["agt_sentinel", "agt_diagnost", "agt_herald"]}
-          what="scribing this timeline, holding the causal chain, and drafting each audience update"
+          what="scribing the timeline and drafting updates"
         />
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="mx-auto max-w-3xl">
@@ -74,7 +74,7 @@ export function MimMode() {
               )}
               {!role.canApprove && (
                 <p className="mt-3 text-2xs text-ink-3">
-                  {role.title} cannot declare a major incident. Declaration sits with the Major Incident Manager, the SDM or the shift lead.
+                  {role.title} cannot declare a major incident.
                 </p>
               )}
             </Card>
@@ -197,7 +197,7 @@ export function MimMode() {
           <div className="px-3 py-2.5">
             <div className="label-cap">Post-incident review</div>
             <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-              Pre-assembled and updating live. Closing the incident issues it.
+              Updating live.
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Metric size="sm" label="Evidence records" value={(wo?.narrative.length ?? 0) + mi.timeline.length} />

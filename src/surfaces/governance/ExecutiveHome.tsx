@@ -225,8 +225,7 @@ export function ExecutiveHome() {
             {state === 'offline' ? (
               <div className="flex flex-wrap items-center gap-2 rounded border border-line-strong bg-sunken px-3 py-2.5">
                 <p className="min-w-0 flex-1 text-2xs leading-relaxed text-ink-2">
-                  The agent runtime is not connected, so Herald cannot brief. The figures below are
-                  live and unaffected — connect the runtime to have them argued rather than listed.
+                  Agent runtime not connected.
                 </p>
                 <Button size="sm" variant="default" onClick={() => nav('/settings/connection')}>Connect</Button>
               </div>
@@ -255,7 +254,7 @@ export function ExecutiveHome() {
               governance from the briefing itself. */}
           <Card
             title="Awaiting your decision"
-            subtitle="Open conditions, overdue obligations, and proposals the workforce raised"
+            subtitle="Conditions, obligations and proposals"
             right={<Chip tone={awaiting ? 'warn' : 'ok'}>{awaiting}</Chip>}
           >
             {/* Herald's own closing asks, then the cards that discharge them. */}
@@ -328,8 +327,7 @@ export function ExecutiveHome() {
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-medium text-ink">The figures behind the brief</span>
               <span className="mt-0.5 block text-2xs text-ink-3">
-                Service, economics, autonomy, innovation and the transform ledger — the reference the
-                brief argues from
+                Service, economics, autonomy, innovation and the transform ledger
               </span>
             </span>
             <ChevronDown size={14} className={cn('shrink-0 text-ink-3 transition-transform', appendix && 'rotate-180')} />
@@ -346,8 +344,8 @@ export function ExecutiveHome() {
                   sub="SLA attainment MTD"
                   narrative={
                     slaAtRisk.length
-                      ? `${slaAtRisk[0].name} is below target with no headroom left this month. Predictive jeopardy has already escalated the at-risk objects it is permitted to.`
-                      : 'Every contracted service level is attaining with headroom. Two experience measures are below target and carry commercial weight.'
+                      ? `${slaAtRisk[0].name} below target, no headroom this month`
+                      : 'Every contracted service level attaining'
                   }
                   to="/governance/sla"
                   chart={<Sparkline data={[...HISTORY.slaAttainment]} tone="ok" showLast width={120} height={22} />}
@@ -359,7 +357,7 @@ export function ExecutiveHome() {
                   statusTone={glidepathActual <= glidepathContracted ? 'ok' : 'crit'}
                   headline={signedPct(glidepathActual)}
                   sub={`vs ${signedPct(glidepathContracted)} contracted`}
-                  narrative={`${num(bankedHours())} hours banked against the countersigned baseline, decomposed by cause. Nothing is banked until its demand class shows verified volume decay for 60 to 90 days.`}
+                  narrative={`${num(bankedHours())} hours banked against the countersigned baseline`}
                   to="/governance/glidepath"
                   chart={<Sparkline data={[...HISTORY.glidepathActual]} tone="ok" showLast width={120} height={22} />}
                 />
@@ -392,7 +390,7 @@ export function ExecutiveHome() {
                   statusTone={openProposals.length ? 'brand' : 'ok'}
                   headline={openProposals.length}
                   sub="agent proposals"
-                  narrative="Work the workforce raised unprompted — eliminations, risks, cost reductions and its own requests for more autonomy."
+                  narrative="Eliminations, risks, cost reductions and autonomy requests raised by agents"
                   to="/governance/proposals"
                 />
               </div>
@@ -400,7 +398,7 @@ export function ExecutiveHome() {
               <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
                 <Card
                   title="Productivity glidepath against contract"
-                  subtitle="Reduction in measured effort versus the countersigned baseline, by quarter"
+                  subtitle="Effort reduction against baseline, by quarter"
                   right={<EvidenceLink id="ev_gp_root" label="ledger" />}
                 >
                   <LineChart
@@ -418,7 +416,6 @@ export function ExecutiveHome() {
                         {s.label}
                       </span>
                     ))}
-                    <span className="ml-auto">Delivered is ahead of contract in every quarter since transition.</span>
                   </div>
                 </Card>
 

@@ -42,7 +42,7 @@ export function CoverageDashboard() {
 
       <ProducedBy
         agents={["agt_archivist"]}
-        what="reverse-engineering the estate into typed assertions, and queueing what it will not self-verify"
+        what="reverse-engineering the estate into assertions"
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

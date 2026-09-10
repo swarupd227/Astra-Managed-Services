@@ -50,14 +50,14 @@ export function ModelCards() {
     <>
       <PageHeader
         title="Model Cards"
-        subtitle="Generated from stored records — purpose, scope, evaluation, incidents, data handling and recent changes"
+        subtitle="Generated from stored records"
         actions={
           <Button size="sm" variant="default" disabled={!card} onClick={() => pushToast({ title: `Model card exported — ${card?.title}`, body: 'Every field on the card traces to a stored record; the export carries their ids.', tone: 'ok' })}>
             <ArrowUpRight size={12} /> Export card
           </Button>
         }
       />
-      <ProducedBy agents={['agt_herald']} what="assembling each card from the employment record, the registry, the suites and the chain" />
+      <ProducedBy agents={['agt_herald']} what="assembling each card from stored records" />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[300px_1fr] lg:overflow-hidden">
         <aside className="min-h-0 overflow-y-auto border-r border-line bg-surface">
@@ -112,7 +112,7 @@ export function ModelCards() {
                 </Card>
               ))}
 
-              <Card title="Recent changes" subtitle="The last five change-log entries that bear on this card">
+              <Card title="Recent changes" subtitle="Last five related changes">
                 {card.changes.length ? (
                   <ul className="space-y-1">
                     {card.changes.map((c) => (
@@ -128,9 +128,6 @@ export function ModelCards() {
                 )}
               </Card>
 
-              <p className="text-2xs leading-relaxed text-ink-3">
-                Generated at view time from the employment record, the AI-system registry, the evaluation suites, the incident register and the change log. No field on this card exists without a stored record behind it.
-              </p>
             </div>
           ) : (
             <p className="text-2xs text-ink-3">Select an agent or a system.</p>

@@ -51,10 +51,10 @@ export function ChangeLog() {
     <>
       <PageHeader
         title="Change Log"
-        subtitle="Registry, policy, skill, routing and regression changes — and vendor model changes with their notice clocks"
+        subtitle="Registry, policy, skill, routing and model changes"
         actions={<Button size="sm" variant="ghost" onClick={load}><RotateCcw size={12} /> Refresh</Button>}
       />
-      <ProducedBy agents={['agt_herald']} what="assembling the log from stored records — nothing here is written by hand" />
+      <ProducedBy agents={['agt_herald']} what="assembling the log from stored records" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Entries" value={entries.length} />
@@ -67,11 +67,11 @@ export function ChangeLog() {
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <Card
           title="Model changes"
-          subtitle="A served model that differs from the registered one — routing capped at Advise until accepted"
+          subtitle="Served model differs from registered"
           right={<GitCommit size={13} className="text-ink-3" />}
         >
           {modelChanges.length === 0 ? (
-            <p className="text-2xs text-ink-3">None detected. The currency check runs on every completed call.</p>
+            <p className="text-2xs text-ink-3">None detected.</p>
           ) : (
             <Table>
               <thead>

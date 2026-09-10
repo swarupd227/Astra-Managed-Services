@@ -30,7 +30,7 @@ export function WorkOrders() {
     <>
       <PageHeader title="Work orders" subtitle="Separately authorised development against the application portfolio" />
 
-      <ProducedBy agents={['agt_forge']} what="estimating, and generating code and tests against authorised orders" />
+      <ProducedBy agents={['agt_forge']} what="estimating, and generating code and tests" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Open" value={s.open} />

@@ -200,8 +200,8 @@ export function AgentWorkforce() {
           <ShieldAlert size={13} className="shrink-0 text-crit" />
           <p className="text-2xs leading-relaxed text-ink-2">
             {mi.active
-              ? 'A major incident is open. Every policy carries the override incident.major_active == true → max_mode advise, so the whole workforce is at L1 and in-flight supervised runs paused at their next checkpoint.'
-              : 'The platform-wide brake is applied. Every agent is at L1 Advise; work continues through humans via the mirrored ITSM. Applying and releasing it are both evidenced.'}
+              ? 'Major incident open — every agent capped at L1 Advise.'
+              : 'Platform-wide brake applied — every agent at L1 Advise.'}
           </p>
         </div>
       )}

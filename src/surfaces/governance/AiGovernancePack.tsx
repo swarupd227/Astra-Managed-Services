@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, BookCheck, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, BookCheck } from 'lucide-react'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { CLIENT } from '@/domain/estate'
@@ -19,10 +19,10 @@ import { cn } from '@/lib/format'
    ========================================================================== */
 
 const FUNCTIONS: { id: RmfFunction; blurb: string }[] = [
-  { id: 'GOVERN', blurb: 'Who decides, on what authority, and how that authority is bounded' },
-  { id: 'MAP', blurb: 'What the system is, what it acts on, and where its knowledge came from' },
-  { id: 'MEASURE', blurb: 'How the controls are tested, by whom, and how recently' },
-  { id: 'MANAGE', blurb: 'What happens when something goes wrong, and what is done about it' },
+  { id: 'GOVERN', blurb: 'Authority and accountability' },
+  { id: 'MAP', blurb: 'Scope and knowledge provenance' },
+  { id: 'MEASURE', blurb: 'Control testing' },
+  { id: 'MANAGE', blurb: 'Incident response' },
 ]
 
 const STATE_TONE: Record<ControlState, 'ok' | 'warn' | 'neutral' | 'crit'> = {
@@ -70,7 +70,7 @@ export function AiGovernancePack() {
     <>
       <PageHeader
         title="AI Governance Pack"
-        subtitle={`NIST AI RMF and ISO/IEC 42001 mapped to the records this platform holds · ${CLIENT.name}`}
+        subtitle={`NIST AI RMF · ISO/IEC 42001 · ${CLIENT.name}`}
         actions={
           <Button
             size="sm" variant="default"
@@ -85,7 +85,7 @@ export function AiGovernancePack() {
         }
       />
 
-      <ProducedBy agents={['agt_herald']} what="assembling the pack from stored records at view time — no field is written by hand" />
+      <ProducedBy agents={['agt_herald']} what="assembling the pack from stored records" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
         <Metric size="sm" label="Controls mapped" value={pack.length} />
@@ -95,19 +95,6 @@ export function AiGovernancePack() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {(gaps.length > 0 || unexercised.length > 0) && (
-          <div className="mb-4 rounded-md border border-warn/40 bg-warn/[0.06] p-3">
-            <div className="flex items-center gap-1.5">
-              <TriangleAlert size={12} className="text-warn" />
-              <span className="label-cap">Pack scope</span>
-            </div>
-            <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-              {gaps.length > 0 && <>{gaps.length} control{gaps.length === 1 ? '' : 's'} {gaps.length === 1 ? 'is' : 'are'} a gap: {gaps.map((g) => g.control.split('.')[0]).join('; ')}. </>}
-              {unexercised.length > 0 && <>{unexercised.length} control{unexercised.length === 1 ? '' : 's'} exist{unexercised.length === 1 ? 's' : ''} but {unexercised.length === 1 ? 'has' : 'have'} not been exercised this period — run {unexercised.length === 1 ? 'it' : 'them'} from the <Link to="/governance/assurance" className="text-brand-ink hover:underline">Assurance Sandbox</Link>, or from the linked screen where the control is not read-only, and the figures here will fill in. </>}
-              A pack that reported these as satisfied would not be evidence.
-            </p>
-          </div>
-        )}
 
         {FUNCTIONS.map((f) => {
           const rows = pack.filter((c) => c.fn === f.id)
@@ -139,14 +126,6 @@ export function AiGovernancePack() {
           )
         })}
 
-        <Card title="Pack structure" subtitle="What it is, and what it is not" right={<BookCheck size={13} className="text-ink-3" />}>
-          <ul className="space-y-1 text-2xs leading-relaxed text-ink-2">
-            <li>· Every figure is read from stored records at the moment you open the page. Nothing on this page is authored, so it cannot drift from the system it describes.</li>
-            <li>· A control that has not been run this period says so. {role.readOnly ? 'You can run any of them yourself' : 'They can be run'} from the <Link to="/governance/assurance" className="text-brand-ink hover:underline">Assurance Sandbox</Link>, and the state here changes to match.</li>
-            <li>· ISO/IEC 42001 clause references map the platform's controls onto the standard's structure. They are a mapping, not a certification: certification is an organisational undertaking, and this pack is the evidence it would rest on.</li>
-            <li>· The frameworks named in the AI schedule are NIST AI RMF and ISO/IEC 42001; the four sections above are the RMF's functions.</li>
-          </ul>
-        </Card>
       </div>
     </>
   )

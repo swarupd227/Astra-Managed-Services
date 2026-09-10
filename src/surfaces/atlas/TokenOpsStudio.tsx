@@ -36,7 +36,7 @@ export function TokenOpsStudio() {
     <>
       <PageHeader
         title="TokenOps Studio"
-        subtitle="Trailing 30 days · metered per agent, skill and step"
+        subtitle="Trailing 30 days"
         actions={
           <Button size="sm" variant="default" disabled={!role.canApprove} onClick={() => pushToast({ title: 'Routing table re-fit queued', body: 'Refits weekly from evaluation data — quality and cost frontiers per step type, canaried by tower before rollout.', tone: 'info' })}>
             <Layers size={12} /> Re-fit routing
@@ -46,7 +46,7 @@ export function TokenOpsStudio() {
 
       <ProducedBy
         agents={["agt_bursar"]}
-        what="metering every model call by agent, skill and step, and hunting the routing frontier"
+        what="metering model calls and tuning routing"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
@@ -76,7 +76,6 @@ export function TokenOpsStudio() {
                 {stacks.map((s) => (
                   <span key={s.key} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
                 ))}
-                <span className="ml-auto">Weekend troughs are real demand, not sampling.</span>
               </div>
             </Card>
 

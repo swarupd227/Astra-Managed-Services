@@ -102,8 +102,7 @@ export function EvidenceExplorer() {
             ) : (
               <>
                 Chain broken at sequence <span className="tnum text-crit">{verification.firstBreakSeq}</span>.{' '}
-                {verification.brokenIds.length} record{verification.brokenIds.length > 1 ? 's do' : ' does'} not match its recomputed digest — every
-                record from that point forward is unverifiable. This is what tampering looks like from the auditor's side of the glass.
+                {verification.brokenIds.length} record{verification.brokenIds.length > 1 ? 's do' : ' does'} not match the recomputed digest.
               </>
             )}
           </span>
@@ -189,7 +188,7 @@ export function EvidenceExplorer() {
                 <FlaskConical size={12} /> Alter this record
               </Button>
               <span className="text-2xs leading-relaxed text-ink-3">
-                Demonstration control: edits the payload as if someone reached the store directly, then run verification.
+                Demonstration control — tamper with a record, then verify.
               </span>
             </div>
           ) : undefined
@@ -220,9 +219,6 @@ export function EvidenceExplorer() {
                   <dd className={cn('break-all', detail.tampered ? 'text-crit' : 'text-ok')}>{detail.hash}</dd>
                 </div>
               </dl>
-              <p className="mt-2 text-2xs leading-relaxed text-ink-3">
-                Each digest covers this record's content and its predecessor's. An edit here breaks every record after it.
-              </p>
             </div>
 
             <div>
@@ -243,7 +239,7 @@ export function EvidenceExplorer() {
             <div className="rounded border border-line p-3">
               <div className="flex items-center gap-1.5"><Link2 size={11} className="text-brand-ink" /><span className="label-cap">Export adapters</span></div>
               <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-                Streams to the client SIEM (CEF, OCSF), the GRC platform, and the regulator PDF pack.
+                <Chip>SIEM · CEF, OCSF</Chip> <Chip>GRC platform</Chip> <Chip>Regulator PDF pack</Chip>
               </p>
             </div>
           </div>

@@ -45,7 +45,7 @@ export function Reports() {
 
       <ProducedBy
         agents={["agt_herald"]}
-        what="generating every figure here from the semantic layer, and signing the extracts"
+        what="generating figures and signing extracts"
       />
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">
@@ -112,7 +112,6 @@ export function Reports() {
                   <Button size="sm" variant="ghost" onClick={() => pushToast({ title: 'Extract generated', body: 'Row-level security mirrors platform RBAC.', tone: 'info' })}>
                     <FileDown size={11} /> Extract
                   </Button>
-                  <span className="ml-auto text-2xs text-ink-3">Every figure decomposes to ledger and evidence records.</span>
                 </div>
               </Card>
             )}
@@ -120,15 +119,14 @@ export function Reports() {
             {refused && (
               <Card title="Herald declines to answer" subtitle="No governed measure matched">
                 <p className="text-xs leading-relaxed text-ink-2">
-                  There is no governed measure named “{refused}”. I will not synthesise one, because a number that has no definition,
-                  grain or source cannot be defended at a review and cannot be reconciled against the ledgers.
+                  No governed measure named “{refused}”.
                 </p>
                 <div className="mt-3 rounded border border-info/35 bg-info/[0.06] p-3">
                   <div className="label-cap">Closest governed metrics</div>
                   <ul className="mt-1.5 space-y-1 text-2xs text-ink-2">
-                    <li><span className="font-mono text-ink">xla_friction_index</span> — requester friction: touches, repeats and reassignments per work object</li>
-                    <li><span className="font-mono text-ink">csat_score</span> — survey instrument, monthly, with language-model-scored interaction tone sampled for human review</li>
-                    <li><span className="font-mono text-ink">time_to_productive</span> — new-joiner readiness, an experience measure carrying commercial weight</li>
+                    <li title="Requester friction: touches, repeats and reassignments per work object"><span className="font-mono text-ink">xla_friction_index</span></li>
+                    <li title="Survey instrument, monthly, with sampled interaction tone"><span className="font-mono text-ink">csat_score</span></li>
+                    <li title="New-joiner readiness, carrying commercial weight"><span className="font-mono text-ink">time_to_productive</span></li>
                   </ul>
                 </div>
               </Card>

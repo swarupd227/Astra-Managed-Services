@@ -88,10 +88,6 @@ export function AgentRecord() {
                 <div>
                   <div className="label-cap">Non-human identity</div>
                   <p className="mt-1 break-all font-mono text-2xs text-ink-2">{agent.nhi}</p>
-                  <p className="mt-1 flex items-start gap-1.5 text-2xs leading-relaxed text-ink-3">
-                    <Fingerprint size={11} className="mt-[2px] shrink-0" />
-                    Short-lived, scoped credentials issued per run. Actions are attributable to this identity in the client's own audit logs.
-                  </p>
                 </div>
                 <div>
                   <div className="label-cap">Accountable human</div>
@@ -161,7 +157,7 @@ export function AgentRecord() {
                       </div>
                       <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">{i.outcome}</p>
                       <p className="mt-1 text-2xs text-ink-3">
-                        Demoted one level for {i.demotedDays} days. Restoration required root cause and re-passing the stage gates.
+                        Demoted one level for {i.demotedDays} days.
                       </p>
                     </li>
                   ))}

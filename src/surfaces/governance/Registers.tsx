@@ -35,7 +35,7 @@ export function Registers() {
 
       <ProducedBy
         agents={["agt_herald"]}
-        what="assembling decision sheets and tracking every condition to closure"
+        what="assembling decision sheets and tracking conditions"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
@@ -207,14 +207,11 @@ export function Registers() {
               <div className="rounded border border-line bg-sunken p-3">
                 <div className="flex items-center gap-1.5"><CalendarClock size={11} className="text-brand-ink" /><span className="label-cap">Pack timetable</span></div>
                 <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-                  Frozen T-2, distributed T-1. Versioned, evidence-linked, opening with the decision sheet.
+                  Frozen T-2 · distributed T-1
                 </p>
               </div>
               <div className="rounded border border-line bg-sunken p-3">
                 <div className="flex items-center gap-1.5"><ShieldQuestion size={11} className="text-brand-ink" /><span className="label-cap">Governance of the AI itself</span></div>
-                <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-                  Autonomy schedule, model and router changes, policy amendments and agent incidents are standing decision items.
-                </p>
               </div>
             </div>
           </Card>

@@ -71,7 +71,7 @@ export function GlidepathLedgers() {
 
       <ProducedBy
         agents={["agt_prospect", "agt_herald"]}
-        what="attributing every banked hour to a cause and holding it until the decay verifies"
+        what="attributing banked hours to a cause"
       />
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">
@@ -85,12 +85,12 @@ export function GlidepathLedgers() {
             <Metric size="sm" label="Hours in verification" value={num(verifying.reduce((s, e) => s + e.hoursSaved, 0))} />
             <Metric size="sm" label="Rejected claims" value={num(rejected.reduce((s, e) => s + e.hoursSaved, 0))} deltaTone="crit" />
             <Metric size="sm" label="Baseline" value={`${num(TOWERS.filter((t) => tower === 'all' || t.id === tower).reduce((s, t) => s + t.baselineHrsPerQtr, 0))} hrs`} unit="/qtr" />
-            <Metric size="sm" label="Delivered vs. contracted" value={signedPct(glidepathAttainment().actual, 1)} deltaTone="ok" delta="ahead" hint={`contracted ${signedPct(glidepathAttainment().contracted, 1)}`} />
+            <Metric size="sm" label="Delivered vs. contracted" value={signedPct(glidepathAttainment().actual, 1)} deltaTone={glidepathAttainment().actual <= glidepathAttainment().contracted ? 'ok' : 'warn'} delta={glidepathAttainment().actual <= glidepathAttainment().contracted ? 'ahead' : 'behind'} hint={`contracted ${signedPct(glidepathAttainment().contracted, 1)}`} />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-              <Card title="Banked savings by cause, per quarter" subtitle="Attribution taxonomy: automation, elimination, acceleration, avoidance">
+              <Card title="Banked savings by cause, per quarter" subtitle="By attribution">
                 <StackedBars labels={quarters} stacks={decomposition} height={200} yFormat={(n) => `${n}h`} />
                 <div className="mt-2 flex flex-wrap gap-3 text-2xs text-ink-3">
                   {decomposition.map((s) => (
@@ -99,15 +99,14 @@ export function GlidepathLedgers() {
                 </div>
               </Card>
 
-              <Card title="Attribution definitions" subtitle="Attribution taxonomy">
+              <Card title="Banked by attribution">
                 <ul className="space-y-2.5">
                   {byAttrib.map((a) => (
                     <li key={a.key} className="border-b border-line/60 pb-2.5 last:border-b-0 last:pb-0">
                       <div className="flex items-center justify-between gap-2">
-                        <Chip tone={ATTRIB_TONE[a.key]}>{a.label}</Chip>
+                        <Chip tone={ATTRIB_TONE[a.key]} title={ATTRIB_NOTE[a.key]}>{a.label}</Chip>
                         <span className="tnum text-2xs font-medium text-ink">{num(a.hours)} hrs banked</span>
                       </div>
-                      <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">{ATTRIB_NOTE[a.key]}</p>
                     </li>
                   ))}
                 </ul>
@@ -117,7 +116,7 @@ export function GlidepathLedgers() {
             <Card
               className="mt-4"
               title="Ledger entries"
-              subtitle="Each line links to its evidence record"
+              subtitle="Linked to evidence"
             >
               <Table>
                 <thead>
@@ -189,7 +188,7 @@ export function GlidepathLedgers() {
                   <Card
                     key={t.tower}
                     title={tw?.name}
-                    subtitle={`${t.quarter} · conversion ${t.reinvestPct}% reinvest / ${t.priceReductionPct}% price reduction — set in the commercial schedule and executed by the ledger`}
+                    subtitle={`${t.quarter} · conversion ${t.reinvestPct}% reinvest / ${t.priceReductionPct}% price reduction`}
                     right={t.freezeState === 'frozen' ? <Chip tone="crit"><Lock size={9} />allocation frozen</Chip> : <Chip tone="ok">open</Chip>}
                   >
                     <div className="grid gap-4 lg:grid-cols-[300px_1fr]">

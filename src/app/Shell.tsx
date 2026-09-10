@@ -163,9 +163,6 @@ function RoleSwitcher() {
         <div className="absolute right-0 top-9 z-50 w-[330px] overflow-hidden rounded-md border border-line-strong bg-surface shadow-pop">
           <div className="border-b border-line px-3 py-2">
             <p className="text-2xs font-medium text-ink">Assume a role</p>
-            <p className="mt-0.5 text-2xs leading-relaxed text-ink-3">
-              Navigation, home screen and approval rights follow the role.
-            </p>
           </div>
           <div className="max-h-[52vh] overflow-y-auto py-1">
             {(['artizent', 'client', 'consumer'] as const).map((org) => (

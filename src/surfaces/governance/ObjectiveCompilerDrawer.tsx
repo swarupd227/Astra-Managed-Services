@@ -87,14 +87,14 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
       open={open}
       onClose={() => { abortRef.current?.abort(); onClose() }}
       title="Compile objectives"
-      subtitle="Propose how stated objectives will be measured, from what this platform already holds"
+      subtitle="Measures proposed from what the platform holds"
       width="max-w-[760px]"
       footer={
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-2xs text-ink-3">
             {cost?.model
               ? `${cost.model}${cost.usd !== undefined ? ` · $${cost.usd.toFixed(4)}` : ''}`
-              : 'Nothing is accepted by applying a proposal — each objective still needs its client owner.'}
+              : 'Each objective still needs its client owner.'}
           </span>
           <span className="ml-auto flex items-center gap-2">
             {running ? (
@@ -135,9 +135,6 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
             disabled={running}
             className="mt-1 w-full rounded border border-line-strong bg-sunken p-2.5 text-2xs leading-relaxed text-ink placeholder:text-ink-3 focus:border-brand focus:outline-none disabled:opacity-60"
           />
-          <p className="mt-1 text-2xs leading-relaxed text-ink-3">
-            This text is untrusted — it goes through the same injection classifier as anything else a model reads here. A supplier document is exactly the place an instruction would be hidden.
-          </p>
         </div>
 
         {(running || thinking) && (
@@ -179,9 +176,6 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
                     {result.rejections.length} proposed measure{result.rejections.length === 1 ? '' : 's'} did not resolve and {result.rejections.length === 1 ? 'was' : 'were'} dropped
                   </span>
                 </div>
-                <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-                  The compiler named something this platform does not hold. Nothing invented becomes a measure — it is shown here rather than quietly discarded, because the objective it was meant to evidence is now thinner than it looks.
-                </p>
                 <ul className="mt-2 space-y-1">
                   {result.rejections.map((r, i) => (
                     <li key={i} className="text-2xs leading-relaxed text-ink-2">
@@ -258,16 +252,6 @@ export function ObjectiveCompilerDrawer({ open, onClose }: { open: boolean; onCl
           </>
         )}
 
-        {!running && !result && !refusal && !error && (
-          <div className="rounded border border-line bg-sunken p-3">
-            <div className="label-cap">Compiler constraints</div>
-            <ul className="mt-1.5 space-y-1 text-2xs leading-relaxed text-ink-2">
-              <li>· It is given a catalogue of the measures this platform can actually take, and every measure it returns is resolved against that catalogue. An id that does not exist never becomes a measure.</li>
-              <li>· It is required to say "no measure" with a reason where nothing evidences an objective. A compiler that always finds a measure is lying, and an objective half of which cannot be measured is the one worth knowing about before signature.</li>
-              <li>· It proposes. It accepts nothing, configures nothing, and grants no autonomy — the objectives it produces arrive proposed, for a named client owner to accept or reject.</li>
-            </ul>
-          </div>
-        )}
       </div>
     </Drawer>
   )

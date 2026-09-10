@@ -59,7 +59,7 @@ export function BriefHome() {
         title="While you were away"
         subtitle={
           brief.firstVisit
-            ? `${role.title} · first session, so this covers the last twelve hours of estate time`
+            ? `${role.title} · last twelve hours`
             : `${role.title} · everything since your last session, ${ago(brief.since)}`
         }
         meta={
@@ -80,7 +80,7 @@ export function BriefHome() {
           <div className="flex flex-col gap-4">
             <Card
               title="While you were away"
-              subtitle="Computed from the ledgers — every figure below is one the platform can defend"
+              subtitle="Computed from the ledgers"
               right={<Sparkles size={13} className="text-brand-ink" />}
             >
               <p className="text-sm leading-relaxed text-ink">

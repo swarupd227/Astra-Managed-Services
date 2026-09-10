@@ -21,7 +21,7 @@ export function LearningFeed({ limit, className }: { limit?: number; className?:
     return (
       <Empty
         title="Nothing taught yet"
-        body="Correct or reject an agent's output and the platform will show what the correction reaches."
+        body="No corrections yet."
       />
     )
   }

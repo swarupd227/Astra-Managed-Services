@@ -57,7 +57,7 @@ export function ApprovalInbox() {
         {filtered.length === 0 ? (
           <Empty
             title="No gates open"
-            body="Calm by default, loud by exception. When an agent proposes an action that policy will not let it take unattended, the card lands here."
+            body="No gated runs waiting."
           />
         ) : (
           <div className={cn('mx-auto grid gap-3', mobilePreview ? 'max-w-[400px]' : 'max-w-4xl')}>

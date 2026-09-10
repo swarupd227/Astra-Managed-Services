@@ -77,7 +77,7 @@ export function ServiceGraph() {
     <>
       <PageHeader
         title="Service Graph"
-        subtitle="Typed estate graph · confidence and verification state on every assertion"
+        subtitle="Typed estate graph"
         actions={
           <>
             <select value={minVerification} onChange={(e) => setMinVerification(e.target.value as typeof minVerification)} className={cn(selectClass, 'w-[224px]')}>
@@ -95,7 +95,7 @@ export function ServiceGraph() {
 
       <ProducedBy
         agents={["agt_archivist", "agt_sentinel"]}
-        what="asserting and corroborating every edge in this graph, with a TTL on each"
+        what="asserting and corroborating graph edges"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">

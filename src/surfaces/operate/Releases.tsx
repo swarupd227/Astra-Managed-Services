@@ -32,7 +32,7 @@ export function Releases() {
     <>
       <PageHeader title="Releases" subtitle="Vendor and internal releases across the application portfolio" />
 
-      <ProducedBy agents={['agt_sentryq', 'agt_forge']} what="selecting and running regression packs, and generating tests for internal releases" />
+      <ProducedBy agents={['agt_sentryq', 'agt_forge']} what="selecting and running regression packs" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Upcoming" value={s.upcoming} />

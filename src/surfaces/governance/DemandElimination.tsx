@@ -77,7 +77,7 @@ export function DemandElimination() {
 
       <ProducedBy
         agents={["agt_prospect"]}
-        what="mining recurrence into demand classes and costing the elimination backlog"
+        what="mining recurrence and costing elimination"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
@@ -174,7 +174,7 @@ export function DemandElimination() {
               >
                 Approve for the backlog
               </Button>
-              <span className="text-2xs text-ink-3">Joint improvement backlog · reviewed in service governance</span>
+              <span className="text-2xs text-ink-3">Joint improvement backlog</span>
             </div>
           ) : undefined
         }
@@ -199,11 +199,6 @@ export function DemandElimination() {
                   <span className="text-ink">{PROPOSAL_LABEL[selected.proposalType]}</span> · estimated {selected.effortDays} engineering days ·
                   projected removal {pct((selected.projectedRemoval ?? 0) * 100, 0)} of class volume
                 </p>
-                {selected.proposalType === 'modernisation' && (
-                  <p className="mt-1.5 text-2xs leading-relaxed text-ink-3">
-                    Routes to the transform backlog, funded by capacity credits.
-                  </p>
-                )}
               </div>
             )}
 
@@ -217,7 +212,6 @@ export function DemandElimination() {
                 <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full bg-sunken">
                   <div className="h-full rounded-full bg-agent" style={{ width: `${((selected.verifyDay ?? 0) / 60) * 100}%` }} />
                 </div>
-                <p className="mt-2 text-2xs text-ink-3">Not banked until the window closes green.</p>
               </div>
             )}
 
@@ -225,9 +219,8 @@ export function DemandElimination() {
               <div className="rounded border border-ok/40 bg-ok/[0.06] p-3">
                 <div className="flex items-center gap-1.5"><CircleDollarSign size={11} className="text-ok" /><span className="label-cap">Banked</span></div>
                 <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">
-                  Class volume decayed {pct(Math.abs(selected.observedDecay ?? 0) * 100, 0)} and held for the full window.{' '}
-                  {num(Math.round(selected.hoursYr * (selected.projectedRemoval ?? 0)))} hours entered the Glidepath Ledger, converting to capacity
-                  credits at the contracted rate.
+                  Class volume decayed {pct(Math.abs(selected.observedDecay ?? 0) * 100, 0)} over the full window ·{' '}
+                  {num(Math.round(selected.hoursYr * (selected.projectedRemoval ?? 0)))} hours banked
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {GLIDEPATH.filter((g) => g.demandClass === selected.id).slice(0, 4).map((g) => (

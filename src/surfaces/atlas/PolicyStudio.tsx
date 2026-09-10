@@ -109,7 +109,7 @@ export function PolicyStudio() {
           change who is acting, and the strip has to follow that. */}
       <ProducedBy
         agents={[agentId]}
-        what={`the agent under simulation — the engine is evaluated against its real grants and its ${modeLabel(agent.ceiling)} ceiling`}
+        what={`the agent under simulation · ${modeLabel(agent.ceiling)} ceiling`}
       />
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">

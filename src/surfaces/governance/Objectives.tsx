@@ -53,7 +53,7 @@ export function Objectives() {
     <>
       <PageHeader
         title="Objectives"
-        subtitle="What the engagement was bought to achieve, and what the platform can evidence"
+        subtitle="Objectives, measures and declared gaps"
         actions={
           <>
             <Button size="sm" variant="default" onClick={() => setCompiling(true)}>
@@ -71,7 +71,7 @@ export function Objectives() {
 
       <ObjectiveCompilerDrawer open={compiling} onClose={() => setCompiling(false)} />
 
-      <ProducedBy agents={['agt_herald']} what="resolving each measure to a governed figure — never computing one of its own" />
+      <ProducedBy agents={['agt_herald']} what="resolving each measure to a governed figure" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Objectives" value={objectives.length} />

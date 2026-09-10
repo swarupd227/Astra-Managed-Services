@@ -64,7 +64,7 @@ export function InnovationRegister() {
 
       <ProducedBy
         agents={["agt_prospect", "agt_forge"]}
-        what="raising candidate experiments and measuring what they actually returned"
+        what="raising experiments and measuring returns"
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
@@ -179,10 +179,9 @@ export function InnovationRegister() {
                 { t: 'Reuse factor', v: `${INNOVATION.reduce((s, i) => s + (i.reuseCount ?? 0), 0)} adoptions`, b: 'Verified items promoted to the golden repos and adopted on other towers or clients.' },
                 { t: 'Funding source discipline', v: `${INNOVATION.filter((i) => i.fundingSource === 'capacity_credits').length} credit-funded`, b: 'Capacity credits, innovation allowance or client-funded — recorded per item so the ledgers reconcile.' },
               ].map((m) => (
-                <div key={m.t} className="rounded border border-line bg-sunken p-2.5">
+                <div key={m.t} className="rounded border border-line bg-sunken p-2.5" title={m.b}>
                   <div className="label-cap">{m.t}</div>
                   <div className="tnum mt-1 font-display text-sm font-semibold text-ink">{m.v}</div>
-                  <p className="mt-1 text-2xs leading-relaxed text-ink-3">{m.b}</p>
                 </div>
               ))}
             </div>
