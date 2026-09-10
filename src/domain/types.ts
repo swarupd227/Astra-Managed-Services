@@ -13,6 +13,8 @@ export type ServiceLine = 'swpe' | 'data' | 'agentic' | 'cloud'
 export interface Tower {
   id: string
   name: string
+  /** The contract bundle this tower is delivered under — client-defined, not a platform constant. */
+  bundle: string
   line: ServiceLine
   state: TowerState
   concurrentStates: TowerState[]
@@ -353,6 +355,14 @@ export interface DemandClassRec {
   observedDecay?: number
   verifyDay?: number
   proposalType?: 'engineering_fix' | 'automation' | 'self_service' | 'policy_change' | 'modernisation'
+  /**
+   * Where the volume figure comes from. A population class carries a
+   * measured annual volume. A sampled class exists because live work carries
+   * it, but only a queue sample has been observed — so its annual volume stays
+   * at zero rather than being extrapolated, and the sample size is kept instead.
+   */
+  volumeBasis?: 'population' | 'sampled'
+  sampleCount?: number
 }
 
 /* ----------------------------------- SLA ----------------------------------- */
@@ -442,4 +452,10 @@ export interface Role {
   description: string
   canApprove: boolean
   readOnly?: boolean
+}
+
+/** A contract bundle: the unit a client buys a group of towers under. */
+export interface Bundle {
+  id: string
+  name: string
 }

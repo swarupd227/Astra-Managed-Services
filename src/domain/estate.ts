@@ -1,4 +1,4 @@
-import type { Agent, GraphEdge, GraphNode, Policy, Skill, Tower } from './types'
+import type { Agent, Bundle, GraphEdge, GraphNode, Policy, Skill, Tower } from './types'
 
 /**
  * The reference engagement: Kearney Global — a global management-consulting
@@ -21,7 +21,7 @@ export const CLIENT = {
 
 export const TOWERS: Tower[] = [
   {
-    id: 'twr_payments', name: 'Application Development & Integration (B3)', line: 'swpe',
+    id: 'twr_payments', name: 'Application Development & Integration (B3)', bundle: 'B3', line: 'swpe',
     state: 'S3', concurrentStates: ['S2', 'S3', 'S4'], criticality: 1,
     owner: 'R. Castellano', sdm: 'R. Venkatesh',
     entities: 1240, assertions: 14200, verificationCoverage: 74.6,
@@ -30,7 +30,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['SOC 2', 'GDPR'],
   },
   {
-    id: 'twr_core', name: 'Application Maintenance (B3)', line: 'swpe',
+    id: 'twr_core', name: 'Application Maintenance (B3)', bundle: 'B3', line: 'swpe',
     state: 'S4', concurrentStates: ['S3', 'S4', 'S5'], criticality: 0,
     owner: 'R. Castellano', sdm: 'R. Venkatesh',
     entities: 5860, assertions: 61400, verificationCoverage: 88.9,
@@ -39,7 +39,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['SOC 2', 'GDPR'],
   },
   {
-    id: 'twr_dataplat', name: 'Data Management Services (B4)', line: 'data',
+    id: 'twr_dataplat', name: 'Data Management Services (B4)', bundle: 'B4', line: 'data',
     state: 'S3', concurrentStates: ['S2', 'S3', 'S4'], criticality: 1,
     owner: 'S. Okafor', sdm: 'M. Okonkwo',
     entities: 3120, assertions: 28600, verificationCoverage: 79.4,
@@ -48,7 +48,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['GDPR', 'ISO 27701'],
   },
   {
-    id: 'twr_cloud', name: 'Infrastructure — Enterprise Compute (B2)', line: 'cloud',
+    id: 'twr_cloud', name: 'Infrastructure — Enterprise Compute (B2)', bundle: 'B2', line: 'cloud',
     state: 'S4', concurrentStates: ['S3', 'S4', 'S5'], criticality: 1,
     owner: 'P. Lindegaard', sdm: 'M. Okonkwo',
     entities: 7480, assertions: 54200, verificationCoverage: 86.1,
@@ -57,7 +57,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['SOC 2'],
   },
   {
-    id: 'twr_euc', name: 'Digital Workplace Services (B1)', line: 'cloud',
+    id: 'twr_euc', name: 'Digital Workplace Services (B1)', bundle: 'B1', line: 'cloud',
     state: 'S4', concurrentStates: ['S4', 'S5'], criticality: 2,
     owner: 'P. Lindegaard', sdm: 'M. Okonkwo',
     entities: 9820, assertions: 41300, verificationCoverage: 92.7,
@@ -66,7 +66,7 @@ export const TOWERS: Tower[] = [
     regulatory: [],
   },
   {
-    id: 'twr_network', name: 'Infrastructure — Network Services (B2)', line: 'cloud',
+    id: 'twr_network', name: 'Infrastructure — Network Services (B2)', bundle: 'B2', line: 'cloud',
     state: 'S3', concurrentStates: ['S3', 'S4'], criticality: 1,
     owner: 'P. Lindegaard', sdm: 'D. Kowalski',
     entities: 2340, assertions: 17900, verificationCoverage: 81.2,
@@ -75,7 +75,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['SOC 2'],
   },
   {
-    id: 'twr_secops', name: 'Infrastructure — Security (B2)', line: 'cloud',
+    id: 'twr_secops', name: 'Infrastructure — Security (B2)', bundle: 'B2', line: 'cloud',
     state: 'S3', concurrentStates: ['S2', 'S3', 'S4'], criticality: 0,
     owner: 'V. Marchetti', sdm: 'D. Kowalski',
     entities: 4610, assertions: 33500, verificationCoverage: 83.6,
@@ -84,7 +84,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['ISO 27001', 'SOC 2', 'NIST AI RMF'],
   },
   {
-    id: 'twr_agentops', name: 'AI & Automation Governance (B5)', line: 'agentic',
+    id: 'twr_agentops', name: 'AI & Automation Governance (B5)', bundle: 'B5', line: 'agentic',
     state: 'S2', concurrentStates: ['S1', 'S2', 'S3'], criticality: 1,
     owner: 'E. Whitfield', sdm: 'L. Nakamura',
     entities: 780, assertions: 9640, verificationCoverage: 68.2,
@@ -93,7 +93,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['EU AI Act', 'NIST AI RMF', 'ISO/IEC 42001'],
   },
   {
-    id: 'twr_claims', name: 'Cross-Functional — CMDB & Service Mapping (B5)', line: 'swpe',
+    id: 'twr_claims', name: 'Cross-Functional — CMDB & Service Mapping (B5)', bundle: 'B5', line: 'swpe',
     state: 'S1', concurrentStates: ['S1'], criticality: 1,
     owner: 'M. Osei', sdm: 'S. Iyer',
     entities: 1450, assertions: 8900, verificationCoverage: 58.3,
@@ -102,7 +102,7 @@ export const TOWERS: Tower[] = [
     regulatory: ['SOC 2'],
   },
   {
-    id: 'twr_bi', name: 'Data Management — Research & Analytics (B4)', line: 'data',
+    id: 'twr_bi', name: 'Data Management — Research & Analytics (B4)', bundle: 'B4', line: 'data',
     state: 'S2', concurrentStates: ['S1', 'S2'], criticality: 2,
     owner: 'S. Okafor', sdm: 'S. Iyer',
     entities: 1980, assertions: 11200, verificationCoverage: 51.4,
@@ -345,6 +345,19 @@ export const AGENTS: Agent[] = [
 
 export const AGENT_BY_ID = Object.fromEntries(AGENTS.map((a) => [a.id, a])) as Record<string, Agent>
 
+/* --------------------------------- Bundles --------------------------------- */
+
+/** The contract bundles this engagement buys. Seed data — another client defines its own. */
+export const BUNDLES: Bundle[] = [
+  { id: 'B1', name: 'Digital Workplace Services' },
+  { id: 'B2', name: 'Infrastructure Services' },
+  { id: 'B3', name: 'Application Management Services' },
+  { id: 'B4', name: 'Data Management Services' },
+  { id: 'B5', name: 'Cross-Functional Services' },
+]
+
+export const BUNDLE_BY_ID = Object.fromEntries(BUNDLES.map((b) => [b.id, b])) as Record<string, Bundle>
+
 /* ---------------------------------- Skills --------------------------------- */
 
 export const SKILLS: Skill[] = [
@@ -364,6 +377,24 @@ export const SKILLS: Skill[] = [
   { id: 'sk_patchwave_v8', name: 'Canaried patch wave', version: 'v8.1.0', layer: 'platform', actionClasses: ['AC-52', 'AC-12'], successRate: 0.979, runs: 620, evalScore: 0.926, verificationPack: 'patch_wave_v2', owner: 'V. Marchetti', updatedAt: T(27) },
   { id: 'sk_patch_v8', name: 'Defect patch generation', version: 'v8.0.6', layer: 'platform', actionClasses: ['AC-37'], successRate: 0.912, runs: 448, evalScore: 0.884, verificationPack: 'release_pack_v9', owner: 'A. Fernandes', updatedAt: T(11) },
   { id: 'sk_govpack_v10', name: 'Governance pack assembly', version: 'v10.2.0', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.988, runs: 168, evalScore: 0.951, verificationPack: 'none', owner: 'Platform core', updatedAt: T(6) },
+  { id: 'sk_repro_v4', name: 'Defect reproduction', version: 'v4.1.2', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.921, runs: 512, evalScore: 0.884, verificationPack: 'none', owner: 'A. Fernandes', updatedAt: T(18) },
+  { id: 'sk_testgen_v6', name: 'Test generation', version: 'v6.0.3', layer: 'platform', actionClasses: ['AC-37'], successRate: 0.917, runs: 486, evalScore: 0.879, verificationPack: 'release_pack_v9', owner: 'A. Fernandes', updatedAt: T(14) },
+  { id: 'sk_riskselect_v5', name: 'Risk-based test selection', version: 'v5.2.0', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.946, runs: 1120, evalScore: 0.908, verificationPack: 'none', owner: 'A. Fernandes', updatedAt: T(7) },
+  { id: 'sk_regenpack_v3', name: 'Regression pack generation', version: 'v3.4.1', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.944, runs: 1080, evalScore: 0.902, verificationPack: 'release_pack_v9', owner: 'A. Fernandes', updatedAt: T(7) },
+  { id: 'sk_cluster_v6', name: 'Recurrence clustering', version: 'v6.3.0', layer: 'platform', actionClasses: ['AC-05', 'AC-08'], successRate: 0.962, runs: 3840, evalScore: 0.931, verificationPack: 'none', owner: 'Platform core', updatedAt: T(15) },
+  { id: 'sk_attribute_v5', name: 'Root-cause attribution', version: 'v5.1.4', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.938, runs: 1260, evalScore: 0.912, verificationPack: 'none', owner: 'Platform core', updatedAt: T(15) },
+  { id: 'sk_npv_v3', name: 'Elimination costing', version: 'v3.2.0', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.971, runs: 410, evalScore: 0.924, verificationPack: 'none', owner: 'Platform core', updatedAt: T(22) },
+  { id: 'sk_spend_anomaly_v7', name: 'Spend anomaly detection', version: 'v7.0.2', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.968, runs: 2210, evalScore: 0.927, verificationPack: 'none', owner: 'Platform core', updatedAt: T(10) },
+  { id: 'sk_rightsize_v5', name: 'Rightsizing', version: 'v5.0.1', layer: 'platform', actionClasses: ['AC-18'], successRate: 0.952, runs: 318, evalScore: 0.906, verificationPack: 'canary_slo_v6', owner: 'Platform core', updatedAt: T(26) },
+  { id: 'sk_vulnrank_v4', name: 'Vulnerability ranking', version: 'v4.2.0', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.974, runs: 1640, evalScore: 0.935, verificationPack: 'none', owner: 'V. Marchetti', updatedAt: T(20) },
+  { id: 'sk_reverse_v11', name: 'Knowledge reverse-engineering', version: 'v11.0.3', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.943, runs: 2980, evalScore: 0.918, verificationPack: 'none', owner: 'Platform core', updatedAt: T(13) },
+  { id: 'sk_runbook_draft_v9', name: 'Runbook drafting', version: 'v9.1.1', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.951, runs: 1470, evalScore: 0.922, verificationPack: 'none', owner: 'Platform core', updatedAt: T(13) },
+  { id: 'sk_interview_v4', name: 'SME interview capture', version: 'v4.0.2', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.936, runs: 540, evalScore: 0.901, verificationPack: 'none', owner: 'Platform core', updatedAt: T(29) },
+  { id: 'sk_narrative_v7', name: 'Service narrative', version: 'v7.2.0', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.982, runs: 920, evalScore: 0.944, verificationPack: 'none', owner: 'Platform core', updatedAt: T(6) },
+  { id: 'sk_askherald_v5', name: 'Governed question answering', version: 'v5.1.0', layer: 'platform', actionClasses: ['AC-05'], successRate: 0.977, runs: 1330, evalScore: 0.939, verificationPack: 'none', owner: 'Platform core', updatedAt: T(6) },
+  { id: 'sk_provision_v7', name: 'Catalogue provisioning', version: 'v7.3.0', layer: 'platform', actionClasses: ['AC-66'], successRate: 0.993, runs: 6120, evalScore: 0.967, verificationPack: 'euc_checkin_v1', owner: 'Platform core', updatedAt: T(17) },
+  { id: 'sk_cl_supplier_v3', name: 'Time-entry correction', version: 'v3.0.4', layer: 'client', actionClasses: ['AC-05', 'AC-58'], successRate: 0.884, runs: 212, evalScore: 0.842, verificationPack: 'entitlement_diff_v3', owner: 'Client-owned', updatedAt: T(24) },
+  { id: 'sk_cl_kyc_v1', name: 'Onboarding checks', version: 'v1.0.0', layer: 'client', actionClasses: ['AC-05'], successRate: 0.861, runs: 48, evalScore: 0.811, verificationPack: 'none', owner: 'Client-owned', updatedAt: T(8) },
 ]
 
 export const SKILL_BY_ID = Object.fromEntries(SKILLS.map((s) => [s.id, s])) as Record<string, Skill>

@@ -1,4 +1,5 @@
 import { Rng } from './rng'
+import { WORK_OBJECTS } from './workSeed'
 import type {
   Decision, DemandClassRec, GlidepathEntry, InnovationItem, Obligation, SlaSpec, TokenSeries, TransformLedger,
 } from './types'
@@ -10,7 +11,7 @@ const daysAhead = (d: number) => new Date(NOW.getTime() + d * 86400000).toISOStr
 
 /* ------------------------------ Demand classes ------------------------------ */
 
-export const DEMAND_CLASSES: DemandClassRec[] = [
+const CURATED_CLASSES: DemandClassRec[] = [
   { id: 'dc_cert_expiry', name: 'Certificate expiry incidents', tower: 'twr_payments', volumeYr: 31, hoursYr: 47, trend: -0.88, cause: 'No certificate lifecycle automation across the Mulesoft/FOCUS legacy VM estate (210 graph nodes)', eliminationState: 'verifying', projectedRemoval: 0.92, npv36m: 41000, effortDays: 6, observedDecay: -0.88, verifyDay: 22, proposalType: 'automation' },
   { id: 'dc_mulesoft_soleowner', name: 'Mulesoft single-owner bridge risk', tower: 'twr_payments', volumeYr: 18, hoursYr: 54, trend: -0.05, cause: 'The Salesforce ↔ SAP integration hub has exactly one named user; the bridge runs unmonitored whenever they are unavailable', eliminationState: 'candidate', projectedRemoval: 0.55, npv36m: 96000, effortDays: 28, proposalType: 'engineering_fix' },
   { id: 'dc_iem_ghost', name: 'IEM still live despite "retired" status', tower: 'twr_payments', volumeYr: 658, hoursYr: 410, trend: -0.03, cause: 'IEM is marked replaced by Concur in the client\'s own application inventory, but consultants still submit time through it — the highest-volume live app in the tower', eliminationState: 'candidate', projectedRemoval: 0.5, npv36m: 168000, effortDays: 45, proposalType: 'modernisation' },
@@ -39,12 +40,51 @@ export const DEMAND_CLASSES: DemandClassRec[] = [
   { id: 'dc_ai_discriminatory_pattern', name: 'AI Incident — discriminatory pattern', tower: 'twr_agentops', volumeYr: 1, hoursYr: 12, trend: 0, cause: 'Sustained disparity in priority, gating or agent handling across declared cohorts', eliminationState: 'none' },
 ]
 
+/**
+ * The ledger is complete by construction. Live work can carry a demand class
+ * nobody has yet costed, and until now such a class did not exist to the
+ * elimination loop, the objective measures or the fabrication detector —
+ * forty classes and most of the live queue were invisible to all three.
+ *
+ * A class derived here is marked sampled. Its annual volume and effort stay
+ * at zero rather than being extrapolated from a queue sample about a day
+ * long, so every population-weighted figure is unchanged. The class becomes
+ * visible and eliminable, and the number of items seen is kept instead.
+ */
+function sampledClasses(curated: DemandClassRec[]): DemandClassRec[] {
+  const known = new Set(curated.map((d) => d.id))
+  const seen = new Map<string, { name: string; tower: string; n: number }>()
+  for (const w of WORK_OBJECTS) {
+    if (known.has(w.demandClass)) continue
+    const row = seen.get(w.demandClass)
+    if (row) row.n++
+    else seen.set(w.demandClass, { name: w.title.split(' — ')[0], tower: w.tower, n: 1 })
+  }
+  return [...seen].map(([id, r]) => ({
+    id,
+    name: r.name,
+    tower: r.tower,
+    volumeYr: 0,
+    hoursYr: 0,
+    trend: 0,
+    cause: '',
+    eliminationState: 'none' as const,
+    volumeBasis: 'sampled' as const,
+    sampleCount: r.n,
+  }))
+}
+
+export const DEMAND_CLASSES: DemandClassRec[] = [...CURATED_CLASSES, ...sampledClasses(CURATED_CLASSES)]
+
 /* ---------------------------- Glidepath ledger ------------------------------ */
 
 function buildGlidepath(): GlidepathEntry[] {
   const out: GlidepathEntry[] = []
   const attribs: GlidepathEntry['attribution'][] = ['automation', 'elimination', 'acceleration', 'avoidance']
-  DEMAND_CLASSES.forEach((dc, i) => {
+  // Built from population classes only. A sampled class has no measured
+  // baseline to bank hours against — and iterating the same classes in the
+  // same order keeps every seeded draw exactly as it was.
+  CURATED_CLASSES.forEach((dc, i) => {
     const n = dc.eliminationState === 'eliminated' ? 4 : dc.eliminationState === 'verifying' ? 2 : 1
     for (let k = 0; k < n; k++) {
       const attribution = dc.eliminationState === 'eliminated' ? (k === 0 ? 'elimination' : 'automation') : attribs[(i + k) % 4]

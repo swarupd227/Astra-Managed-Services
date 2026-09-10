@@ -197,6 +197,10 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
       const id = m.source.id
       const dc = DEMAND_CLASSES.find((d) => d.id === id)
       if (!dc) return { ...base, display: 'unresolved', detail: `No demand class with id ${id}.`, target: null, state: 'no_measure' }
+      // Seen in the live queue but never costed: there is no annual figure to report.
+      if (dc.volumeBasis === 'sampled') {
+        return { ...base, display: 'sampled', detail: `${dc.name} · ${dc.sampleCount ?? 0} items sampled`, target: null, state: 'no_measure', href: '/governance/elimination' }
+      }
       const moving = ['approved', 'verifying', 'eliminated'].includes(dc.eliminationState)
       return {
         ...base,
@@ -367,7 +371,7 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
           detail: `${inv.recordedInSupport} the client's record lists, plus ${inv.byReconciliation.unrecorded} found and not listed · a floor, not a total · ${inv.inProgramme} of them in a retirement programme`,
           target: m.target === undefined ? null : String(m.target),
           state: ok ? 'on_track' : 'at_risk',
-          href: '/governance/inventory',
+          href: '/governance/portfolio',
         }
       }
       const share = inv.reconciledShare * 100
@@ -379,7 +383,7 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
         detail: `${disagreeing} of ${inv.items.length} applications where the client's record and this platform disagree · ${num(inv.disputedIncidents)} incidents a year attach to them`,
         target: m.target === undefined ? null : fmtPct(m.target),
         state: ok ? 'on_track' : 'at_risk',
-        href: '/governance/inventory',
+        href: '/governance/portfolio',
       }
     }
   }

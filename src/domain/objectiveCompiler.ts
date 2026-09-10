@@ -53,7 +53,9 @@ export function measureCatalogue(): CatalogueEntry[] {
       kind: 'demand_class' as const,
       ref: d.id,
       label: d.name,
-      detail: `${d.volumeYr}/yr, ${d.hoursYr}h on ${towerName(d.tower)} · elimination ${d.eliminationState}`,
+      detail: d.volumeBasis === 'sampled'
+        ? `Sampled from live work on ${towerName(d.tower)} · ${d.sampleCount ?? 0} items seen · no annual volume measured, so it cannot evidence a trend or a target`
+        : `${d.volumeYr}/yr, ${d.hoursYr}h on ${towerName(d.tower)} · elimination ${d.eliminationState}`,
     })),
     {
       kind: 'tower_avg', ref: 'autonomyEligibleVolume',
