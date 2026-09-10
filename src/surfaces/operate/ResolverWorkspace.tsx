@@ -59,10 +59,10 @@ export function ResolverWorkspace() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
-        <Metric size="sm" label="Pre-worked for you" value={queues.agentPre.length} hint="triaged, enriched, plan drafted" />
-        <Metric size="sm" label="Assigned to you" value={queues.mine.length} hint="you hold accountability" />
-        <Metric size="sm" label="Median pre-work saving" value={`${OPERATIONAL.preWorkSavingMins} min`} hint="diagnosis time you no longer spend" />
-        <Metric size="sm" label="Your adopt rate" value={`${OPERATIONAL.planAdoptRate}%`} hint="how often you take the agent's plan unchanged" />
+        <Metric size="sm" label="Pre-worked for you" value={queues.agentPre.length} />
+        <Metric size="sm" label="Assigned to you" value={queues.mine.length} />
+        <Metric size="sm" label="Median pre-work saving" value={`${OPERATIONAL.preWorkSavingMins} min`} />
+        <Metric size="sm" label="Your adopt rate" value={`${OPERATIONAL.planAdoptRate}%`} />
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[380px_1fr]">

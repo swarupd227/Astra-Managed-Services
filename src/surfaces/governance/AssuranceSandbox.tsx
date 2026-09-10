@@ -79,7 +79,7 @@ export function AssuranceSandbox() {
         />
         <Metric
           size="sm" label="Red-team controls" value={redTeam ? `${redTeam.results.filter((r) => r.pass).length} / ${redTeam.results.length}` : `— / ${RED_TEAM_CASES.length}`}
-          deltaTone={redTeam ? (redTeam.results.every((r) => r.pass) ? 'ok' : 'crit') : undefined} hint="injection, poisoning, tool misuse, fabrication"
+          deltaTone={redTeam ? (redTeam.results.every((r) => r.pass) ? 'ok' : 'crit') : undefined}
         />
         <Metric
           size="sm" label="Bias disparities" value={bias ? bias.disparities.length : '—'}

@@ -80,7 +80,7 @@ export function VerificationQueue() {
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
         <Metric size="sm" label="Verified this session" value={done} hint="keyboard: A verify · C correct · R reject" />
         <Metric size="sm" label="Human-verified overall" value={verified} hint={`of ${assertions.length} in this slice`} />
-        <Metric size="sm" label="Median task time" value={`${OPERATIONAL.medianVerificationSec}s`} hint="target under 60 seconds" />
+        <Metric size="sm" label="Median task time" value={`${OPERATIONAL.medianVerificationSec}s`} hint="target under 60 s" />
         <div className="min-w-0">
           <div className="label-cap">Your impact (coupling F1)</div>
           <div className="mt-1 flex items-baseline gap-2">

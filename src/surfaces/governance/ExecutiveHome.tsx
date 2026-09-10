@@ -424,10 +424,10 @@ export function ExecutiveHome() {
 
                 <Card title="Run funds Transform" subtitle="Capacity credits, allocation and the reliability circuit breaker">
                   <div className="grid grid-cols-2 gap-3">
-                    <Metric size="sm" label="Credits available" value={num(credits)} hint="1 credit = 1 verified banked hour" />
-                    <Metric size="sm" label="Allocated this quarter" value={num(TRANSFORM.reduce((s, t) => s + t.allocations.reduce((a, x) => a + x.credits, 0), 0))} hint="jointly governed — never self-allocated" />
-                    <Metric size="sm" label="Returned as price reduction" value={num(Math.round(TRANSFORM.reduce((s, t) => s + (t.bankedSavingsHrs * t.priceReductionPct) / 100, 0)))} unit="hrs" hint="contracted 60/40 split, executed by the ledger" />
-                    <Metric size="sm" label="Realised vs. promised yield" value={realisedYield() === null ? '—' : signedPct(realisedYield()!, 0)} deltaTone="ok" hint="delivered transform items, measured after 60–90 days" />
+                    <Metric size="sm" label="Credits available" value={num(credits)} hint="1 credit = 1 banked hour" />
+                    <Metric size="sm" label="Allocated this quarter" value={num(TRANSFORM.reduce((s, t) => s + t.allocations.reduce((a, x) => a + x.credits, 0), 0))} />
+                    <Metric size="sm" label="Returned as price reduction" value={num(Math.round(TRANSFORM.reduce((s, t) => s + (t.bankedSavingsHrs * t.priceReductionPct) / 100, 0)))} unit="hrs" hint="60/40 split" />
+                    <Metric size="sm" label="Realised vs. promised yield" value={realisedYield() === null ? '—' : signedPct(realisedYield()!, 0)} deltaTone="ok" />
                   </div>
 
                   {frozen.length > 0 && (

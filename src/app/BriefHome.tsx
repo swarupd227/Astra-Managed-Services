@@ -89,9 +89,9 @@ export function BriefHome() {
 
               <div className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3 sm:grid-cols-4">
                 <Metric size="sm" label="Closed" value={brief.resolved} hint={`${brief.autonomous} unaided`} />
-                <Metric size="sm" label="Hours displaced" value={brief.hoursSaved.toFixed(1)} hint="vs. manual estimate" />
-                <Metric size="sm" label="Avoided" value={brief.prevented} hint="never became work" />
-                <Metric size="sm" label="Proposed" value={brief.proposed} hint="open agent proposals" />
+                <Metric size="sm" label="Hours displaced" value={brief.hoursSaved.toFixed(1)} />
+                <Metric size="sm" label="Avoided" value={brief.prevented} />
+                <Metric size="sm" label="Proposed" value={brief.proposed} />
               </div>
             </Card>
 

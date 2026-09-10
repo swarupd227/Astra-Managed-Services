@@ -298,9 +298,9 @@ export function Missions() {
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="mx-auto max-w-4xl space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Metric size="sm" label="Active" value={active.length} hint="pursuing a goal now" />
-            <Metric size="sm" label="Standing" value={standing.length} hint="configured at cutover" />
-            <Metric size="sm" label="Spend to date" value={usd(spend)} hint="across all missions" />
+            <Metric size="sm" label="Active" value={active.length} />
+            <Metric size="sm" label="Standing" value={standing.length} />
+            <Metric size="sm" label="Spend to date" value={usd(spend)} />
             <Metric size="sm" label="Near budget" value={atRisk} hint="at or past 80%" />
           </div>
 

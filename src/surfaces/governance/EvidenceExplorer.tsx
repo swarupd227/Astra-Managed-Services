@@ -76,17 +76,17 @@ export function EvidenceExplorer() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Records in chain" value={num(evidence.length)} hint="retention per client policy · default 7 years" />
-        <Metric size="sm" label="Sealed" value={num(evidence.filter((r) => r.sealed).length)} hint="RPO = 0, synchronous write path" />
+        <Metric size="sm" label="Records in chain" value={num(evidence.length)} hint="7-year retention" />
+        <Metric size="sm" label="Sealed" value={num(evidence.filter((r) => r.sealed).length)} hint="RPO 0" />
         <Metric
           size="sm"
           label="Chain state"
           value={verification ? (verification.valid ? 'verified' : 'broken') : 'not checked'}
           deltaTone={verification ? (verification.valid ? 'ok' : 'crit') : 'neutral'}
-          hint={verification ? `${verification.checked} records in ${verification.durationMs} ms` : 'run verification to recompute every digest'}
+          hint={verification ? `${verification.checked} records in ${verification.durationMs} ms` : 'not yet verified'}
         />
-        <Metric size="sm" label="Daily root anchored" value="external" hint="notarisation target selectable by the client" />
-        <Metric size="sm" label="Retrieval latency" value={`< ${OPERATIONAL.evidenceRetrievalSec} s`} hint="by work object, agent, action class or time range" />
+        <Metric size="sm" label="Daily root anchored" value="external" />
+        <Metric size="sm" label="Retrieval latency" value={`< ${OPERATIONAL.evidenceRetrievalSec} s`} />
       </div>
 
       {verification && (

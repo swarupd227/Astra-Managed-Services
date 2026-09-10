@@ -117,7 +117,7 @@ function SelectedPane({ wo }: { wo: WorkObject | null }) {
 
       <div className="grid shrink-0 grid-cols-3 gap-3 border-b border-line px-4 py-3">
         <Metric size="sm" label="SLA remaining" value={<SlaClock elapsed={wo.slaElapsedMins} target={wo.slaTargetMins} paused={wo.slaPaused} />} />
-        <Metric size="sm" label="Breach probability" value={pct(wo.breachProbability * 100, 0)} hint={wo.breachProbability > 0.6 ? 'Jeopardy — policy response triggered' : 'Within model tolerance'} />
+        <Metric size="sm" label="Breach probability" value={pct(wo.breachProbability * 100, 0)} hint={wo.breachProbability > 0.6 ? 'jeopardy' : 'within tolerance'} />
         <Metric size="sm" label="Effort delta" value={`${mins(wo.economics.estManualMins)} → ${wo.economics.actualAgentMins ? mins(wo.economics.actualAgentMins) : '—'}`} hint={`tokens ${wo.economics.tokensUsd.toFixed(2)} USD`} />
       </div>
 
@@ -215,7 +215,7 @@ export function TowerBoard() {
         <Metric size="sm" label="Open work" value={openCount} hint={`${all.length} total in window`} />
         <Metric size="sm" label="In jeopardy" value={jeopardy} deltaTone={jeopardy ? 'crit' : 'ok'} hint="predicted breach > 60%" />
         <Metric size="sm" label="Agent-held" value={pct((agentHeld / Math.max(1, all.length)) * 100, 0)} hint={`${agentHeld} of ${all.length} work objects`} />
-        <Metric size="sm" label="Autonomy-eligible volume" value={pct(t?.autonomyEligibleVolume ?? 0, 1)} hint="coupling F1 — rises with verification" />
+        <Metric size="sm" label="Autonomy-eligible volume" value={pct(t?.autonomyEligibleVolume ?? 0, 1)} hint="coupling F1" />
         <div className="min-w-0">
           <div className="label-cap">Glidepath vs. contract</div>
           <div className="mt-1 flex items-baseline gap-2">

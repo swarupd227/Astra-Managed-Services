@@ -49,7 +49,7 @@ export function ClientEffort() {
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Released from run work" value={`${fte(s.releasedFte)} FTE`} deltaTone={s.releasedFte > 0 ? 'ok' : 'warn'} />
         <Metric size="sm" label="Now on strategic work" value={`${fte(s.strategicGained)} FTE`} deltaTone={s.strategicGained > 0 ? 'ok' : 'warn'} />
-        <Metric size="sm" label="Stale declarations" value={`${s.staleCount} / ${s.functions.length}`} deltaTone={s.staleCount ? 'warn' : 'ok'} hint={`beyond the ${ATTESTATION_DAYS}-day window`} />
+        <Metric size="sm" label="Stale declarations" value={`${s.staleCount} / ${s.functions.length}`} deltaTone={s.staleCount ? 'warn' : 'ok'} hint={`over ${ATTESTATION_DAYS} days`} />
         <Metric size="sm" label="Resting on an estimate" value={s.estimatedCount} deltaTone={s.estimatedCount ? 'warn' : 'ok'} />
         <Metric size="sm" label="Corroborating hours" value={num(Math.round(s.corroboratingHours))} />
       </div>

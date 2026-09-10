@@ -71,7 +71,7 @@ export function AiIncidents() {
       <ProducedBy agents={['agt_sentinel']} what="the detectors — groundedness, tool anomaly, the gateway classifiers, the chain audit and the cohort monitor" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Open incidents" value={open.length} deltaTone={open.length ? 'warn' : 'ok'} hint={`${incidents.length} recorded in total`} />
+        <Metric size="sm" label="Open incidents" value={open.length} deltaTone={open.length ? 'warn' : 'ok'} hint={`${incidents.length} in total`} />
         <Metric size="sm" label="Notification overdue" value={notifyOverdue.length} deltaTone={notifyOverdue.length ? 'crit' : 'ok'} hint="24-hour clock" />
         <Metric size="sm" label="RCA overdue" value={rcaOverdue.length} deltaTone={rcaOverdue.length ? 'crit' : 'ok'} hint="five business days" />
         <Metric size="sm" label="Oversight audit" value={audit ? `${audit.failures.length} / ${audit.checked}` : '—'} deltaTone={audit ? (audit.failures.length ? 'crit' : 'ok') : undefined} hint={audit ? `failures / actions checked · ${audit.at.slice(0, 16).replace('T', ' ')}` : 'not yet run'} />

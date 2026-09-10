@@ -47,10 +47,10 @@ export function ApprovalInbox() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
-        <Metric size="sm" label="Gates open" value={approvals.length} hint="each one a named human's decision" />
-        <Metric size="sm" label="Tier-0 blast radius" value={tier0} deltaTone={tier0 ? 'warn' : 'ok'} hint="stricter floor applied automatically" />
-        <Metric size="sm" label="Manual effort held" value={mins(totalManualMins)} hint="the work these plans would otherwise cost" />
-        <Metric size="sm" label="Median decision time" value={`${OPERATIONAL.medianDecisionSec}s`} hint="approval card open → decision, last 30 days" />
+        <Metric size="sm" label="Gates open" value={approvals.length} />
+        <Metric size="sm" label="Tier-0 blast radius" value={tier0} deltaTone={tier0 ? 'warn' : 'ok'} />
+        <Metric size="sm" label="Manual effort held" value={mins(totalManualMins)} />
+        <Metric size="sm" label="Median decision time" value={`${OPERATIONAL.medianDecisionSec}s`} hint="last 30 days" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

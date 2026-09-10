@@ -88,10 +88,10 @@ export function AiGovernancePack() {
       <ProducedBy agents={['agt_herald']} what="assembling the pack from stored records at view time — no field is written by hand" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
-        <Metric size="sm" label="Controls mapped" value={pack.length} hint="across four RMF functions" />
-        <Metric size="sm" label="Evidenced" value={count('evidenced')} deltaTone="ok" hint="a live figure from stored records" />
-        <Metric size="sm" label="Not exercised" value={count('not_exercised')} deltaTone={unexercised.length ? 'warn' : 'ok'} hint="the control exists; it has not been run this period" />
-        <Metric size="sm" label="Gaps" value={count('gap')} deltaTone={gaps.length ? 'crit' : 'ok'} hint="the control did not hold, or is not configured" />
+        <Metric size="sm" label="Controls mapped" value={pack.length} />
+        <Metric size="sm" label="Evidenced" value={count('evidenced')} deltaTone="ok" />
+        <Metric size="sm" label="Not exercised" value={count('not_exercised')} deltaTone={unexercised.length ? 'warn' : 'ok'} hint="not run this period" />
+        <Metric size="sm" label="Gaps" value={count('gap')} deltaTone={gaps.length ? 'crit' : 'ok'} hint="failed or not configured" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

@@ -184,13 +184,12 @@ export function Proposals() {
               value={pct(initiative.share * 100, 0)}
               hint={`${initiative.agentOriginated} of ${initiative.total} decision items`}
             />
-            <Metric size="sm" label="Open" value={open.length} hint="awaiting a human" />
-            <Metric size="sm" label="Aged out" value={overdue.length} hint="past expiry, unactioned" />
+            <Metric size="sm" label="Open" value={open.length} />
+            <Metric size="sm" label="Aged out" value={overdue.length} />
             <Metric
               size="sm"
               label="Value on the table"
               value={usd(open.reduce((s, p) => s + (proposalValue(p).projectedUsd ?? 0), 0))}
-              hint="projected, open proposals"
             />
           </div>
 

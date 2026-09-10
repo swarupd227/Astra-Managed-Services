@@ -99,11 +99,11 @@ export function ServiceGraph() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Estate entities" value={num(totals.entities)} hint="across ten towers" />
+        <Metric size="sm" label="Estate entities" value={num(totals.entities)} />
         <Metric size="sm" label="Mapped" value={pct((totals.mapped / totals.entities) * 100, 1)} hint={`${num(totals.dark)} still dark`} />
-        <Metric size="sm" label="Assertions" value={num(TOWERS.reduce((s, t) => s + t.assertions, 0))} hint="each with source, method and TTL" />
-        <Metric size="sm" label="Verification currency" value={pct(OPERATIONAL.verificationCurrency, 1)} hint="assertions relied on by L3/L4 within TTL" />
-        <Metric size="sm" label="Contradiction rate" value={OPERATIONAL.contradictionRatePerK.toFixed(1)} hint="per 1,000 assertions per month · target ≤ 2" />
+        <Metric size="sm" label="Assertions" value={num(TOWERS.reduce((s, t) => s + t.assertions, 0))} />
+        <Metric size="sm" label="Verification currency" value={pct(OPERATIONAL.verificationCurrency, 1)} />
+        <Metric size="sm" label="Contradiction rate" value={OPERATIONAL.contradictionRatePerK.toFixed(1)} hint="per 1,000 · target ≤ 2" />
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_340px]">

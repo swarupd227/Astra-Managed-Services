@@ -25,10 +25,10 @@ export function ShadowScoreboard() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
-        <Metric size="sm" label="Action classes ready" value={`${met} of ${SHADOW.length}`} hint="agreement threshold met with confidence" />
-        <Metric size="sm" label="Proposals scored" value={SHADOW.reduce((s, r) => s + r.proposals, 0).toLocaleString('en-GB')} hint="daily, against actual resolutions" />
-        <Metric size="sm" label="Unexplained disagreements" value={unexplained} deltaTone={unexplained ? 'warn' : 'ok'} hint="tier-0 must reach zero before cutover" />
-        <Metric size="sm" label="Overall agreement" value={pct(SHADOW.reduce((s, r) => s + r.agreement * r.proposals, 0) / SHADOW.reduce((s, r) => s + r.proposals, 0))} hint="volume-weighted across classes" />
+        <Metric size="sm" label="Action classes ready" value={`${met} of ${SHADOW.length}`} />
+        <Metric size="sm" label="Proposals scored" value={SHADOW.reduce((s, r) => s + r.proposals, 0).toLocaleString('en-GB')} />
+        <Metric size="sm" label="Unexplained disagreements" value={unexplained} deltaTone={unexplained ? 'warn' : 'ok'} hint="target 0" />
+        <Metric size="sm" label="Overall agreement" value={pct(SHADOW.reduce((s, r) => s + r.agreement * r.proposals, 0) / SHADOW.reduce((s, r) => s + r.proposals, 0))} hint="volume-weighted" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

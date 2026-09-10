@@ -74,10 +74,10 @@ export function Objectives() {
       <ProducedBy agents={['agt_herald']} what="resolving each measure to a governed figure — never computing one of its own" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Objectives" value={objectives.length} hint="as the client stated them" />
-        <Metric size="sm" label="Accepted" value={`${accepted} / ${objectives.length}`} deltaTone={accepted === objectives.length ? 'ok' : 'warn'} hint="measures agreed by the named owner" />
+        <Metric size="sm" label="Objectives" value={objectives.length} />
+        <Metric size="sm" label="Accepted" value={`${accepted} / ${objectives.length}`} deltaTone={accepted === objectives.length ? 'ok' : 'warn'} />
         <Metric size="sm" label="Measures on track" value={`${measures.filter((m) => m.state === 'on_track').length} / ${measures.filter((m) => m.state !== 'no_measure').length}`} deltaTone={measures.some((m) => m.state === 'at_risk') ? 'warn' : 'ok'} />
-        <Metric size="sm" label="Unmeasured" value={unmeasured} deltaTone={unmeasured ? 'warn' : 'ok'} hint="stated, but nothing here evidences it" />
+        <Metric size="sm" label="Unmeasured" value={unmeasured} deltaTone={unmeasured ? 'warn' : 'ok'} />
         <Metric size="sm" label="Objectives with gaps" value={withGaps} deltaTone={withGaps ? 'warn' : 'ok'} hint={`${proxies} accepted proxy measure${proxies === 1 ? '' : 's'}`} />
       </div>
 

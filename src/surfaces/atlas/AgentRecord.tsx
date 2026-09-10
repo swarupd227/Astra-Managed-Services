@@ -60,7 +60,7 @@ export function AgentRecord() {
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Evaluation score" value={agent.evaluation.score.toFixed(3)} hint={`suite ${agent.evaluation.suiteId} · ${ago(agent.evaluation.lastRun)}`} />
         <Metric size="sm" label="Live success 90d" value={agent.evaluation.liveSuccess90d ? pct(agent.evaluation.liveSuccess90d * 100) : 'not in production'} deltaTone={agent.evaluation.liveSuccess90d >= 0.97 ? 'ok' : 'warn'} />
-        <Metric size="sm" label="Replay sample" value={num(agent.evaluation.replayN)} hint="golden dataset from this client's own history" />
+        <Metric size="sm" label="Replay sample" value={num(agent.evaluation.replayN)} />
         <Metric size="sm" label="Cost 30d" value={usd(agent.economics.costUsd30d)} hint={`${usd(agent.economics.costPerWo)} per work object`} />
         <Metric size="sm" label="Human cost displaced" value={usd(displacedUsd)} deltaTone="ok" hint={`${num(Math.round(displacedHrs))} hours · ratio ${pct((agent.economics.costUsd30d / Math.max(1, displacedUsd)) * 100, 1)}`} />
       </div>

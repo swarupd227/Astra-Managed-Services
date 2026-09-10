@@ -50,17 +50,17 @@ export function TokenOpsStudio() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Model spend, 30d" value={usd(spend30)} hint="every call metered by agent, skill, step and work object" />
+        <Metric size="sm" label="Model spend, 30d" value={usd(spend30)} />
         <Metric size="sm" label="Human cost displaced, 30d" value={usd(displaced30)} deltaTone="ok" />
         <Metric
           size="sm"
           label="Spend vs. displaced"
           value={pct(ratio, 2)}
           deltaTone={ratio <= 6 ? 'ok' : 'warn'}
-          hint="design target ≤ 4–6% at steady state — published, because a provider that hides its AI costs will hide its AI failures"
+          hint="target ≤ 4–6%"
         />
-        <Metric size="sm" label="Cache hit rate" value={pct(cacheHit)} deltaTone="ok" hint="prompt-prefix caching and retrieval deduplication" />
-        <Metric size="sm" label="Budget breaches, 30d" value={ANOMALIES.length} deltaTone="warn" hint="triaged as work objects, like any other demand" />
+        <Metric size="sm" label="Cache hit rate" value={pct(cacheHit)} deltaTone="ok" />
+        <Metric size="sm" label="Budget breaches, 30d" value={ANOMALIES.length} deltaTone="warn" />
       </div>
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">

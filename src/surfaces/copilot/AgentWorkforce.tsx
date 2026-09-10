@@ -207,16 +207,16 @@ export function AgentWorkforce() {
       )}
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Agents active" value={`${working} / ${all.length}`} hint="suspended and onboarding agents are routed no work" />
-        <Metric size="sm" label="Client-owned, managed" value={all.filter((a) => a.origin === 'client').length} hint="AgentOps as a service — same governance as ours" />
-        <Metric size="sm" label="Model spend, 30d" value={usd(spend)} hint="metered per agent, skill and step" />
+        <Metric size="sm" label="Agents active" value={`${working} / ${all.length}`} />
+        <Metric size="sm" label="Client-owned, managed" value={all.filter((a) => a.origin === 'client').length} />
+        <Metric size="sm" label="Model spend, 30d" value={usd(spend)} />
         <Metric size="sm" label="Human cost displaced" value={usd(displaced)} deltaTone="ok" />
         <Metric
           size="sm"
           label="Spend vs. displaced"
           value={pct((spend / displaced) * 100, 1)}
           deltaTone={(spend / displaced) * 100 <= 6 ? 'ok' : 'warn'}
-          hint="design target ≤ 4–6% at steady state"
+          hint="target ≤ 4–6%"
         />
       </div>
 

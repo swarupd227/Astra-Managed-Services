@@ -81,10 +81,10 @@ export function DemandElimination() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Demand classes" value={DEMAND_CLASSES.length} hint={`${DEMAND_CLASSES.filter((d) => d.volumeBasis === 'sampled').length} sampled, not yet costed`} />
-        <Metric size="sm" label="Annual effort in scope" value={`${num(totalHours)} h`} hint="measured, not estimated" />
-        <Metric size="sm" label="Verified removed" value={`${num(Math.round(removedHours))} h`} deltaTone="ok" hint="banked after 60–90 days of decay" />
-        <Metric size="sm" label="Pipeline NPV (36m)" value={usd(pipelineNpv)} hint="candidates and approved items not yet banked" />
+        <Metric size="sm" label="Demand classes" value={DEMAND_CLASSES.length} hint={`${DEMAND_CLASSES.filter((d) => d.volumeBasis === 'sampled').length} sampled`} />
+        <Metric size="sm" label="Annual effort in scope" value={`${num(totalHours)} h`} />
+        <Metric size="sm" label="Verified removed" value={`${num(Math.round(removedHours))} h`} deltaTone="ok" />
+        <Metric size="sm" label="Pipeline NPV (36m)" value={usd(pipelineNpv)} />
         <Metric size="sm" label="Year-1 volume removed" value={pct(volumeRemoved(), 1)} deltaTone="ok" hint="target ≥ 15%" />
       </div>
 

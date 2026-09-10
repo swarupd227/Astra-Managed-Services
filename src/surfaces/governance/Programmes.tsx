@@ -65,7 +65,7 @@ export function Programmes() {
                   size="sm" label="At that rate, complete"
                   value={b.projectedEndAt ? b.projectedEndAt.slice(0, 7) : '—'}
                   deltaTone={b.onSchedule === true ? 'ok' : 'warn'}
-                  hint={b.projectedEndAt ? `target ${b.programme.targetEndAt.slice(0, 7)}` : 'nothing evidenced complete yet'}
+                  hint={b.projectedEndAt ? `target ${b.programme.targetEndAt.slice(0, 7)}` : 'no completions yet'}
                 />
               </div>
 

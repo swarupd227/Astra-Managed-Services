@@ -81,10 +81,10 @@ export function GlidepathLedgers() {
       {tab === 'glidepath' ? (
         <>
           <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-            <Metric size="sm" label="Hours banked" value={num(banked.reduce((s, e) => s + e.hoursSaved, 0))} hint="verified in telemetry for 60–90 days" />
-            <Metric size="sm" label="Hours in verification" value={num(verifying.reduce((s, e) => s + e.hoursSaved, 0))} hint="claimed, not yet banked" />
-            <Metric size="sm" label="Rejected claims" value={num(rejected.reduce((s, e) => s + e.hoursSaved, 0))} deltaTone="crit" hint="telemetry did not confirm — visibly not banked" />
-            <Metric size="sm" label="Baseline" value={`${num(TOWERS.filter((t) => tower === 'all' || t.id === tower).reduce((s, t) => s + t.baselineHrsPerQtr, 0))} hrs`} unit="/qtr" hint="countersigned at cutover" />
+            <Metric size="sm" label="Hours banked" value={num(banked.reduce((s, e) => s + e.hoursSaved, 0))} />
+            <Metric size="sm" label="Hours in verification" value={num(verifying.reduce((s, e) => s + e.hoursSaved, 0))} />
+            <Metric size="sm" label="Rejected claims" value={num(rejected.reduce((s, e) => s + e.hoursSaved, 0))} deltaTone="crit" />
+            <Metric size="sm" label="Baseline" value={`${num(TOWERS.filter((t) => tower === 'all' || t.id === tower).reduce((s, t) => s + t.baselineHrsPerQtr, 0))} hrs`} unit="/qtr" />
             <Metric size="sm" label="Delivered vs. contracted" value={signedPct(glidepathAttainment().actual, 1)} deltaTone="ok" delta="ahead" hint={`contracted ${signedPct(glidepathAttainment().contracted, 1)}`} />
           </div>
 
@@ -173,11 +173,11 @@ export function GlidepathLedgers() {
       ) : (
         <>
           <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-            <Metric size="sm" label="Credits accrued" value={num(totalCredits)} hint="1 credit = 1 verified banked hour" />
-            <Metric size="sm" label="Allocated" value={num(allocated)} hint="jointly governed — the provider cannot self-allocate" />
-            <Metric size="sm" label="Consumed" value={num(consumed)} hint="delivered through the same fabric as Run" />
-            <Metric size="sm" label="Available" value={num(totalCredits - consumed)} hint="unallocated credits expire into price reduction after two quarters" />
-            <Metric size="sm" label="Towers frozen" value={TRANSFORM.filter((t) => t.freezeState === 'frozen').length} deltaTone="crit" hint="SLA/XLA breach freezes new allocation" />
+            <Metric size="sm" label="Credits accrued" value={num(totalCredits)} hint="1 credit = 1 banked hour" />
+            <Metric size="sm" label="Allocated" value={num(allocated)} />
+            <Metric size="sm" label="Consumed" value={num(consumed)} />
+            <Metric size="sm" label="Available" value={num(totalCredits - consumed)} hint="expire after two quarters" />
+            <Metric size="sm" label="Towers frozen" value={TRANSFORM.filter((t) => t.freezeState === 'frozen').length} deltaTone="crit" />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">

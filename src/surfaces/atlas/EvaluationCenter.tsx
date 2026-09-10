@@ -79,10 +79,10 @@ export function EvaluationCenter() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Suites" value={SUITES.length} hint="golden datasets built from this client's own history" />
-        <Metric size="sm" label="Total cases" value={num(SUITES.reduce((s, x) => s + x.cases, 0))} hint="≥ 200 per action class required" />
-        <Metric size="sm" label="Open regressions" value={SUITES.reduce((s, x) => s + x.regression, 0)} deltaTone="warn" hint="block promotion until resolved" />
-        <Metric size="sm" label="Skills in registry" value={SKILLS.length} hint="platform, industry and client layers" />
+        <Metric size="sm" label="Suites" value={SUITES.length} />
+        <Metric size="sm" label="Total cases" value={num(SUITES.reduce((s, x) => s + x.cases, 0))} hint="≥ 200 per action class" />
+        <Metric size="sm" label="Open regressions" value={SUITES.reduce((s, x) => s + x.regression, 0)} deltaTone="warn" />
+        <Metric size="sm" label="Skills in registry" value={SKILLS.length} />
         <Metric size="sm" label="Agents at L4" value={pipeline.filter((p) => p.stage === 5).length} hint={`of ${pipeline.length} in the fleet`} />
       </div>
 
@@ -268,9 +268,9 @@ export function EvaluationCenter() {
             }
           >
             <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Metric size="sm" label="Cases" value={RED_TEAM_CASES.length} hint="every case names the control that should hold" />
+              <Metric size="sm" label="Cases" value={RED_TEAM_CASES.length} />
               <Metric size="sm" label="Passed" value={redTeam ? redTeam.results.filter((r) => r.pass).length : '—'} deltaTone={redTeam && redTeam.results.every((r) => r.pass) ? 'ok' : undefined} />
-              <Metric size="sm" label="Failed" value={redTeam ? redTeam.results.filter((r) => !r.pass).length : '—'} deltaTone={redTeam ? (redTeam.results.some((r) => !r.pass) ? 'crit' : 'ok') : undefined} hint="a failure blocks promotion on the classes it covers" />
+              <Metric size="sm" label="Failed" value={redTeam ? redTeam.results.filter((r) => !r.pass).length : '—'} deltaTone={redTeam ? (redTeam.results.some((r) => !r.pass) ? 'crit' : 'ok') : undefined} />
               <Metric size="sm" label="Last run" value={redTeam ? redTeam.at.slice(0, 16).replace('T', ' ') : 'never'} />
             </div>
             <Table>

@@ -39,11 +39,11 @@ export function Registers() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Decisions recorded" value={DECISIONS.length} hint="searchable history of why anything is what it is" />
-        <Metric size="sm" label="Conditions tracked" value={DECISIONS.filter((d) => d.followThrough).length} hint="the part most governance regimes lose" />
+        <Metric size="sm" label="Decisions recorded" value={DECISIONS.length} />
+        <Metric size="sm" label="Conditions tracked" value={DECISIONS.filter((d) => d.followThrough).length} />
         <Metric size="sm" label="Conditions off-track" value={openConditions.length} deltaTone={openConditions.length ? 'warn' : 'ok'} />
         <Metric size="sm" label="Obligations overdue" value={overdue.length} deltaTone={overdue.length ? 'crit' : 'ok'} />
-        <Metric size="sm" label="Follow-through on track" value={pct(followThroughRate(), 0)} deltaTone="ok" hint="conditions and obligations currently green" />
+        <Metric size="sm" label="Follow-through on track" value={pct(followThroughRate(), 0)} deltaTone="ok" />
       </div>
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">

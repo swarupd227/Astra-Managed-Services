@@ -68,16 +68,16 @@ export function InnovationRegister() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Verified value" value={usd(realised)} deltaTone="ok" hint="cumulative, evidence-linked" />
+        <Metric size="sm" label="Verified value" value={usd(realised)} deltaTone="ok" />
         <Metric
           size="sm"
           label="Success rate"
           value={pct(successRate, 0)}
           deltaTone={successRate >= 40 && successRate <= 70 ? 'ok' : 'warn'}
-          hint="target band 40–70% · evidence of real risk-taking"
+          hint="target 40–70%"
         />
-        <Metric size="sm" label="Published failures" value={failed.length} hint="visible, with what was learned" />
-        <Metric size="sm" label="Client co-creation" value={pct(clientShare, 0)} hint="funded items originating from client staff" />
+        <Metric size="sm" label="Published failures" value={failed.length} />
+        <Metric size="sm" label="Client co-creation" value={pct(clientShare, 0)} />
         <Metric size="sm" label="Median cycle time" value={`${Math.round(delivered.reduce((s, i) => s + (i.cycleDays ?? 0), 0) / Math.max(1, delivered.length))} d`} hint="idea to delivered" />
       </div>
 

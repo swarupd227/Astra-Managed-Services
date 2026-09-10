@@ -74,10 +74,10 @@ export function CutoverReadiness() {
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Artefacts passing" value={`${passing} / ${checks.length}`} deltaTone={failing ? 'crit' : 'ok'} />
-        <Metric size="sm" label="Blocking failures" value={failing} deltaTone={failing ? 'crit' : 'ok'} hint="each one closes the state transition" />
+        <Metric size="sm" label="Blocking failures" value={failing} deltaTone={failing ? 'crit' : 'ok'} />
         <Metric size="sm" label="Estate entities" value={num(tower.entities)} hint={`${num(tower.assertions)} assertions hydrated`} />
-        <Metric size="sm" label="Verified volume coverage" value={pct(tower.verificationCoverage, 1)} hint="against an 85% acceptance threshold" />
-        <Metric size="sm" label="Provisional baseline" value={`${num(tower.baselineHrsPerQtr)} hrs`} hint="measured in shadow, day 24 of 28" />
+        <Metric size="sm" label="Verified volume coverage" value={pct(tower.verificationCoverage, 1)} hint="threshold 85%" />
+        <Metric size="sm" label="Provisional baseline" value={`${num(tower.baselineHrsPerQtr)} hrs`} hint="day 24 of 28" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

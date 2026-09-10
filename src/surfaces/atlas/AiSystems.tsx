@@ -169,17 +169,17 @@ export function AiSystems() {
       <ProducedBy agents={['agt_herald']} what="reading the gateway's registry — what a call can resolve to, and nothing else" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Approved systems" value={approved.length} hint="the only models a call may resolve to" />
-        <Metric size="sm" label="Pending approval" value={pending.length} deltaTone={pending.length ? 'warn' : 'ok'} hint={`${registry?.noticeHours ?? 72}-hour notice before approval`} />
-        <Metric size="sm" label="Revoked" value={revoked.length} hint="refused at the gateway, history kept" />
+        <Metric size="sm" label="Approved systems" value={approved.length} />
+        <Metric size="sm" label="Pending approval" value={pending.length} deltaTone={pending.length ? 'warn' : 'ok'} hint={`${registry?.noticeHours ?? 72}-hour notice`} />
+        <Metric size="sm" label="Revoked" value={revoked.length} />
         <Metric
           size="sm"
           label="Served model"
           value={registry?.servedModel ?? '—'}
           deltaTone={servedUsable ? 'ok' : 'crit'}
-          hint={served ? (servedUsable ? `listed as ${served.id}` : served.status !== 'approved' ? `listed but ${served.status} — every call is refused` : 'outside residency — every call is refused') : 'not in the registry — every call is refused'}
+          hint={served ? (servedUsable ? `listed as ${served.id}` : served.status !== 'approved' ? `${served.status} — calls refused` : 'outside residency — calls refused') : 'not registered — calls refused'}
         />
-        <Metric size="sm" label="Attested no-training" value={`${systems.filter((s) => s.attestations?.noTrainingOnCustomerData).length} / ${systems.length}`} hint="vendor attestation on file" />
+        <Metric size="sm" label="Attested no-training" value={`${systems.filter((s) => s.attestations?.noTrainingOnCustomerData).length} / ${systems.length}`} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

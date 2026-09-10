@@ -239,10 +239,10 @@ export function WorkObjectDetail() {
             {tab === 'economics' && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <Metric size="sm" label="Estimated manual effort" value={mins(wo.economics.estManualMins)} hint="calibrated from this client's own shadow-period measurements" />
-                  <Metric size="sm" label="Actual agent path" value={wo.economics.actualAgentMins ? mins(wo.economics.actualAgentMins) : '—'} hint="elapsed automation plus human decision time" />
-                  <Metric size="sm" label="Model spend" value={usd(wo.economics.tokensUsd)} hint="metered per agent, skill, step and work object" />
-                  <Metric size="sm" label="Attribution" value={wo.economics.attribution} hint="written to the Glidepath Ledger on verification" />
+                  <Metric size="sm" label="Estimated manual effort" value={mins(wo.economics.estManualMins)} />
+                  <Metric size="sm" label="Actual agent path" value={wo.economics.actualAgentMins ? mins(wo.economics.actualAgentMins) : '—'} />
+                  <Metric size="sm" label="Model spend" value={usd(wo.economics.tokensUsd)} />
+                  <Metric size="sm" label="Attribution" value={wo.economics.attribution} />
                 </div>
                 {savedMins > 0 && (
                   <div className="rounded border border-ok/35 bg-ok/[0.07] p-2.5">

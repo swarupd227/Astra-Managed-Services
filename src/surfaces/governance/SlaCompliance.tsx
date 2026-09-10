@@ -71,8 +71,8 @@ export function SlaCompliance() {
         <Metric size="sm" label="SLAs attaining" value={`${SLAS.filter((s) => s.kind === 'sla' && s.attainmentMtd >= s.attainmentTarget).length} / ${SLAS.filter((s) => s.kind === 'sla').length}`} />
         <Metric size="sm" label="XLAs attaining" value={`${SLAS.filter((s) => s.kind === 'xla' && s.attainmentMtd >= s.attainmentTarget).length} / ${SLAS.filter((s) => s.kind === 'xla').length}`} deltaTone="warn" />
         <Metric size="sm" label="In jeopardy now" value={jeopardy.length} deltaTone={jeopardy.length ? 'warn' : 'ok'} hint="predicted breach > 50%" />
-        <Metric size="sm" label="Credit position MTD" value={`${creditPct.toFixed(0)}%`} unit="of MRC" deltaTone={creditPct ? 'crit' : 'ok'} hint="computed, not negotiated" />
-        <Metric size="sm" label="Disputes open" value={OPERATIONAL.openDisputes} hint={`${OPERATIONAL.disputeFirstReviewClosure}% closed at first review on clock audit alone`} />
+        <Metric size="sm" label="Credit position MTD" value={`${creditPct.toFixed(0)}%`} unit="of MRC" deltaTone={creditPct ? 'crit' : 'ok'} />
+        <Metric size="sm" label="Disputes open" value={OPERATIONAL.openDisputes} hint={`${OPERATIONAL.disputeFirstReviewClosure}% closed at first review`} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

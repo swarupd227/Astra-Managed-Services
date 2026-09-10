@@ -57,10 +57,10 @@ export function ChangeLog() {
       <ProducedBy agents={['agt_herald']} what="assembling the log from stored records — nothing here is written by hand" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Entries" value={entries.length} hint="across six sources" />
-        <Metric size="sm" label="Registry revisions" value={entries.filter((e) => e.kind === 'registry').length} hint="status changes with history" />
-        <Metric size="sm" label="Open model changes" value={open.length} deltaTone={open.length ? 'warn' : 'ok'} hint="served ≠ registered, not yet accepted" />
-        <Metric size="sm" label="Notice overdue" value={overdue.length} deltaTone={overdue.length ? 'crit' : 'ok'} hint="agreed notice period elapsed" />
+        <Metric size="sm" label="Entries" value={entries.length} />
+        <Metric size="sm" label="Registry revisions" value={entries.filter((e) => e.kind === 'registry').length} />
+        <Metric size="sm" label="Open model changes" value={open.length} deltaTone={open.length ? 'warn' : 'ok'} hint="not yet accepted" />
+        <Metric size="sm" label="Notice overdue" value={overdue.length} deltaTone={overdue.length ? 'crit' : 'ok'} />
         <Metric size="sm" label="Policies at version" value={entries.filter((e) => e.kind === 'policy').length} />
       </div>
 

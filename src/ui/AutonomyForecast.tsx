@@ -123,13 +123,12 @@ export function AutonomyForecast() {
     >
       <div className="grid grid-cols-2 gap-3 border-b border-line pb-3 sm:grid-cols-4">
         <Metric size="sm" label="At contracted target" value={`${summary.atTarget} / ${summary.total}`} hint="tower × action class" />
-        <Metric size="sm" label="Awaiting your decision" value={summary.awaitingDecision} hint="evidence gate already passed" />
-        <Metric size="sm" label="Blocked" value={summary.blocked} hint={`${summary.blockedWithOwner} with a transform item tracking it`} />
+        <Metric size="sm" label="Awaiting your decision" value={summary.awaitingDecision} />
+        <Metric size="sm" label="Blocked" value={summary.blocked} hint={`${summary.blockedWithOwner} tracked`} />
         <Metric
           size="sm"
           label="Last class eligible"
           value={summary.lastDateOut === null ? '—' : `${summary.lastDateOut}d`}
-          hint="the end of the datable plan"
         />
       </div>
 

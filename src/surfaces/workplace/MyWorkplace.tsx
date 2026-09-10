@@ -45,7 +45,7 @@ export function MyWorkplace() {
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-4">
         <Metric size="sm" label="Affecting your systems" value={issues.length} deltaTone={issues.length ? 'warn' : 'ok'} />
-        <Metric size="sm" label="Raised by you" value={raisedTotal} hint={`this period, across ${CONSUMER.raised.length} kinds of problem`} />
+        <Metric size="sm" label="Raised by you" value={raisedTotal} hint={`${CONSUMER.raised.length} kinds`} />
         <Metric size="sm" label="Self-service available" value={`${available.length} / ${offers.length}`} deltaTone={available.length ? 'ok' : 'warn'} />
         <Metric size="sm" label="Service against target" value={`${experience.filter((e) => e.meeting).length} / ${experience.length}`} deltaTone={experience.every((e) => e.meeting) ? 'ok' : 'warn'} />
       </div>

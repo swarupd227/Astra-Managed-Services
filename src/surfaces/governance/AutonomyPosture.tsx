@@ -58,10 +58,10 @@ export function AutonomyPosture() {
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Cells at target" value={`${atTarget.length} / ${atTarget.length + gaps.length}`} hint="tower × action class in Run" />
-        <Metric size="sm" label="Below target" value={gaps.length} deltaTone="warn" hint="each one a promotion candidate or a blocker" />
-        <Metric size="sm" label="Blocked by the estate" value={blocked.length} deltaTone="crit" hint="these generate transform items, not excuses" />
+        <Metric size="sm" label="Below target" value={gaps.length} deltaTone="warn" />
+        <Metric size="sm" label="Blocked by the estate" value={blocked.length} deltaTone="crit" />
         <Metric size="sm" label="Promotions this quarter" value={PROMOTIONS.filter((p) => p.dir === 'up').length} deltaTone="ok" />
-        <Metric size="sm" label="Automatic demotions" value={PROMOTIONS.filter((p) => p.dir === 'down').length} deltaTone="crit" hint="client-visible, immediate, no discussion" />
+        <Metric size="sm" label="Automatic demotions" value={PROMOTIONS.filter((p) => p.dir === 'down').length} deltaTone="crit" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
