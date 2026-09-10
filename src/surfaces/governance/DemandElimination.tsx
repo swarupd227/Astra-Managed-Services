@@ -81,7 +81,7 @@ export function DemandElimination() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Demand classes" value={DEMAND_CLASSES.length} hint={`${num(DEMAND_CLASSES.reduce((a, d) => a + d.volumeYr, 0))} tickets a year classified`} />
+        <Metric size="sm" label="Demand classes" value={DEMAND_CLASSES.length} hint={`${DEMAND_CLASSES.filter((d) => d.volumeBasis === 'sampled').length} sampled, not yet costed`} />
         <Metric size="sm" label="Annual effort in scope" value={`${num(totalHours)} h`} hint="measured, not estimated" />
         <Metric size="sm" label="Verified removed" value={`${num(Math.round(removedHours))} h`} deltaTone="ok" hint="banked after 60–90 days of decay" />
         <Metric size="sm" label="Pipeline NPV (36m)" value={usd(pipelineNpv)} hint="candidates and approved items not yet banked" />
@@ -92,23 +92,6 @@ export function DemandElimination() {
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
           <Card title="The loop" subtitle="Stage counts">
             <Funnel stages={stages} />
-            <ol className="mt-4 space-y-2.5 border-t border-line pt-3">
-              {[
-                { n: 1, t: 'Cluster', b: 'Every work object assigned to a demand class with volume, effort, impact and trend.' },
-                { n: 2, t: 'Attribute', b: 'Class linked to graph entities with evidence: component, config pattern, contract gap or missing self-service path.' },
-                { n: 3, t: 'Propose', b: 'Candidates typed as engineering fix, automation, self-service, policy change or modernisation, each costed with NPV.' },
-                { n: 4, t: 'Govern', b: 'Candidates enter the joint improvement backlog; approved items become Work Objects.' },
-                { n: 5, t: 'Verify & bank', b: 'Actual volume decay measured for 60–90 days. Realised savings banked with before-and-after evidence; unrealised claims are not.' },
-              ].map((s) => (
-                <li key={s.n} className="flex gap-2.5">
-                  <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand/20 text-[9px] font-semibold text-brand-ink">{s.n}</span>
-                  <span className="min-w-0">
-                    <span className="text-2xs font-medium text-ink">{s.t}</span>
-                    <p className="mt-0.5 text-2xs leading-relaxed text-ink-3">{s.b}</p>
-                  </span>
-                </li>
-              ))}
-            </ol>
           </Card>
 
           <Card title="Demand classes and elimination backlog" subtitle="Costed candidates">
@@ -133,8 +116,8 @@ export function DemandElimination() {
                       <span className="block font-mono text-[10px] text-ink-3">{d.id}</span>
                     </Td>
                     <Td>{TOWER_BY_ID[d.tower]?.name}</Td>
-                    <Td align="right">{num(d.volumeYr)}</Td>
-                    <Td align="right">{num(d.hoursYr)} h</Td>
+                    <Td align="right">{d.volumeBasis === 'sampled' ? <Chip>sampled · {d.sampleCount}</Chip> : num(d.volumeYr)}</Td>
+                    <Td align="right">{d.volumeBasis === 'sampled' ? '—' : `${num(d.hoursYr)} h`}</Td>
                     <Td>
                       <span className="flex items-center gap-1.5">
                         <Sparkline
@@ -199,7 +182,7 @@ export function DemandElimination() {
         {selected && (
           <div className="space-y-4 p-4">
             <div className="grid grid-cols-3 gap-3">
-              <Metric size="sm" label="Volume /yr" value={num(selected.volumeYr)} />
+              <Metric size="sm" label="Volume /yr" value={selected.volumeBasis === 'sampled' ? `sampled · ${selected.sampleCount}` : num(selected.volumeYr)} />
               <Metric size="sm" label="Effort /yr" value={`${num(selected.hoursYr)} h`} />
               <Metric size="sm" label="NPV 36m" value={selected.npv36m ? usd(selected.npv36m) : '—'} />
             </div>

@@ -42,7 +42,11 @@ import { ClientEffort } from './surfaces/governance/ClientEffort'
 import { Programmes } from './surfaces/governance/Programmes'
 import { Headroom } from './surfaces/governance/Headroom'
 import { MyWorkplace } from './surfaces/workplace/MyWorkplace'
-import { Inventory } from './surfaces/governance/Inventory'
+import { Portfolio } from './surfaces/governance/Portfolio'
+import { Releases } from './surfaces/operate/Releases'
+import { Vendors } from './surfaces/operate/Vendors'
+import { WorkOrders } from './surfaces/transform/WorkOrders'
+import { Coverage } from './surfaces/atlas/Coverage'
 
 import { FleetView } from './surfaces/atlas/FleetView'
 import { AgentRecord } from './surfaces/atlas/AgentRecord'
@@ -98,7 +102,12 @@ const router = createHashRouter([
       { path: 'governance/programmes', element: <Programmes /> },
       { path: 'governance/headroom', element: <Headroom /> },
       { path: 'workplace', element: <MyWorkplace /> },
-      { path: 'governance/inventory', element: <Inventory /> },
+      { path: 'governance/portfolio', element: <Portfolio /> },
+      { path: 'governance/inventory', element: <Portfolio /> },
+      { path: 'operate/releases', element: <Releases /> },
+      { path: 'operate/vendors', element: <Vendors /> },
+      { path: 'transform/work-orders', element: <WorkOrders /> },
+      { path: 'atlas/coverage', element: <Coverage /> },
 
       { path: 'atlas/fleet', element: <FleetView /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },

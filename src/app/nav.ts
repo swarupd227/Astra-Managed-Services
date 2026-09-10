@@ -86,6 +86,8 @@ export const SURFACES: Surface[] = [
       { to: '/operate/mim', label: 'Major Incident', desc: 'Incident room with auto-scribed timeline and brake status', badge: 'mi' },
       { to: '/governance/sla', label: 'SLA & XLA', desc: 'Attainment, jeopardy, clock audits, computed credits' },
       { to: '/operate/graph', label: 'Service Graph', desc: 'The estate as a typed graph with confidence on every edge' },
+      { to: '/operate/releases', label: 'Releases', desc: 'Vendor and internal releases, regression gates and change freezes' },
+      { to: '/operate/vendors', label: 'Vendors', desc: 'Suppliers, contracts, response commitments and held work' },
     ],
   },
   {
@@ -98,6 +100,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/elimination', label: 'Demand Elimination', desc: 'Recurrence mining and the costed elimination backlog' },
       { to: '/governance/glidepath', label: 'Glidepath & Credits', desc: 'Baseline vs. actual, banked savings, Transform Ledger' },
       { to: '/governance/innovation', label: 'Innovation Register', desc: 'Idea to verified value, with the failures left visible' },
+      { to: '/transform/work-orders', label: 'Work Orders', desc: 'Separately authorised development — estimate, burn and authorisation' },
     ],
   },
   {
@@ -112,7 +115,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/client-effort', label: 'Client Effort', desc: 'What the client declares about their own staff — held and aged, never measured here' },
       { to: '/governance/programmes', label: 'Programmes', desc: 'Target end states and burn-down — what is evidenced gone, not what was declared done' },
       { to: '/governance/headroom', label: 'Growth Headroom', desc: 'Whether the service absorbs growth — and whether it has yet been asked to' },
-      { to: '/governance/inventory', label: 'Application Inventory', desc: "What the client's record says, beside what the platform observes" },
+      { to: '/governance/portfolio', label: 'Application Portfolio', desc: 'Kind, vendor, configuration baseline and record reconciliation per application' },
       { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
       { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
       { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },
@@ -137,6 +140,7 @@ export const SURFACES: Surface[] = [
       { to: '/atlas/evaluation', label: 'Evaluation & Promotion', desc: 'Suites, regression diffs, the promotion pipeline' },
       { to: '/atlas/policy', label: 'Policy & Simulator', desc: 'Author policy-as-code and ask the engine what it would decide' },
       { to: '/atlas/tokenops', label: 'Model Economics', desc: 'Unit economics, routing frontiers, distillation candidates' },
+      { to: '/atlas/coverage', label: 'Capability Coverage', desc: 'Service functions per bundle and the agents that own or assist each' },
     ],
   },
 ]
