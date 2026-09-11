@@ -39,11 +39,17 @@ export interface ServiceFunction {
   owns: Signal
   /** Holding any of these makes an agent a contributor. */
   assists: Signal
+  /**
+   * Where the function lives on only some of the bundle's towers, the towers
+   * it lives on. Only agents deployed there count, so a function cannot be
+   * covered by an agent that never touches the tower it is performed on.
+   */
+  towers?: string[]
 }
 
 /**
  * The functions of a bundle, as the service description lists them. Seeded
- * for Application Management; the model takes any bundle.
+ * for Application and Data Management; the model takes any bundle.
  */
 export const SERVICE_FUNCTIONS: ServiceFunction[] = [
   { id: 'fn_b3_support', bundle: 'B3', name: 'Application support', owns: { skills: ['sk_triage', 'sk_causal'] }, assists: { skills: ['sk_logscan', 'sk_correlate'] } },
@@ -59,6 +65,20 @@ export const SERVICE_FUNCTIONS: ServiceFunction[] = [
   { id: 'fn_b3_knowledge', bundle: 'B3', name: 'Knowledge management', owns: { skills: ['sk_reverse', 'sk_runbook_draft'] }, assists: { skills: ['sk_interview'] } },
   { id: 'fn_b3_ai_apps', bundle: 'B3', name: 'AI-enabled application support', owns: { skills: ['sk_ai_app_govern'] }, assists: { skills: ['sk_triage', 'sk_spend_anomaly'] } },
   { id: 'fn_b3_reporting', bundle: 'B3', name: 'Service reporting', owns: { skills: ['sk_govpack', 'sk_narrative'] }, assists: { skills: ['sk_askherald'] } },
+
+  { id: 'fn_b4_ops', bundle: 'B4', name: 'Platform operations and support', owns: { skills: ['sk_triage', 'sk_causal'] }, assists: { skills: ['sk_logscan', 'sk_correlate'] } },
+  { id: 'fn_b4_pipeline', bundle: 'B4', name: 'Pipeline failure resolution', owns: { skills: ['sk_pipe_repair'] }, assists: { skills: ['sk_causal'], actionClasses: ['AC-12'] } },
+  { id: 'fn_b4_engineering', bundle: 'B4', name: 'Data integration and engineering', owns: { skills: ['sk_pipeline_build'] }, assists: { skills: ['sk_testgen', 'sk_pipe_repair'] } },
+  { id: 'fn_b4_quality', bundle: 'B4', name: 'Data quality and monitoring', owns: { skills: ['sk_dq_probe', 'sk_backfill'] }, assists: { actionClasses: ['AC-49'] } },
+  { id: 'fn_b4_governance', bundle: 'B4', name: 'Classification, metadata and lineage', owns: { skills: ['sk_lineage_map', 'sk_contract_draft'] }, assists: { skills: ['sk_reverse'] } },
+  { id: 'fn_b4_privacy', bundle: 'B4', name: 'Privacy requests', owns: { skills: ['sk_pii_locate'] }, assists: { skills: ['sk_lineage_map'] } },
+  { id: 'fn_b4_mdm', bundle: 'B4', name: 'Master data management', owns: { skills: ['sk_match_merge'] }, assists: { skills: ['sk_dq_probe', 'sk_pipe_repair'] } },
+  { id: 'fn_b4_access', bundle: 'B4', name: 'Access and security administration', owns: { skills: ['sk_access_fulfil'] }, assists: { actionClasses: ['AC-58'] } },
+  { id: 'fn_b4_finops', bundle: 'B4', name: 'Cost and performance optimisation', owns: { skills: ['sk_rightsize', 'sk_query_tune'] }, assists: { skills: ['sk_spend_anomaly'] } },
+  { id: 'fn_b4_analytics', bundle: 'B4', name: 'Analytics and reporting support', towers: ['twr_bi'], owns: { skills: ['sk_bi_refresh'] }, assists: { skills: ['sk_triage', 'sk_dq_probe'] } },
+  { id: 'fn_b4_debt', bundle: 'B4', name: 'Lifecycle and technical debt', owns: { skills: ['sk_cluster', 'sk_attribute'] }, assists: { skills: ['sk_npv', 'sk_reverse'] } },
+  { id: 'fn_b4_knowledge', bundle: 'B4', name: 'Platform documentation', owns: { skills: ['sk_reverse', 'sk_runbook_draft'] }, assists: { skills: ['sk_interview'] } },
+  { id: 'fn_b4_reporting', bundle: 'B4', name: 'Service reporting', owns: { skills: ['sk_govpack', 'sk_narrative'] }, assists: { skills: ['sk_askherald'] } },
 ]
 
 const family = (skillId: string) => skillId.replace(/_v\d+$/, '')
@@ -111,7 +131,8 @@ export function bundleCoverage(bundleId: string): BundleCoverage {
   const functions = SERVICE_FUNCTIONS.filter((f) => f.bundle === bundleId).map((fn) => {
     const owners: Contribution[] = []
     const assists: Contribution[] = []
-    for (const agent of serving) {
+    const pool = fn.towers ? serving.filter((a) => a.towers.length === 0 || a.towers.some((t) => fn.towers!.includes(t))) : serving
+    for (const agent of pool) {
       const own = match(agent, fn.owns, registered)
       if (own.length) { owners.push({ agent, via: own, ceiling: agent.ceiling }); continue }
       const help = match(agent, fn.assists, registered)

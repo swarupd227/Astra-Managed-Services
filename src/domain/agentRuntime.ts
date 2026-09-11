@@ -1,6 +1,7 @@
 import { evaluate, type ActionContext, type EngineResult } from './policyEngine'
 import { missionCeiling, missionFor, type Mission } from './missions'
-import { AGENTS, AGENT_BY_ID, CLIENT, GRAPH_EDGES, GRAPH_NODES, POLICIES, SKILLS, TOWERS, policyForTower } from './estate'
+import { AGENTS, AGENT_BY_ID, CLIENT, GRAPH_EDGES, GRAPH_NODES, POLICIES, SKILLS, TOWERS, TOWER_BY_ID, policyForTower } from './estate'
+import { DATA_ITEMS, contractState, descendants, itemsNamedIn, policyAsset, withoutContract } from './dataEstate'
 import { ACTION_CLASSES, AC } from './reference'
 import { DEMAND_CLASSES, SLAS } from './ledgers'
 import { ago } from '@/lib/format'
@@ -89,14 +90,9 @@ function liveContext(work: WorkObject[], proposals: Proposal[], nowMs: number) {
     .filter((n) => n.type === 'KnownError')
     .sort((a, b) => Number(b.attrs.occurrences ?? 0) - Number(a.attrs.occurrences ?? 0))[0]
 
-  // The known uncontracted asset lives on a transition tower, outside the
-  // Run-tower estate graph — so the honest live signal is the open proposal
-  // asking for the contract to be authored, not a graph node query (the graph
-  // has exactly one DataAsset node, and it has a contract, which would make
-  // this silently empty rather than wrong — the same defect one layer down).
-  const assetsWithoutContract = proposals
-    .filter((p) => p.state === 'open' && /data contract/i.test(p.claim))
-    .map((p) => p.claim.replace(/^Author a data contract for /i, ''))
+  // Read off the data estate register, which holds every item's contract,
+  // rather than parsed out of the prose of an open proposal.
+  const assetsWithoutContract = withoutContract().map((i) => i.name)
 
   // Only surface the certificate risk while the proposal about it is still
   // open — once a human decides it, restating it as current would be wrong.
@@ -145,7 +141,10 @@ export function buildSuggestions(work: WorkObject[], proposals: Proposal[]): { i
     ? [...SLAS].filter((s) => s.kind === 'sla' && s.attainmentMtd < s.attainmentTarget).sort((a, b) => a.attainmentMtd - a.attainmentTarget - (b.attainmentMtd - b.attainmentTarget))[0]
     : undefined
   const cert = certRiskNode(proposals)
-  const uncontracted = proposals.find((p) => p.state === 'open' && /data contract/i.test(p.claim))?.claim.replace(/^Author a data contract for /i, '')
+  // The dataset without an enforced contract that the most items read from.
+  const uncontracted = withoutContract()
+    .filter((i) => i.kind === 'dataset')
+    .sort((a, b) => descendants(b.id).length - descendants(a.id).length)[0]?.name
   const purgeAsset = GRAPH_NODES.find((n) => n.type === 'DataAsset')
 
   const out: { id: string; text: string; hint: string }[] = []
@@ -162,7 +161,7 @@ export function buildSuggestions(work: WorkObject[], proposals: Proposal[]): { i
   }
 
   if (uncontracted) {
-    out.push({ id: 'backfill', text: `Backfill ${uncontracted} for the recent gap`, hint: 'The asset has no data contract' })
+    out.push({ id: 'backfill', text: `Backfill ${uncontracted} for the recent gap`, hint: 'No enforced data contract' })
   }
 
   if (purgeAsset) {
@@ -192,6 +191,10 @@ export function estateDigest(work: WorkObject[], proposals: Proposal[], nowMs: n
       nodes: GRAPH_NODES.map((n) => ({ id: n.id, type: n.type, name: n.name, tower: n.tower, tier: n.tier, attrs: n.attrs })),
       edges: GRAPH_EDGES.map((e) => ({ from: e.from, rel: e.rel, to: e.to })),
     },
+    data: DATA_ITEMS.map((i) => ({
+      id: i.id, name: i.name, kind: i.kind, tower: i.tower, platform: i.platform, upstream: i.upstream,
+      contract: contractState(i), classification: i.classification ?? 'unclassified', steward: i.steward ?? null,
+    })),
     agents: AGENTS.map((a) => ({
       id: a.id, name: a.name, mission: a.mission, origin: a.origin,
       ceiling: a.ceiling, grants: a.grants, prohibited: a.prohibited, towers: a.towers,
@@ -315,8 +318,17 @@ export interface RunOptions {
 export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOptions = {}): Decision {
   const agent = AGENT_BY_ID[p.routed_agent] ?? AGENT_BY_ID.agt_remedian
   const cls = AC[p.action_class] ? p.action_class : 'AC-05'
-  const tower = TOWERS.find((t) => agent.towers.includes(t.id)) ?? TOWERS[0]
+  // The data items the plan names, in its steps, its finding or its citations.
+  const targets = itemsNamedIn([
+    ...p.steps.flatMap((s) => [s.label, s.compensation]),
+    p.finding?.title ?? '', p.finding?.detail ?? '', ...(p.context_used?.cited ?? []),
+  ].join('\n'))
+  // The tower the work lands on where the agent is deployed there, otherwise
+  // the agent's first tower.
+  const landsOn = targets.map((t) => t.tower).find((t) => agent.towers.includes(t))
+  const tower = (landsOn && TOWER_BY_ID[landsOn]) || TOWERS.find((t) => agent.towers.includes(t.id)) || TOWERS[0]
   const policy = policyForTower(tower.id)
+  const downstream = new Set(targets.flatMap((t) => descendants(t.id).map((d) => d.id)))
 
   const ctx: ActionContext = {
     action: {
@@ -328,7 +340,9 @@ export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOpti
     blast: {
       tier: Math.max(0, Math.min(3, p.blast_radius.tier)),
       services: p.blast_radius.services,
-      dependents: p.blast_radius.dependents,
+      // The model's count is a claim; what the register says reads from the
+      // items it touches is a floor under it.
+      dependents: Math.max(p.blast_radius.dependents, downstream.size),
       dataMutation: p.blast_radius.data_mutation,
     },
     agent: { id: agent.id, grade: agent.grants as Record<string, Grade>, drift: (opts.driftingAgents ?? []).includes(agent.id) },
@@ -348,12 +362,12 @@ export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOpti
       tower: tower.id, agentId: agent.id, actionClass: cls, fn: 'copilot.plan',
       agentSuspended: (opts.suspendedAgents ?? []).includes(agent.id),
     }),
-    // A backfill or migration against an asset with no contract has nothing to
-    // verify against; the policy caps it at Advise on that basis.
-    asset: {
-      contract: /datamart/i.test(JSON.stringify(p.steps)) ? null : 'dc_datamart_v2',
-      pii: 'restricted',
-    },
+    // Read from the data estate register. A data action that names no
+    // registered item has nothing to verify against, the same as one whose
+    // item has no enforced contract, and the policy caps both at Advise.
+    asset: targets.length
+      ? policyAsset(targets)
+      : AC[cls]?.domain === 'Data' ? { contract: null, pii: null } : undefined,
   }
 
   const result = evaluate(policy, ctx, agent.ceiling)

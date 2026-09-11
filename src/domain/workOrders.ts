@@ -40,8 +40,8 @@ export const COMMERCIAL_LABEL: Record<Commercial, string> = {
 export interface WorkOrder {
   id: string
   title: string
-  /** The portfolio application the work changes. */
-  appId: string
+  /** The supported item the work changes — an application or a data item. */
+  itemId: string
   requestedBy: string
   authorisedBy?: string
   authorisedAt?: ISO
@@ -60,40 +60,52 @@ const ahead = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOStrin
 
 export const WORK_ORDERS: WorkOrder[] = [
   {
-    id: 'PWO-0142', title: 'Time entry cutover from IEM to Concur', appId: 'inv_concur',
+    id: 'PWO-0142', title: 'Time entry cutover from IEM to Concur', itemId: 'inv_concur',
     requestedBy: 'R. Castellano', authorisedBy: 'E. Whitfield', authorisedAt: ago(40),
     commercial: 'fixed_price', estimateHrs: 640, burnHrs: 412, state: 'in_delivery',
     raisedAt: ago(52), targetAt: ahead(118), changeRequests: 1, objectiveId: 'obj_modernization',
   },
   {
-    id: 'PWO-0147', title: 'Rate-card billing rules', appId: 'inv_focus',
+    id: 'PWO-0147', title: 'Rate-card billing rules', itemId: 'inv_focus',
     requestedBy: 'J. Whitcombe', authorisedBy: 'J. Whitcombe', authorisedAt: ago(30),
     commercial: 'time_and_materials', estimateHrs: 120, burnHrs: 138, state: 'in_delivery',
     raisedAt: ago(34), targetAt: ahead(12), changeRequests: 0,
   },
   {
-    id: 'PWO-0151', title: 'Integration bridge — second owner and monitoring', appId: 'inv_mulesoft',
+    id: 'PWO-0151', title: 'Integration bridge — second owner and monitoring', itemId: 'inv_mulesoft',
     requestedBy: 'R. Castellano',
     commercial: 'fixed_price', estimateHrs: 96, burnHrs: 0, state: 'estimated',
     raisedAt: ago(9), targetAt: ahead(60), changeRequests: 0, objectiveId: 'obj_modernization',
   },
   {
-    id: 'PWO-0153', title: 'Post-cutover HR report pack', appId: 'inv_workday',
+    id: 'PWO-0153', title: 'Post-cutover HR report pack', itemId: 'inv_workday',
     requestedBy: 'S. Raghunathan',
     commercial: 'time_and_materials', estimateHrs: 0, burnHrs: 0, state: 'requested',
     raisedAt: ago(3), targetAt: ahead(75), changeRequests: 0,
   },
   {
-    id: 'PWO-0138', title: 'HCM data archive before decommission', appId: 'inv_peoplesoft',
+    id: 'PWO-0138', title: 'HCM data archive before decommission', itemId: 'inv_peoplesoft',
     requestedBy: 'R. Castellano', authorisedBy: 'E. Whitfield', authorisedAt: ago(90),
     commercial: 'fixed_price', estimateHrs: 220, burnHrs: 204, state: 'accepted',
     raisedAt: ago(96), targetAt: ago(10), changeRequests: 0, objectiveId: 'obj_modernization',
   },
   {
-    id: 'PWO-0156', title: 'Service catalogue redesign', appId: 'inv_servicenow',
+    id: 'PWO-0156', title: 'Service catalogue redesign', itemId: 'inv_servicenow',
     requestedBy: 'M. Okafor',
     commercial: 'time_and_materials', estimateHrs: 80, burnHrs: 46, state: 'in_delivery',
     raisedAt: ago(14), targetAt: ahead(20), changeRequests: 0,
+  },
+  {
+    id: 'PWO-0158', title: 'One net-revenue definition across Research & Analytics', itemId: 'sm_research',
+    requestedBy: 'S. Okafor', authorisedBy: 'S. Okafor', authorisedAt: ago(12),
+    commercial: 'fixed_price', estimateHrs: 64, burnHrs: 22, state: 'in_delivery',
+    raisedAt: ago(20), targetAt: ahead(25), changeRequests: 0,
+  },
+  {
+    id: 'PWO-0159', title: 'Practice staffing feed into the utilisation load', itemId: 'pl_utilisation_load',
+    requestedBy: 'S. Okafor',
+    commercial: 'time_and_materials', estimateHrs: 0, burnHrs: 0, state: 'requested',
+    raisedAt: ago(5), targetAt: ahead(70), changeRequests: 0,
   },
 ]
 

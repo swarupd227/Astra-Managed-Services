@@ -4,7 +4,6 @@ import {
   FREEZES, PURPOSE_LABEL, RELEASE_FLAG_BLOCKS, RELEASE_FLAG_LABEL, RELEASE_STATE_LABEL, releaseSummary,
   type ReleaseState,
 } from '@/domain/releases'
-import { KIND_LABEL } from '@/domain/inventory'
 import { AGENT_BY_ID } from '@/domain/estate'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
@@ -30,9 +29,9 @@ export function Releases() {
 
   return (
     <>
-      <PageHeader title="Releases" subtitle="Vendor and internal releases across the application portfolio" />
+      <PageHeader title="Releases" subtitle="Vendor and internal releases across applications and the data estate" />
 
-      <ProducedBy agents={['agt_sentryq', 'agt_forge']} what="selecting and running regression packs" />
+      <ProducedBy agents={['agt_sentryq', 'agt_forge', 'agt_custodian']} what="selecting and running regression packs and contract checks" />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Upcoming" value={s.upcoming} />
@@ -56,7 +55,7 @@ export function Releases() {
           <Table>
             <thead>
               <tr>
-                <Th>Release</Th><Th>Application</Th><Th>Origin</Th><Th>Purpose</Th><Th>Window</Th>
+                <Th>Release</Th><Th>Item</Th><Th>Origin</Th><Th>Purpose</Th><Th>Window</Th>
                 <Th>State</Th><Th align="right">Regression</Th><Th>Gate</Th><Th>Flags</Th>
               </tr>
             </thead>
@@ -67,9 +66,10 @@ export function Releases() {
                     {r.release.version}
                     <span className="block font-mono text-[10px] text-ink-3">{r.release.id}</span>
                   </Td>
-                  <Td className="text-2xs text-ink-2">
-                    {r.app?.name ?? r.release.appId}
-                    {r.app && <Chip tone="brand" className="ml-1.5">{KIND_LABEL[r.app.kind]}</Chip>}
+                  <Td className="max-w-[220px] text-2xs text-ink-2">
+                    {r.item?.name ?? r.release.itemId}
+                    {r.item && <Chip tone="brand" className="ml-1.5">{r.item.kindLabel}</Chip>}
+                    {r.downstream ? <span className="block text-[10px] text-ink-3">{r.downstream} downstream</span> : null}
                   </Td>
                   <Td className="text-2xs text-ink-2">{r.release.origin === 'vendor' ? 'Vendor' : 'Internal'} · {r.release.scope}</Td>
                   <Td className="text-2xs text-ink-2">

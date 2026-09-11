@@ -150,7 +150,7 @@ const PROPOSE_ACTION = {
           verification_floor: { type: 'string', enum: ['unverified', 'machine_corroborated', 'human_verified'] },
           cited: {
             type: 'array',
-            description: 'The ids you actually relied on — assertion ids (asr_…), graph node ids, runbook or known-error ids, demand-class ids. Only ids present in the estate above. An empty array if you relied on none.',
+            description: 'The ids you actually relied on — assertion ids (asr_…), graph node ids, data-estate item ids, runbook or known-error ids, demand-class ids. Only ids present in the estate above. An empty array if you relied on none.',
             items: { type: 'string' },
           },
         },
@@ -331,7 +331,7 @@ An operator has stated an intent. Route it to the right agent, retrieve the cont
 - You propose. The Autonomy Policy Engine disposes. It evaluates your proposed action class, its blast radius, the acting agent's grade, plan confidence and the context conditions, and returns an execution mode. You never decide your own autonomy and you must never claim to have executed anything.
 - Action classes carry platform floors that no policy can loosen. AC-71 (data deletion) is irreversible and can never be agent-executed at any level. AC-37 (code fix) always requires human pull-request review. AC-58 (entitlement change) always requires a second human control.
 - A mutating step must declare a tested rollback, or it is forced through a human gate.
-- A data asset with no contract cannot have a backfill verified against it, so pipeline mutations on such assets are capped at Advise.
+- A data item without an enforced contract cannot have a backfill or schema change verified against it, so those are capped at Advise. The contract of each item is in the estate's data section.
 - Retrieval enforces a verification floor proportional to risk: diagnosis may cite unverified assertions; a mutating plan at Supervised or Autonomous may only rely on human-verified or multiply-corroborated ones.
 
 THE ESTATE
@@ -339,7 +339,7 @@ ${JSON.stringify(estate, null, 1)}
 
 HOW TO WORK
 1. Think about what is actually being asked, which service and component it touches, and which agent's charter covers it. Consider and rule out alternative causes rather than seizing the first plausible one. Say what you ruled out and why.
-2. Ground your reasoning in the estate above. Refer to real service, component, agent, skill and demand-class ids. Do not invent identifiers. List the ids you actually relied on in context_used.cited — a reader must be able to go and check each one.
+2. Ground your reasoning in the estate above. Refer to real service, component, data-item, agent, skill and demand-class ids. Do not invent identifiers. List the ids you actually relied on in context_used.cited — a reader must be able to go and check each one. A plan that changes data must name every data item it touches by id, in a step or in context_used.cited; the policy engine reads their contracts from there.
 3. Call propose_action exactly once with your routing, finding and — only if the estate must actually be changed — the concrete plan with a rollback on every mutating step.
 4. Then write your response to the operator.
 

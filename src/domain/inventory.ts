@@ -75,7 +75,9 @@ export interface Lifecycle {
   /** How central the vendor is to keeping the application running. */
   vendorRole: 'primary' | 'secondary' | 'none'
   /** What "configuration" means for this kind — the thing a baseline records. */
-  configScope: 'tenant' | 'instance' | 'codebase' | 'interface contract'
+  configScope: 'tenant' | 'instance' | 'codebase' | 'interface contract' | 'schema' | 'model definition' | 'report definition'
+  /** Where a change cannot be reversed, whether it can at least be compensated. */
+  compensable?: boolean
 }
 
 export const LIFECYCLE: Record<AppKind, Lifecycle> = {
@@ -174,6 +176,24 @@ export const INVENTORY: InventoryItem[] = [
     note: 'Tier 1 and seven thousand users, with zero incident telemetry. The forty incidents a year are reported by people, not detected.',
   },
   {
+    id: 'inv_adf', name: 'Azure Data Factory / R&A Hub', kind: 'saas', vendorId: 'ven_microsoft', tier: 1, owner: 'KNet Data',
+    clientRecord: 'in_support', observed: 'live', annualIncidents: 14, demandClasses: ['dc_pipeline_fail', 'dc_schema_drift', 'dc_job_cost', 'dc_lineage_gap'],
+    config: { baseline: 'Factory template 2027.02', knownGood: '2027.02', drift: 'in_baseline' },
+    note: 'Runs the engagement ingest and the utilisation load.',
+  },
+  {
+    id: 'inv_cloud_dm', name: 'Cloud datamart (Azure SQL)', kind: 'saas', vendorId: 'ven_microsoft', tier: 1, owner: 'KNet Data',
+    clientRecord: 'in_support', observed: 'live', annualIncidents: 1, demandClasses: ['dc_dq_null_ratio'],
+    config: { baseline: 'Schema v88', knownGood: 'Schema v88', drift: 'in_baseline' },
+    note: 'Holds the engagement, client and utilisation tables.',
+  },
+  {
+    id: 'inv_powerbi', name: 'Microsoft Power BI', kind: 'saas', vendorId: 'ven_microsoft', tier: 1, owner: 'KNet Data',
+    clientRecord: 'in_support', observed: 'live', annualIncidents: 58, demandClasses: ['dc_bi_refresh', 'dc_bi_stale', 'dc_bi_semantic'],
+    config: { baseline: 'Tenant snapshot 2027-02-01', knownGood: 'Tenant snapshot 2027-02-01', drift: 'in_baseline' },
+    note: 'Leadership, utilisation and practice reporting.',
+  },
+  {
     id: 'inv_servicenow', name: 'ServiceNow', kind: 'saas', vendorId: 'ven_servicenow', tier: 0, owner: 'KNet Service Management',
     clientRecord: 'in_support', observed: 'live', annualIncidents: 0, demandClasses: ['dc_snow_catalog', 'dc_cmdb_accuracy'],
     config: { baseline: 'Washington DC · patch 3', knownGood: 'Patch 3', drift: 'drifted' },
@@ -200,9 +220,9 @@ export const INVENTORY: InventoryItem[] = [
   },
   {
     id: 'inv_alteryx', name: 'Alteryx Designer', kind: 'commercial', vendorId: 'ven_alteryx', tier: 2, owner: 'KNet Data',
-    clientRecord: 'absent', observed: 'live', annualIncidents: 0, demandClasses: ['dc_shadow_app', 'dc_alteryx_fail'],
+    clientRecord: 'in_support', observed: 'live', annualIncidents: 659, demandClasses: ['dc_alteryx_fail'],
     config: { baseline: '', knownGood: '', drift: 'unknown' },
-    note: 'Provisioned through the software catalogue and absent from the application record.',
+    note: 'Listed in Attachment C.4 at 659 incidents a year. The shared licence pool running out mid-workflow is the commonest cause.',
   },
   {
     id: 'inv_tableau_shadow', name: 'Tableau Server (practice-managed)', kind: 'commercial', vendorId: 'ven_salesforce', tier: 2, owner: 'unassigned',

@@ -3,7 +3,7 @@ import { ClipboardList } from 'lucide-react'
 import {
   COMMERCIAL_LABEL, PWO_FLAG_LABEL, PWO_STATE_LABEL, workOrderSummary, type PwoState,
 } from '@/domain/workOrders'
-import { INVENTORY } from '@/domain/inventory'
+import { supportedItem } from '@/domain/supported'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Bar, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
@@ -24,11 +24,11 @@ const STATE_TONE: Record<PwoState, 'neutral' | 'info' | 'brand' | 'agent' | 'ok'
 
 export function WorkOrders() {
   const s = React.useMemo(() => workOrderSummary(), [])
-  const appName = (id: string) => INVENTORY.find((i) => i.id === id)?.name ?? id
+  const itemName = (id: string) => supportedItem(id)?.name ?? id
 
   return (
     <>
-      <PageHeader title="Work orders" subtitle="Separately authorised development against the application portfolio" />
+      <PageHeader title="Work orders" subtitle="Separately authorised development against applications and the data estate" />
 
       <ProducedBy agents={['agt_forge']} what="estimating, and generating code and tests" />
 
@@ -45,7 +45,7 @@ export function WorkOrders() {
           <Table>
             <thead>
               <tr>
-                <Th>Order</Th><Th>Application</Th><Th>State</Th><Th>Authorised by</Th>
+                <Th>Order</Th><Th>Item</Th><Th>State</Th><Th>Authorised by</Th>
                 <Th align="right">Estimate (h)</Th><Th>Burn</Th><Th>Flags</Th>
               </tr>
             </thead>
@@ -56,7 +56,7 @@ export function WorkOrders() {
                     {pwo.title}
                     <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-3"><span className="font-mono">{pwo.id}</span><span>· {COMMERCIAL_LABEL[pwo.commercial]}</span></span>
                   </Td>
-                  <Td className="text-2xs text-ink-2">{appName(pwo.appId)}</Td>
+                  <Td className="text-2xs text-ink-2">{itemName(pwo.itemId)}</Td>
                   <Td><Chip tone={STATE_TONE[pwo.state]}>{PWO_STATE_LABEL[pwo.state]}</Chip></Td>
                   <Td className="text-2xs text-ink-2">
                     {pwo.authorisedBy ?? <Chip tone={pwo.state === 'in_delivery' ? 'crit' : 'neutral'}>Not authorised</Chip>}
