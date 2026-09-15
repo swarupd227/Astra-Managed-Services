@@ -4,6 +4,7 @@ import { createHashRouter, Navigate, RouterProvider } from 'react-router-dom'
 import './styles/index.css'
 import { Shell } from './app/Shell'
 import { BriefHome } from './app/BriefHome'
+import { Workspace } from './workspace/Workspace'
 import { Missions } from './surfaces/copilot/Missions'
 import { Proposals } from './surfaces/governance/Proposals'
 import { RunWatch } from './surfaces/operate/RunWatch'
@@ -65,7 +66,9 @@ const router = createHashRouter([
     path: '/',
     element: <Shell />,
     children: [
-      { index: true, element: <BriefHome /> },
+      { index: true, element: <Workspace /> },
+      { path: 'w/:threadId', element: <Workspace /> },
+      { path: 'brief', element: <BriefHome /> },
 
       { path: 'copilot', element: <Copilot /> },
       { path: 'workforce', element: <AgentWorkforce /> },

@@ -17,6 +17,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import crypto from 'node:crypto'
 import { PHASE_FUNCTION, PHASE_PURPOSE, REGISTRY_FILE, currency, loadRegistry, publicView, requestSystem, resolveSystem, saveRegistry, setStatus } from './ai-registry.mjs'
 import { classifyInjection } from './injection.mjs'
+import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } from './converse.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -450,6 +451,21 @@ async function handleAgent(body, res) {
   const send = sse(res)
   const { phase = 'plan', utterance, estate, approved, portfolio, catalogue } = body
 
+  // The conversation's transcript is checked against the role before
+  // anything else: a call to a tool the role does not hold, or an unconfirmed
+  // state-changing result, is refused without a model call.
+  let transcript = null
+  if (phase === 'converse') {
+    const checked = checkTranscript(CATALOGUE, String(body.role ?? ''), body.messages, Array.isArray(body.confirmations) ? body.confirmations : [])
+    if (!checked.ok) {
+      send({ type: 'refuse', agent: 'Gateway', text: checked.reason, rule: 'Persona — a role acts only through the tools it holds' })
+      send({ type: 'done' })
+      res.end()
+      return
+    }
+    transcript = checked.messages
+  }
+
   if (!client) {
     send({ type: 'error', message: 'No API key configured. Open Connection settings to add one.' })
     res.end()
@@ -484,11 +500,12 @@ async function handleAgent(body, res) {
   // The gateway's own detectors run before the vendor call: an injected
   // utterance, or poisoned context the browser assembled, is refused here and
   // raised as an incident. Nothing reaches a model.
+  const conversed = transcript ? probeText(transcript) : null
   const probes = [
-    { detector: 'input_classifier', text: String(utterance ?? ''), what: 'The utterance' },
+    { detector: 'input_classifier', text: conversed ? conversed.user : String(utterance ?? ''), what: 'The utterance' },
     // The context's values, not its JSON — a serialised newline is not a newline,
     // and the line-anchored patterns would miss an injected role marker.
-    { detector: 'retrieval_classifier', text: Object.values(estate?.knownContext ?? {}).flat().map(String).join('\n'), what: 'Retrieved context' },
+    { detector: 'retrieval_classifier', text: conversed ? conversed.retrieved : Object.values(estate?.knownContext ?? {}).flat().map(String).join('\n'), what: 'Retrieved context' },
   ]
   for (const probe of probes) {
     const verdict = classifyInjection(probe.text)
@@ -504,6 +521,8 @@ async function handleAgent(body, res) {
     }
   }
   const canary = makeCanary()
+
+  if (transcript) return converse(send, res, system, canary, body, transcript)
 
   try {
     // Three phases share this endpoint. Only `plan` proposes an action, so
@@ -596,6 +615,73 @@ async function handleAgent(body, res) {
     send({ type: 'done' })
   } catch (err) {
     console.error('[astra-agent]', err?.status ?? '', err?.message ?? err)
+    send({ type: 'error', message: describeError(err) })
+  } finally {
+    res.end()
+  }
+}
+
+/**
+ * One step of a conversation. The browser holds the loop: it sends the
+ * transcript, runs whatever tools come back, and sends the transcript again.
+ * The whole assistant message is returned verbatim, thinking blocks included,
+ * because a tool loop must hand them back unchanged.
+ */
+async function converse(send, res, system, canary, body, transcript) {
+  const tools = toolsForRole(CATALOGUE, String(body.role))
+  try {
+    const stream = client.messages.stream({
+      model: system.model,
+      max_tokens: 8000,
+      thinking: { type: 'adaptive', display: 'summarized' },
+      output_config: { effort: 'medium' },
+      system: [{ type: 'text', text: withCanary(conversePrompt(body.context ?? {}, tools), canary), cache_control: { type: 'ephemeral' } }],
+      tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema })),
+      messages: transcript,
+    })
+
+    stream.on('streamEvent', (event) => {
+      if (event.type === 'content_block_delta') {
+        if (event.delta.type === 'thinking_delta') send({ type: 'thinking', text: event.delta.thinking })
+        else if (event.delta.type === 'text_delta') send({ type: 'text', text: event.delta.text })
+      }
+      if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+        send({ type: 'tool_start', name: event.content_block.name })
+      }
+    })
+
+    const final = await stream.finalMessage()
+
+    const leaked = final.content.some((b) => b.type === 'text' && typeof b.text === 'string' && b.text.includes(canary))
+    if (leaked) {
+      send({
+        type: 'incident', class: 'security_compromise', detector: 'canary', consequential: true,
+        summary: 'The internal marker from the system prompt appeared in model output — the prompt was exfiltrated or overridden. The reply was withheld.',
+        details: [`Marker ${canary} found in a text block of the response`],
+      })
+    } else if (final.stop_reason === 'max_tokens') {
+      send({ type: 'refuse', agent: 'Gateway', text: 'The reply reached its output ceiling before it finished and was withheld.', rule: 'Truncated output is never presented as whole' })
+    } else {
+      // A call to a tool this role was not shown cannot run, whatever the model wrote.
+      const held = new Set(tools.map((t) => t.name))
+      const stray = final.content.find((b) => b.type === 'tool_use' && !held.has(b.name))
+      if (stray) send({ type: 'refuse', agent: 'Gateway', text: `The model called "${stray.name}", which this role does not hold. The reply was withheld.`, rule: 'Persona — a role acts only through the tools it holds' })
+      else send({ type: 'assistant', content: final.content, stopReason: final.stop_reason })
+    }
+
+    send({
+      type: 'usage',
+      inputTokens: final.usage.input_tokens,
+      outputTokens: final.usage.output_tokens,
+      cacheRead: final.usage.cache_read_input_tokens ?? 0,
+      model: final.model,
+      stopReason: final.stop_reason,
+      system: system.id,
+      ...currency(system, final.model),
+    })
+    send({ type: 'done' })
+  } catch (err) {
+    console.error('[astra-agent] converse', err?.status ?? '', err?.message ?? err)
     send({ type: 'error', message: describeError(err) })
   } finally {
     res.end()

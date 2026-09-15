@@ -1,0 +1,148 @@
+{
+  "roles": {
+    "sdm": { "surfaces": ["transition", "run", "transform", "governance", "platform"], "canApprove": true },
+    "resolver": { "surfaces": ["run", "transition"], "canApprove": false },
+    "shiftlead": { "surfaces": ["run"], "canApprove": true },
+    "mim": { "surfaces": ["run", "governance"], "canApprove": true },
+    "transition": { "surfaces": ["transition", "run", "governance"], "canApprove": true },
+    "sme": { "surfaces": ["transition"], "canApprove": false },
+    "aieng": { "surfaces": ["platform", "run", "governance"], "canApprove": true },
+    "exec": { "surfaces": ["governance", "transform"], "canApprove": true },
+    "serviceowner": { "surfaces": ["governance", "run", "transform"], "canApprove": true },
+    "commercial": { "surfaces": ["governance", "transform"], "canApprove": false },
+    "auditor": { "surfaces": ["governance"], "canApprove": false, "readOnly": true },
+    "clientteam": { "surfaces": ["run", "transition"], "canApprove": false },
+    "consumer": { "surfaces": ["workplace"], "canApprove": false, "readOnly": true }
+  },
+  "tools": [
+    {
+      "name": "get_estate_overview", "agent": "astra", "surfaces": ["transition", "run", "transform", "governance", "platform"],
+      "description": "Every tower with its bundle, lifecycle state, open work, items awaiting approval, SLA attainment against target and glidepath against contract. Start here when a question is about the service as a whole or you do not yet know which tower it concerns.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_brief", "agent": "agt_herald", "surfaces": ["transition", "run", "transform", "governance", "platform"],
+      "description": "What happened since the user's last session and what is waiting on them: items closed and closed unaided, hours displaced, incidents avoided, proposals raised, and the ranked asks (approvals, verifications, decisions, obligations, proposals), marked as the user's or another owner's.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_work_queue", "agent": "agt_sentinel", "surfaces": ["run", "transition"],
+      "description": "Open work items (incidents, requests, problems, changes, findings) with priority, state, SLA consumed and breach probability, most at risk first. Optionally narrowed to a tower, a priority or a state.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "tower": { "type": "string", "description": "Tower id, e.g. twr_dataplat" },
+          "priority": { "type": "string", "enum": ["P1", "P2", "P3", "P4"] },
+          "state": { "type": "string", "enum": ["detected", "triaged", "planned", "gated", "executing", "verifying"] },
+          "limit": { "type": "integer", "description": "Default 12" }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_work_item", "agent": "agt_sentinel", "surfaces": ["run", "transition"],
+      "description": "One work item by id or reference: its service, demand class, affected components, SLA clock, autonomy decision and timeline.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "id": { "type": "string", "description": "Work item id (wo_…) or its reference (INC…, RITM…)" } },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_approvals", "agent": "astra", "surfaces": ["run", "governance"],
+      "description": "Plans held at a human gate, ordered by SLA consumed: the action classes, blast radius, agent grades, the gate's approver role and timeout.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_sla", "agent": "agt_herald", "surfaces": ["run", "governance"],
+      "description": "Service levels and experience levels with month-to-date attainment against target, breaches, headroom and the credit bands at stake. Optionally for one tower.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "tower": { "type": "string" }, "atRiskOnly": { "type": "boolean" } },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_data_estate", "agent": "agt_custodian", "surfaces": ["run", "governance"],
+      "description": "The data estate register: sources, pipelines, datasets, semantic models and reports, with each item's own state against its contract, what reaches it from upstream, contract enforcement, classification, stewardship and lineage gaps. Breaches carry the reports they make wrong and the recovery path.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "filter": { "type": "string", "enum": ["breaches", "unobserved", "uncontracted", "all"], "description": "Default breaches" } },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_data_item", "agent": "agt_custodian", "surfaces": ["run", "governance"],
+      "description": "One data item by id or name: contract and its checks, freshness, runs, classification, steward, holds, lineage upstream and everything it feeds.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "id": { "type": "string", "description": "Data item id (e.g. ds_engagement_gold) or its name" } },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_privacy_requests", "agent": "agt_archivist", "surfaces": ["run", "governance"],
+      "description": "Access, erasure and retrieval requests against the statutory clock, with search gaps, process breaches, holds and retention. Give an id for one request's store-by-store search and actions.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "id": { "type": "string", "description": "Request id, e.g. PR-0226" } },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_releases", "agent": "agt_sentryq", "surfaces": ["run", "transform"],
+      "description": "Vendor and internal releases across applications and the data estate: window, state, regression gate, blocking and informing flags, and change freezes.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_tech_debt", "agent": "agt_prospect", "surfaces": ["transform", "governance"],
+      "description": "The technical debt register with interest measured from the demand ledger, estimates, payback, flags, and the quarterly remediation recommendation within declared capacity.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_coverage", "agent": "astra", "surfaces": ["platform", "governance"],
+      "description": "Service functions of a contract bundle and the agents that own or only assist each, derived from agent charters.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "bundle": { "type": "string", "description": "Bundle id, e.g. B3 or B4" } },
+        "required": ["bundle"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "run_agent", "agent": "astra", "surfaces": ["run", "transition", "platform"], "mutating": true,
+      "description": "Hand an operational intent to the agent runtime: an agent is routed, retrieves context, reasons, and if the estate must change proposes a plan that the Autonomy Policy Engine decides — advise, a human gate, supervised or autonomous. Use for diagnosing a live problem in depth or remediating one. The run narrates itself and returns its finding, mode and outcome.",
+      "describe": "Hand “{intent}” to the agent runtime. If it proposes a change, the policy engine decides whether it runs.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "intent": { "type": "string", "description": "The intent in the operator's words" } },
+        "required": ["intent"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "approve_gate", "agent": "astra", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
+      "description": "Approve a plan held at a human gate. The approval is sealed to the evidence chain under the user's name.",
+      "describe": "Approve the gated plan on {work_item_id}.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "work_item_id": { "type": "string" }, "note": { "type": "string" } },
+        "required": ["work_item_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "reject_gate", "agent": "astra", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
+      "description": "Reject a plan held at a human gate, with the reason. The work returns to the human queue and the disagreement is scored against the agent.",
+      "describe": "Reject the gated plan on {work_item_id}: {reason}",
+      "input_schema": {
+        "type": "object",
+        "properties": { "work_item_id": { "type": "string" }, "reason": { "type": "string" } },
+        "required": ["work_item_id", "reason"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

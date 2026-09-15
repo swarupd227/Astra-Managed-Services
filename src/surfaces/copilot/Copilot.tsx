@@ -11,6 +11,7 @@ import { AC, ROLE_BY_ID } from '@/domain/reference'
 import { useAstra, useWorkList } from '@/domain/store'
 import { NOW } from '@/domain/workSeed'
 import { modeLabel } from '@/domain/policyEngine'
+import { makeRunEffects, runOptions } from '@/domain/runEffects'
 import { AgentChip, AutonomyChip, EvidenceLink, GradeChip, PageHeader } from '@/ui/domain'
 import { Button, Card, Chip, Dot } from '@/ui/primitives'
 import { StreamText } from '@/ui/StreamText'
@@ -67,7 +68,7 @@ function CitedRecords({ ids }: { ids: string[] }) {
   )
 }
 
-function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; onGate?: (d: 'approve' | 'reject') => void }) {
+export function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; onGate?: (d: 'approve' | 'reject') => void }) {
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
 
@@ -565,80 +566,33 @@ export function Copilot() {
 
   const logEvidence = useAstra((s) => s.logEvidence)
   const missionMap = useAstra((s) => s.missions)
-  const chargeMission = useAstra((s) => s.chargeMission)
   // What the model is told is "known right now" is read off these two, not
   // authored — see liveContext() in agentRuntime.ts.
   const workList = useWorkList()
   const proposalMap = useAstra((s) => s.proposals)
   const clockOffsetMins = useAstra((s) => s.clockOffsetMins)
-  // The control plane the run is decided under: live suspensions, suspended
-  // agents and whether a major incident is open.
-  const suspensions = useAstra((s) => s.suspensions)
-  const agentMap = useAstra((s) => s.agents)
-  const miActive = useAstra((s) => s.mi.active)
-  const modelChanges = useAstra((s) => s.modelChanges)
-  const recordModelChange = useAstra((s) => s.recordModelChange)
   // Recomputed only when the underlying work or proposals change — cheap, and
   // means a suggestion never outlives the record it was built from.
   const suggestions = React.useMemo(() => buildSuggestions(workList, Object.values(proposalMap)), [workList, proposalMap])
-  /** The mission this run is under, so its budget can be charged as cost lands. */
-  const missionRef = React.useRef<string | null>(null)
   const pushToast = useAstra((s) => s.pushToast)
-  const raiseAiIncident = useAstra((s) => s.raiseAiIncident)
   const roleId = useAstra((s) => s.roleId)
   const role = ROLE_BY_ID[roleId]
-  /** The intent under way, readable from inside emit without re-creating it per run. */
-  const utteranceRef = React.useRef('')
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [beats.length])
 
+  /** The record this run's beats leave behind — shared with runs started from the workspace. */
+  const effectsRef = React.useRef<((b: Beat) => void) | null>(null)
+
   /** Appends a beat, or replaces the last one when a stream is still filling it. */
   const emit = React.useCallback(
     (b: Beat, replaceLast?: boolean) => {
       setBeats((prev) => (replaceLast && prev.length ? [...prev.slice(0, -1), b] : [...prev, b]))
-
-      if (b.t === 'route') logEvidence('observation', 'Astra Copilot', `Intent routed — ${b.intent}`, { confidence: b.confidence, agent: b.agent })
-      if (b.t === 'policy') {
-        // An advisory evaluation governed nothing, so it is not sealed as a
-        // 'decision' — the evidence chain would otherwise carry a permanent
-        // record claiming a mode was decided and, by implication, executed,
-        // for a run that proposed no action at all.
-        logEvidence(
-          b.advisory ? 'observation' : 'decision',
-          'Autonomy Policy Engine',
-          b.advisory
-            ? `No action proposed — autonomy decision not required (would-be mode ${b.result.mode} under ${b.policyName})`
-            : `Execution mode ${b.result.mode} under ${b.policyName}`,
-          {
-            inputVector: { actionClasses: b.result.actionClasses, blast: b.result.blastRadius, grades: b.result.agentGrades, confidence: b.result.planConfidence },
-            reasons: b.result.reasons,
-          },
-          { agentId: b.agentId, actionClass: b.result.actionClasses[0] },
-        )
-      }
-      if (b.t === 'mission') missionRef.current = b.missionId
-      // Every model call this run makes is charged to the mission that governs
-      // it. Without this the budget is a number on a card, not a ceiling.
-      if (b.t === 'cost' && missionRef.current) chargeMission(missionRef.current, b.usd, 1)
-      if (b.t === 'refuse') logEvidence('decision', b.agent, 'Action refused by platform rule', { rule: b.rule })
-      // A detector fired: the incident opens its finding, starts both clocks
-      // and, when consequential, puts the agent on probation.
-      if (b.t === 'incident') {
-        raiseAiIncident(
-          { class: b.class, detector: b.detector, summary: b.summary, details: b.details, consequential: b.consequential },
-          { agentId: b.agent, systemId: b.systemId, runRef: utteranceRef.current },
-        )
-      }
-      // A served model that differs from the registered one is the change the
-      // contract wants notice of; the record opens the notice clock.
-      if (b.t === 'cost' && b.mismatch && b.system && b.registered) {
-        recordModelChange(b.system, b.registered, b.model)
-      }
+      effectsRef.current?.(b)
       if (b.t === 'gate') setGateOpen(true)
     },
-    [logEvidence, chargeMission, raiseAiIncident, recordModelChange],
+    [],
   )
 
   const run = React.useCallback(
@@ -648,23 +602,15 @@ export function Copilot() {
       abortRef.current = controller
 
       setUtterance(text)
-      utteranceRef.current = text
       setBeats([])
       setGateOpen(false)
       setRunning(true)
       pendingRef.current = null
-      missionRef.current = null
+      effectsRef.current = makeRunEffects(text)
 
       const nowMs = NOW.getTime() + clockOffsetMins * 60_000
       const { proposal, decision, mode } = await runIntent(
-        text, emit, controller.signal, Object.values(missionMap), workList, Object.values(proposalMap), nowMs,
-        {
-          suspensions,
-          suspendedAgents: Object.values(agentMap).filter((a) => a.state === 'suspended').map((a) => a.id),
-          driftingAgents: Object.values(agentMap).filter((a) => a.driftAlarm).map((a) => a.id),
-          changedSystems: modelChanges.filter((m) => m.state !== 'accepted').map((m) => m.systemId),
-          majorActive: miActive,
-        },
+        text, emit, controller.signal, Object.values(missionMap), workList, Object.values(proposalMap), nowMs, runOptions(),
       )
       if (controller.signal.aborted) return
 
@@ -673,7 +619,7 @@ export function Copilot() {
       }
       setRunning(false)
     },
-    [emit, missionMap, workList, proposalMap, clockOffsetMins, suspensions, agentMap, miActive, modelChanges],
+    [emit, missionMap, workList, proposalMap, clockOffsetMins],
   )
 
   const decideGate = async (verdict: 'approve' | 'reject') => {

@@ -1,3 +1,4 @@
+import CATALOGUE from '../../server/tool-catalogue.json'
 import type { ActionClass, Role, ServiceLine } from './types'
 
 /* --------------------------------------------------------------------------
@@ -31,16 +32,14 @@ export const AC = Object.fromEntries(ACTION_CLASSES.map((a) => [a.id, a])) as Re
    approval rights and the density of what they are shown.
    -------------------------------------------------------------------------- */
 
-export const ROLES: Role[] = [
+const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
   {
     id: 'sdm',
     title: 'Service Delivery Manager',
     org: 'artizent',
     person: 'R. Venkatesh',
     home: '/copilot',
-    surfaces: ['transition', 'run', 'transform', 'governance', 'platform'],
     description: 'Owns tower delivery. Holds the approval pen for gated runs and the escalation path.',
-    canApprove: true,
   },
   {
     id: 'resolver',
@@ -48,9 +47,7 @@ export const ROLES: Role[] = [
     org: 'artizent',
     person: 'A. Fernandes',
     home: '/copilot',
-    surfaces: ['run', 'transition'],
     description: 'Works a queue where agents have already triaged, enriched and often drafted the fix.',
-    canApprove: false,
   },
   {
     id: 'shiftlead',
@@ -58,9 +55,7 @@ export const ROLES: Role[] = [
     org: 'artizent',
     person: 'M. Okonkwo',
     home: '/operate/shift',
-    surfaces: ['run'],
     description: 'Queue health, SLA burn-down, human/agent load split, handover generation.',
-    canApprove: true,
   },
   {
     id: 'mim',
@@ -68,9 +63,7 @@ export const ROLES: Role[] = [
     org: 'artizent',
     person: 'D. Kowalski',
     home: '/operate/mim',
-    surfaces: ['run', 'governance'],
     description: 'Declares and runs major incidents. Autonomy auto-caps to Advise while an MI is open.',
-    canApprove: true,
   },
   {
     id: 'transition',
@@ -78,9 +71,7 @@ export const ROLES: Role[] = [
     org: 'artizent',
     person: 'S. Iyer',
     home: '/transition/coverage',
-    surfaces: ['transition', 'run', 'governance'],
     description: 'Runs estate ingestion through cutover; owns the §10.3 handover acceptance checks.',
-    canApprove: true,
   },
   {
     id: 'sme',
@@ -88,9 +79,7 @@ export const ROLES: Role[] = [
     org: 'client',
     person: 'A. Ferreira',
     home: '/transition/verify',
-    surfaces: ['transition'],
     description: 'One assertion at a time: claim, provenance, evidence — approve, correct or reject.',
-    canApprove: false,
   },
   {
     id: 'aieng',
@@ -98,9 +87,7 @@ export const ROLES: Role[] = [
     org: 'artizent',
     person: 'L. Nakamura',
     home: '/atlas/fleet',
-    surfaces: ['platform', 'run', 'governance'],
     description: 'Agent lifecycle, evaluation harnesses, policy authoring and simulation, TokenOps.',
-    canApprove: true,
   },
   {
     id: 'exec',
@@ -108,9 +95,7 @@ export const ROLES: Role[] = [
     org: 'client',
     person: 'E. Whitfield',
     home: '/governance/executive',
-    surfaces: ['governance', 'transform'],
     description: 'One page of service truth. Decisions awaiting them, and nothing they must dig for.',
-    canApprove: true,
   },
   {
     id: 'serviceowner',
@@ -118,9 +103,7 @@ export const ROLES: Role[] = [
     org: 'client',
     person: 'R. Castellano',
     home: '/governance/sla',
-    surfaces: ['governance', 'run', 'transform'],
     description: 'Tower SLA clocks, obligations register, credit position, improvement backlog.',
-    canApprove: true,
   },
   {
     id: 'commercial',
@@ -128,9 +111,7 @@ export const ROLES: Role[] = [
     org: 'client',
     person: 'J. Whitcombe',
     home: '/governance/glidepath',
-    surfaces: ['governance', 'transform'],
     description: 'Glidepath and Transform ledgers, credit worksheets, signed extracts for invoicing.',
-    canApprove: false,
   },
   {
     id: 'auditor',
@@ -138,10 +119,7 @@ export const ROLES: Role[] = [
     org: 'client',
     person: 'V. Marchetti',
     home: '/governance/evidence',
-    surfaces: ['governance'],
     description: 'Read-only. Search any action, agent, decision or period; verify the hash chain; export.',
-    canApprove: false,
-    readOnly: true,
   },
   {
     id: 'clientteam',
@@ -149,9 +127,7 @@ export const ROLES: Role[] = [
     org: 'client',
     person: 'K. Mehta',
     home: '/operate/resolver',
-    surfaces: ['run', 'transition'],
     description: 'Same queues and knowledge as Artizent engineers — capability transfer as a product feature.',
-    canApprove: false,
   },
   {
     /**
@@ -165,12 +141,15 @@ export const ROLES: Role[] = [
     org: 'consumer',
     person: 'H. Dalgleish',
     home: '/workplace',
-    surfaces: ['workplace'],
     description: 'Sees what affects the systems they use and what the service can do about it. Nothing about the estate, and no second set of figures.',
-    canApprove: false,
-    readOnly: true,
   },
 ]
+
+/**
+ * What a role may see and do is held once, in the tool catalogue the gateway
+ * enforces, so the screens and the gateway cannot disagree about a role.
+ */
+export const ROLES: Role[] = ROLE_RECORDS.map((r) => ({ ...r, ...(CATALOGUE.roles as Record<string, Pick<Role, 'surfaces' | 'canApprove' | 'readOnly'>>)[r.id] }))
 
 export const ROLE_BY_ID = Object.fromEntries(ROLES.map((r) => [r.id, r])) as Record<string, Role>
 

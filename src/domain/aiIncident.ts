@@ -1,6 +1,7 @@
 import { AGENTS, AGENT_BY_ID, GRAPH_NODES, POLICIES, SKILLS, TOWERS } from './estate'
 import { ACTION_CLASSES } from './reference'
 import { DEMAND_CLASSES } from './ledgers'
+import { DATA_ITEMS } from './dataEstate'
 import type { AgentProposal } from './agentRuntime'
 import type { EvidenceRecord, ISO, WorkObject } from './types'
 
@@ -95,12 +96,15 @@ export function estateIds(): EstateIds {
     ...TOWERS.map((t) => t.id),
     ...DEMAND_CLASSES.map((d) => d.id),
     ...POLICIES.map((p) => p.id),
+    // The data estate register is in the digest too; its ids were missing
+    // here, so a correct citation of a pipeline or dataset read as invented.
+    ...DATA_ITEMS.map((i) => i.id),
   ])
   return { agents, skills, actionClasses, known }
 }
 
 // Identifiers in this estate follow prefix_snake conventions plus AC-nn codes.
-const ID_TOKEN = /\b(?:agt|sk|dc|twr|svc|app|db|inf|net|if|rb|ke|da|pipe|pol|es|msn|prp)_[a-z0-9_]+\b|\bAC-\d{2}\b/g
+const ID_TOKEN = /\b(?:agt|sk|dc|twr|svc|app|db|inf|net|if|rb|ke|da|pipe|pol|es|msn|prp|src|pl|ds|sm|rp)_[a-z0-9_]+\b|\bAC-\d{2}\b/g
 
 function citedIds(text: string): string[] {
   return [...new Set(text.match(ID_TOKEN) ?? [])]

@@ -31,6 +31,7 @@ export const AI_FUNCTIONS = [
   { id: 'herald.outcome', label: 'Herald — outcome narrative after an approved run', phase: 'outcome' },
   { id: 'herald.brief', label: 'Herald — executive brief', phase: 'brief' },
   { id: 'compiler.objectives', label: 'Objective compiler — proposing how stated objectives will be measured', phase: 'compile' },
+  { id: 'astra.converse', label: 'Astra — the conversation workspace', phase: 'converse' },
 ] as const
 
 export type AiFunctionId = (typeof AI_FUNCTIONS)[number]['id']

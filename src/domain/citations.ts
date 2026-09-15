@@ -1,5 +1,6 @@
 import { AGENT_BY_ID, GRAPH_NODES, POLICY_BY_ID, SKILL_BY_ID, TOWER_BY_ID } from './estate'
 import { DEMAND_CLASSES } from './ledgers'
+import { DATA_ITEM_BY_ID, DATA_KIND_LABEL, contractState } from './dataEstate'
 import { AC } from './reference'
 import type { Assertion } from './types'
 
@@ -15,7 +16,7 @@ import type { Assertion } from './types'
 
 export interface Citation {
   id: string
-  kind: 'assertion' | 'runbook' | 'known_error' | 'graph' | 'demand_class' | 'tower' | 'agent' | 'skill' | 'policy' | 'action_class' | 'unresolved'
+  kind: 'assertion' | 'runbook' | 'known_error' | 'graph' | 'demand_class' | 'tower' | 'agent' | 'skill' | 'policy' | 'action_class' | 'data_item' | 'unresolved'
   label: string
   excerpt: string
   href?: string
@@ -66,6 +67,10 @@ export function resolveCitation(id: string, assertions: Assertion[]): Citation {
   const pol = POLICY_BY_ID[id]
   if (pol) {
     return { id, kind: 'policy', label: `${pol.name} ${pol.version}`, excerpt: `${pol.rules.length} rules · applies to ${pol.appliesTo.towers.length} tower(s)`, href: '/atlas/policy' }
+  }
+  const di = DATA_ITEM_BY_ID[id]
+  if (di) {
+    return { id, kind: 'data_item', label: di.name, excerpt: `${DATA_KIND_LABEL[di.kind]} · ${di.platform} · contract ${contractState(di)} · ${di.classification ?? 'unclassified'}`, href: '/operate/data' }
   }
   const ac = AC[id]
   if (ac) {

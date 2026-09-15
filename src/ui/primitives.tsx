@@ -60,7 +60,7 @@ export function Chip({
       title={title}
       onClick={onClick}
       className={cn(
-        'inline-flex h-[18px] shrink-0 items-center gap-1 rounded-xs border px-1.5 text-2xs font-medium leading-none',
+        'inline-flex h-[18px] shrink-0 items-center gap-1 whitespace-nowrap rounded-xs border px-1.5 text-2xs font-medium leading-none',
         mono && 'font-mono tracking-tight',
         TONE_CHIP[tone],
         onClick && 'cursor-pointer hover:brightness-125',

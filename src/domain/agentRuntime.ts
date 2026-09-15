@@ -239,7 +239,9 @@ export interface GatewaySystem {
 type GatewayEvent =
   | { type: 'thinking'; text: string }
   | { type: 'text'; text: string }
-  | { type: 'tool_start' }
+  | { type: 'tool_start'; name?: string }
+  /** A conversation step's whole assistant message, returned verbatim for the loop. */
+  | { type: 'assistant'; content: Record<string, unknown>[]; stopReason: string }
   | { type: 'proposal'; input: AgentProposal }
   | { type: 'usage'; inputTokens: number; outputTokens: number; cacheRead: number; model: string; stopReason: string; system?: string; registered?: string | null; served?: string | null; mismatch?: boolean }
   | { type: 'system'; system: GatewaySystem }

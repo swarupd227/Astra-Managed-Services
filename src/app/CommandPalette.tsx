@@ -1,6 +1,7 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, CornerDownLeft } from 'lucide-react'
+import { useWorkspace } from '@/workspace/store'
 import { ALL_NAV } from './nav'
 import { ROLES } from '@/domain/reference'
 import { TOWERS, AGENTS } from '@/domain/estate'
@@ -17,6 +18,8 @@ interface Cmd {
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const nav = useNavigate()
+  const { pathname } = useLocation()
+  const send = useWorkspace((s) => s.send)
   const [q, setQ] = React.useState('')
   const [sel, setSel] = React.useState(0)
   const setRole = useAstra((s) => s.setRole)
@@ -79,6 +82,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     return out
   }, [nav, work, theme, density, brake.global, role.person, setRole, setTheme, setDensity, setBrake])
 
+  // A sentence goes to Astra first, in the conversation already open;
+  // screens, records and preferences are the fallbacks beneath it.
+  const threadId = pathname === '/' ? 'astra' : pathname.startsWith('/w/') ? pathname.slice(3) : 'astra'
+  const ask: Cmd | null = q.trim()
+    ? {
+        id: 'ask-astra', group: 'Ask Astra', label: q.trim(), hint: threadId === 'astra' ? 'Ask Astra' : 'In this conversation',
+        run: () => { nav(threadId === 'astra' ? '/' : `/w/${threadId}`); send(threadId, q.trim()) },
+      }
+    : null
+
   const filtered = React.useMemo(() => {
     if (!q.trim()) return commands.filter((c) => c.group !== 'Work objects').slice(0, 40)
     const needle = q.toLowerCase()
@@ -98,7 +111,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   if (!open) return null
 
-  const groups = filtered.reduce<Record<string, Cmd[]>>((acc, c) => {
+  const items = ask ? [ask, ...filtered] : filtered
+  const groups = items.reduce<Record<string, Cmd[]>>((acc, c) => {
     ;(acc[c.group] ??= []).push(c)
     return acc
   }, {})
@@ -115,19 +129,19 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(filtered.length - 1, s + 1)) }
+              if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(items.length - 1, s + 1)) }
               if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(0, s - 1)) }
-              if (e.key === 'Enter') { e.preventDefault(); filtered[sel]?.run(); onClose() }
+              if (e.key === 'Enter') { e.preventDefault(); items[sel]?.run(); onClose() }
               if (e.key === 'Escape') onClose()
             }}
-            placeholder="Search screens, work objects, agents, towers — or assume a role"
+            placeholder="Ask Astra anything — or jump to a screen, record or agent"
             className="h-11 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-3 focus:outline-none"
           />
           <kbd className="shrink-0 rounded border border-line px-1.5 py-0.5 font-mono text-2xs text-ink-3">esc</kbd>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
-          {filtered.length === 0 && <p className="px-4 py-6 text-center text-xs text-ink-3">Nothing matches “{q}”.</p>}
+          {items.length === 0 && <p className="px-4 py-6 text-center text-xs text-ink-3">Nothing matches “{q}”.</p>}
           {Object.entries(groups).map(([group, items]) => (
             <div key={group} className="mb-1">
               <div className="px-3 py-1 text-2xs font-medium uppercase tracking-[0.09em] text-ink-3">{group}</div>

@@ -1,14 +1,16 @@
 import React from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  AlertOctagon, Bot, Check, ChevronDown, ChevronRight, Command, Info, Moon, Pause, Play, Rows3,
+  AlertOctagon, Bot, Check, ChevronDown, ChevronRight, Command, Info, MessagesSquare, Moon, Pause, Play, Rows3,
   Plug, Search, ShieldAlert, Sparkles, Sun, TriangleAlert, X,
 } from 'lucide-react'
+import { useWorkspace } from '@/workspace/store'
+import { threadDefs } from '@/workspace/threads'
 import { AstraSignature, ArtizentLockup } from '@/brand/Logo'
 import { PINNED, SURFACES } from './nav'
 import { CommandPalette } from './CommandPalette'
 import { ROLES, ROLE_BY_ID } from '@/domain/reference'
-import { CLIENT, TOWER_BY_ID } from '@/domain/estate'
+import { AGENT_BY_ID, CLIENT, TOWER_BY_ID } from '@/domain/estate'
 import { AI_FUNCTIONS, type Suspension } from '@/domain/suspensions'
 import { OBLIGATIONS } from '@/domain/ledgers'
 import { useAstra, useApprovalCount } from '@/domain/store'
@@ -196,6 +198,99 @@ function RoleSwitcher() {
   )
 }
 
+/* ------------------------------ Conversations ------------------------------ */
+
+/**
+ * The rail leads with the conversations and the agents, because talking to
+ * the agents is the primary way to work; the views follow as the pages those
+ * conversations open.
+ */
+function Conversations({ collapsed }: { collapsed: boolean }) {
+  const { pathname } = useLocation()
+  const missions = useAstra((s) => s.missions)
+  const mi = useAstra((s) => s.mi)
+  const roleId = useAstra((s) => s.roleId)
+  const work = useAstra((s) => s.work)
+  const threads = useWorkspace((s) => s.threads)
+  const role = ROLE_BY_ID[roleId]
+  const defs = React.useMemo(() => threadDefs(Object.values(missions), mi), [missions, mi])
+  const estateRole = role.org !== 'consumer'
+
+  // An agent is working when it holds work that is executing or verifying.
+  const working = React.useMemo(() => {
+    const ids = new Set<string>()
+    for (const w of Object.values(work)) if (w.assigneeKind === 'agent' && w.assignee && ['executing', 'verifying'].includes(w.state)) ids.add(w.assignee)
+    return ids
+  }, [work])
+
+  const current = pathname === '/' ? 'astra' : pathname.startsWith('/w/') ? pathname.slice(3) : null
+  const visible = estateRole ? defs : defs.filter((d) => d.group === 'astra')
+  // Missions are many and standing; they sit folded under one row unless one is open or busy.
+  const missionDefs = visible.filter((d) => d.group === 'mission')
+  const [missionsOpen, setMissionsOpen] = React.useState(false)
+  const showMissions = missionsOpen || missionDefs.some((d) => d.id === current || threads[d.id]?.running || threads[d.id]?.pending)
+
+  const row = (d: (typeof defs)[number]) => {
+    const t = threads[d.id]
+    const busy = Boolean(t?.running)
+    const waiting = Boolean(t?.pending)
+    return (
+      <li key={d.id}>
+        <NavRow
+          item={{ to: d.id === 'astra' ? '/' : `/w/${d.id}`, label: d.title, desc: d.scope ?? 'The whole service' }}
+          active={current === d.id}
+          collapsed={collapsed}
+          strong={d.group === 'astra'}
+          badge={waiting ? { n: 1, tone: 'warn' } : null}
+          icon={
+            d.group === 'astra'
+              ? <Sparkles size={13} className={cn('shrink-0', busy ? 'animate-pulse text-brand-ink' : current === d.id ? 'text-brand-ink' : 'text-ink-3')} />
+              : <MessagesSquare size={12} className={cn('shrink-0', busy ? 'animate-pulse text-brand-ink' : 'text-ink-3')} />
+          }
+        />
+      </li>
+    )
+  }
+
+  return (
+    <div className="border-b border-line py-1.5">
+      <ul className="space-y-px">
+        {visible.filter((d) => d.group !== 'mission').map(row)}
+        {missionDefs.length > 0 && !collapsed && (
+          <li>
+            <button
+              onClick={() => setMissionsOpen((o) => !o)}
+              aria-expanded={showMissions}
+              className="mx-1.5 flex w-[calc(100%-12px)] items-center gap-2 rounded-[4px] py-[5px] pl-2 pr-2 text-left text-xs text-ink-2 hover:bg-raised hover:text-ink"
+            >
+              <ChevronRight size={11} className={cn('shrink-0 text-ink-3 transition-transform duration-150', showMissions && 'rotate-90')} />
+              <span className="min-w-0 flex-1 truncate">Missions</span>
+              <span className="tnum text-[10px] text-ink-3">{missionDefs.length}</span>
+            </button>
+          </li>
+        )}
+        {(showMissions || collapsed) && missionDefs.map(row)}
+      </ul>
+      {estateRole && !collapsed && (
+        <div className="mt-1.5 border-t border-line pt-1.5">
+          <div className="label-cap px-3.5 pb-1">Agents</div>
+          <ul className="space-y-px">
+            {Object.values(AGENT_BY_ID).filter((a) => a.origin === 'artizent').map((a) => (
+              <li key={a.id}>
+                <NavLink to={`/atlas/agent/${a.id}`} title={a.mission} className="mx-1.5 flex items-center gap-2 rounded-[4px] px-2 py-[3px] text-2xs text-ink-2 hover:bg-raised hover:text-ink">
+                  <Dot tone={working.has(a.id) ? 'brand' : 'neutral'} pulse={working.has(a.id)} />
+                  <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                  <span className="truncate text-[10px] text-ink-3">{a.codename.split(' ')[0]}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* --------------------------------- Sidebar --------------------------------- */
 
 function NavRow({
@@ -274,7 +369,7 @@ function Sidebar({ collapsed }: { collapsed: boolean }) {
   })
 
   React.useEffect(() => {
-    if (activeSurface) setOpen((o) => ({ ...o, [activeSurface]: true }))
+    if (activeSurface) setOpen((o) => ({ ...o, views: true, [activeSurface]: true }))
   }, [activeSurface])
 
   const toggle = (id: string) => {
@@ -288,6 +383,22 @@ function Sidebar({ collapsed }: { collapsed: boolean }) {
 
   return (
     <nav className={cn('flex min-w-0 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-line bg-surface transition-[width] duration-200 ease-snap', collapsed ? 'w-[52px]' : 'w-[216px]')}>
+      <Conversations collapsed={collapsed} />
+
+      <div className="border-b border-line py-1.5">
+        {!collapsed && (
+          <button
+            onClick={() => toggle('views')}
+            aria-expanded={isOpen('views')}
+            className="mx-1.5 flex w-[calc(100%-12px)] items-center gap-1.5 rounded-[4px] px-2 py-1 text-left hover:bg-raised"
+          >
+            <ChevronRight size={11} className={cn('shrink-0 text-ink-3 transition-transform duration-150', isOpen('views') && 'rotate-90')} />
+            <span className="label-cap flex-1">Views</span>
+          </button>
+        )}
+      </div>
+
+      {(collapsed || isOpen('views')) && (<>
       <div className="border-b border-line py-1.5">
         <ul className="space-y-px">
           {PINNED.map((item) => (
@@ -353,6 +464,7 @@ function Sidebar({ collapsed }: { collapsed: boolean }) {
           )
         })}
       </div>
+      </>)}
 
       {!collapsed && (
         <div className="mt-auto shrink-0 border-t border-line px-3 py-2.5">
@@ -451,7 +563,7 @@ export function Shell() {
           className="ml-auto flex h-7 max-w-[280px] flex-1 items-center gap-2 rounded border border-line-strong bg-sunken px-2 text-ink-3 transition-colors hover:border-ink-3"
         >
           <Search size={12} className="shrink-0" />
-          <span className="hidden truncate text-2xs sm:block">Search or jump to…</span>
+          <span className="hidden truncate text-2xs sm:block">Ask Astra or jump to…</span>
           <kbd className="ml-auto hidden shrink-0 items-center gap-0.5 rounded border border-line px-1 font-mono text-[10px] sm:flex">
             <Command size={8} />K
           </kbd>
