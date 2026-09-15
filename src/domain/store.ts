@@ -241,7 +241,7 @@ function transitionEntry(wo: WorkObject, next: WorkState, at: string, seq: numbe
 
 export const useAstra = create<State>((set, get) => ({
   roleId: (typeof localStorage !== 'undefined' && localStorage.getItem('astra.role')) || 'sdm',
-  theme: ((typeof localStorage !== 'undefined' && localStorage.getItem('astra.theme')) as ThemeMode) || 'light',
+  theme: ((typeof localStorage !== 'undefined' && localStorage.getItem('astra.theme')) as ThemeMode) || 'dark',
   density: ((typeof localStorage !== 'undefined' && localStorage.getItem('astra.density')) as Density) || 'compact',
   simRunning: true,
   tick: 0,

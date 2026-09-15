@@ -11,10 +11,18 @@ import type { Mission } from '@/domain/missions'
 export interface ThreadDef {
   id: string
   title: string
-  group: 'astra' | 'bundle' | 'mission' | 'incident'
+  group: 'astra' | 'bundle' | 'mission' | 'incident' | 'view'
   /** What the orchestrator is told the conversation is about. */
   scope?: string
 }
+
+/** Conversations embedded in the pages where decisions are made. */
+export const VIEW_THREADS = {
+  approvals: { id: 'view-approvals', title: 'Approvals', group: 'view', scope: 'The approval inbox: plans held at human gates, and the decision on each' },
+  proposals: { id: 'view-proposals', title: 'Proposals', group: 'view', scope: 'Proposals the workforce raised, and whether to accept or reject each' },
+  privacy: { id: 'view-privacy', title: 'Privacy requests', group: 'view', scope: 'Privacy requests, holds and retention' },
+  workOrders: { id: 'view-work-orders', title: 'Work orders', group: 'view', scope: 'Separately authorised development orders, their authorisation and burn' },
+} satisfies Record<string, ThreadDef>
 
 export function threadDefs(missions: Mission[], mi: { active: boolean; title: string }): ThreadDef[] {
   const out: ThreadDef[] = [{ id: 'astra', title: 'Ask Astra', group: 'astra' }]

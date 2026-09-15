@@ -53,16 +53,18 @@ function Speaker({ id }: { id: string }) {
   )
 }
 
-function ArtifactCard({ artifact, threadId, active }: { artifact: Artifact; threadId: string; active: boolean }) {
+function ArtifactCard({ artifact, threadId, active, compact }: { artifact: Artifact; threadId: string; active: boolean; compact?: boolean }) {
   const Card = CARDS[artifact.kind]
   const openPane = useWorkspace((s) => s.openPane)
   return (
     <div className={cn('overflow-hidden rounded-md border bg-surface shadow-e1', active ? 'border-brand/60' : 'border-line')}>
       <div className="flex items-center gap-2 border-b border-line px-3 py-1.5">
         <span className="min-w-0 flex-1 truncate text-2xs font-medium text-ink">{artifact.title}</span>
-        <button onClick={() => openPane(threadId, artifact.id)} className="text-ink-3 hover:text-ink" title="Open beside the thread">
-          <Maximize2 size={11} />
-        </button>
+        {!compact && (
+          <button onClick={() => openPane(threadId, artifact.id)} className="text-ink-3 hover:text-ink" title="Open beside the thread">
+            <Maximize2 size={11} />
+          </button>
+        )}
         {artifact.route && (
           <Link to={artifact.route} className="text-ink-3 hover:text-ink" title="Open full view">
             <SquareArrowOutUpRight size={11} />
@@ -95,7 +97,7 @@ function ConfirmBlock({ c, threadId, messageId }: { c: Confirmation; threadId: s
   )
 }
 
-function MessageView({ m, threadId, pane, last, onSuggest }: { m: ThreadMessage; threadId: string; pane: string | null; last: boolean; onSuggest: (s: string) => void }) {
+function MessageView({ m, threadId, pane, last, onSuggest, compact }: { m: ThreadMessage; threadId: string; pane: string | null; last: boolean; onSuggest: (s: string) => void; compact?: boolean }) {
   if (m.author === 'user') {
     return (
       <div className="flex justify-end">
@@ -119,7 +121,7 @@ function MessageView({ m, threadId, pane, last, onSuggest }: { m: ThreadMessage;
           </div>
         )}
         {m.confirm?.map((c) => <ConfirmBlock key={c.toolUseId} c={c} threadId={threadId} messageId={m.id} />)}
-        {m.artifacts.map((a) => <ArtifactCard key={a.id} artifact={a} threadId={threadId} active={a.id === pane} />)}
+        {m.artifacts.map((a) => <ArtifactCard key={a.id} artifact={a} threadId={threadId} active={a.id === pane} compact={compact} />)}
         {m.sources.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">
             <span className="label-cap mr-0.5">Sources</span>
@@ -146,6 +148,15 @@ function MessageView({ m, threadId, pane, last, onSuggest }: { m: ThreadMessage;
 function openers(def: ThreadDef, roleId: string): string[] {
   const has = (tool: string) => Boolean(TOOL_BY_NAME[tool] && roleHolds(roleId, TOOL_BY_NAME[tool]))
   const out: string[] = []
+  if (def.group === 'view') {
+    const byView: Record<string, [string, string][]> = {
+      'view-approvals': [['get_approvals', 'Which gates are past their SLA?'], ['get_approvals', 'Which of these carry a tier-0 blast radius?']],
+      'view-proposals': [['get_proposals', 'Which proposals expire soonest?'], ['get_proposals', 'Which proposal would save the most hours?']],
+      'view-privacy': [['get_privacy_requests', 'Which requests are due this week?'], ['get_privacy_requests', 'Why do requests have search gaps?']],
+      'view-work-orders': [['get_work_orders', 'Which orders are in delivery without authorisation?'], ['get_work_orders', 'Which orders are over estimate?']],
+    }
+    return (byView[def.id] ?? []).filter(([tool]) => has(tool)).map(([, s]) => s)
+  }
   if (def.group === 'bundle') {
     const id = def.id.replace('bundle-', '').toUpperCase()
     const towers = TOWERS.filter((t) => t.bundle === id)
@@ -231,7 +242,29 @@ export function Workspace() {
   const missions = useAstra((s) => s.missions)
   const mi = useAstra((s) => s.mi)
   const def = React.useMemo(() => threadDefs(Object.values(missions), mi).find((d) => d.id === threadId) ?? { id: threadId, title: 'Conversation', group: 'astra' as const }, [missions, mi, threadId])
+  const thread = useWorkspace((s) => s.threads[threadId])
+  const paneArtifact = React.useMemo(() => {
+    if (!thread?.pane) return null
+    for (const m of thread.messages) for (const a of m.artifacts) if (a.id === thread.pane) return a
+    return null
+  }, [thread?.pane, thread?.messages])
 
+  return (
+    <div className="flex min-h-0 flex-1">
+      <ThreadView def={def} />
+      {paneArtifact && <Pane artifact={paneArtifact} threadId={threadId} />}
+    </div>
+  )
+}
+
+/**
+ * The thread itself — messages, the working row and the composer. The
+ * workspace shows it beside its pane; a page where decisions are made
+ * embeds it compact, scoped to that page, so the conversation is never
+ * more than a click away from the view it is about.
+ */
+export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean }) {
+  const threadId = def.id
   const thread = useWorkspace((s) => s.threads[threadId])
   const send = useWorkspace((s) => s.send)
   const stop = useWorkspace((s) => s.stop)
@@ -242,11 +275,6 @@ export function Workspace() {
   const messages = thread?.messages ?? []
   const running = Boolean(thread?.running)
   const pending = Boolean(thread?.pending)
-  const paneArtifact = React.useMemo(() => {
-    if (!thread?.pane) return null
-    for (const m of thread.messages) for (const a of m.artifacts) if (a.id === thread.pane) return a
-    return null
-  }, [thread?.pane, thread?.messages])
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -262,10 +290,9 @@ export function Workspace() {
   const lastAgent = [...messages].reverse().find((m) => m.author === 'agent')
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid={compact ? 'thread-panel' : 'workspace-thread'}>
         <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-surface px-4">
-          <span className="min-w-0 truncate text-xs font-medium text-ink">{def.title}</span>
+          {!compact && <span className="min-w-0 truncate text-xs font-medium text-ink">{def.title}</span>}
           {running && <Chip><Dot tone="brand" pulse />working</Chip>}
           {pending && !running && <Chip tone="warn">awaiting confirmation</Chip>}
           <span className="ml-auto flex items-center gap-1">
@@ -278,7 +305,7 @@ export function Workspace() {
           <div className="mx-auto max-w-3xl space-y-4">
             {messages.length === 0 && <Opening def={def} onSuggest={submit} />}
             {messages.map((m) => (
-              <MessageView key={m.id} m={m} threadId={threadId} pane={thread?.pane ?? null} last={m.id === lastAgent?.id && !running} onSuggest={submit} />
+              <MessageView key={m.id} m={m} threadId={threadId} pane={compact ? null : thread?.pane ?? null} last={m.id === lastAgent?.id && !running} onSuggest={submit} compact={compact} />
             ))}
             {running && thread?.working && (
               <div className="flex items-center gap-2.5 pl-6">
@@ -315,8 +342,5 @@ export function Workspace() {
           </form>
         </div>
       </section>
-
-      {paneArtifact && <Pane artifact={paneArtifact} threadId={threadId} />}
-    </div>
   )
 }

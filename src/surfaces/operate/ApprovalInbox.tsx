@@ -5,6 +5,7 @@ import { TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { useApprovals } from '@/domain/store'
 import { OPERATIONAL } from '@/domain/metrics'
 import { ApprovalCard } from './ApprovalCard'
+import { ThreadPanel } from '@/workspace/ThreadPanel'
 import { PageHeader } from '@/ui/domain'
 import { Button, Card, Chip, Empty, Metric, selectClass } from '@/ui/primitives'
 import { cn, mins, num } from '@/lib/format'
@@ -78,6 +79,7 @@ export function ApprovalInbox() {
         )}
 
       </div>
+      <ThreadPanel id="approvals" />
     </>
   )
 }

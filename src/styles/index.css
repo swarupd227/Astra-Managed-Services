@@ -29,7 +29,9 @@
     --c-warn: 158 92 0;
     --c-crit: 186 44 33;
     --c-info: 30 92 152;
-    --c-agent: 88 72 172;
+    /* Agents carry no colour of their own: yellow means an agent is working,
+       and four status colours carry state. An agent label is neutral ink. */
+    --c-agent: 82 78 71;
     --grid-line: 0 0 0 / 0.035;
     --shadow-e1: 0 1px 2px rgb(28 26 20 / 0.05), 0 1px 1px rgb(28 26 20 / 0.03);
     --shadow-e2: 0 2px 4px rgb(28 26 20 / 0.05), 0 6px 16px -6px rgb(28 26 20 / 0.10);
@@ -54,7 +56,7 @@
     --c-warn: 240 173 62;
     --c-crit: 240 91 76;
     --c-info: 92 165 240;
-    --c-agent: 163 148 255;
+    --c-agent: 190 186 176;
     --grid-line: 255 255 255 / 0.04;
     --shadow-e1: 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-e2: 0 2px 6px rgb(0 0 0 / 0.34), 0 8px 20px -8px rgb(0 0 0 / 0.5);

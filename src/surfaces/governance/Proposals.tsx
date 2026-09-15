@@ -1,6 +1,7 @@
 import React from 'react'
 import { Check, Clock, Lightbulb, ShieldCheck, TrendingUp, X } from 'lucide-react'
 import { useAstra } from '@/domain/store'
+import { ThreadPanel } from '@/workspace/ThreadPanel'
 import { ROLE_BY_ID } from '@/domain/reference'
 import {
   PROPOSAL_KIND_META, daysOpen, initiativeShare, proposalAge, proposalValue,
@@ -210,6 +211,7 @@ export function Proposals() {
           )}
         </div>
       </div>
+      <ThreadPanel id="proposals" />
     </>
   )
 }

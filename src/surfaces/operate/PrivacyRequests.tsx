@@ -8,6 +8,7 @@ import {
 import { AGENT_BY_ID } from '@/domain/estate'
 import { DATA_ITEM_BY_ID, DATA_KIND_LABEL } from '@/domain/dataEstate'
 import { NOW } from '@/domain/workSeed'
+import { ThreadPanel } from '@/workspace/ThreadPanel'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
@@ -206,6 +207,7 @@ export function PrivacyRequests() {
           </Card>
         </div>
       </div>
+      <ThreadPanel id="privacy" />
     </>
   )
 }

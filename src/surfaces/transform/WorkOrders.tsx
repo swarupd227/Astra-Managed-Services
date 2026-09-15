@@ -4,6 +4,7 @@ import {
   COMMERCIAL_LABEL, PWO_FLAG_LABEL, PWO_STATE_LABEL, workOrderSummary, type PwoState,
 } from '@/domain/workOrders'
 import { supportedItem } from '@/domain/supported'
+import { ThreadPanel } from '@/workspace/ThreadPanel'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Bar, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
@@ -86,6 +87,7 @@ export function WorkOrders() {
           </Table>
         </Card>
       </div>
+      <ThreadPanel id="workOrders" />
     </>
   )
 }

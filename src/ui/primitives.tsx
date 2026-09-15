@@ -40,7 +40,9 @@ const TONE_CHIP: Record<Tone, string> = {
   warn: 'border-warn/40 text-warn bg-warn/10',
   crit: 'border-crit/45 text-crit bg-crit/10',
   info: 'border-info/40 text-info bg-info/10',
-  brand: 'border-brand/50 text-brand-ink bg-brand/10',
+  // Yellow is reserved for an agent working, the primary action and focus.
+  // A chip is a label, so the brand tone reads as emphasised neutral.
+  brand: 'border-line-strong text-ink bg-raised',
   agent: 'border-agent/40 text-agent bg-agent/10',
 }
 
@@ -153,7 +155,8 @@ export function Metric({
 
 export function Bar({ value, max = 100, tone = 'brand', height = 3, className }: { value: number; max?: number; tone?: Tone; height?: number; className?: string }) {
   const bg: Record<Tone, string> = {
-    neutral: 'bg-ink-3', ok: 'bg-ok', warn: 'bg-warn', crit: 'bg-crit', info: 'bg-info', brand: 'bg-brand', agent: 'bg-agent',
+    // A bar is a measure, not an agent at work: its default fill is ink.
+    neutral: 'bg-ink-3', ok: 'bg-ok', warn: 'bg-warn', crit: 'bg-crit', info: 'bg-info', brand: 'bg-ink-2', agent: 'bg-agent',
   }
   return (
     <div className={cn('w-full overflow-hidden rounded-full bg-sunken', className)} style={{ height }}>

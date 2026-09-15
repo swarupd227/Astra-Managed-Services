@@ -6,7 +6,7 @@ import { useAstra } from '@/domain/store'
 import { NOW } from '@/domain/workSeed'
 import { TOOL_BY_NAME, TOOL_VERB, agentName, describeCall } from './catalogue'
 import { onRunSettled } from './runs'
-import { threadDefs } from './threads'
+import { VIEW_THREADS, threadDefs } from './threads'
 import { EXECUTORS, ToolError } from './tools'
 import type { Artifact, Source, Thread, ThreadMessage, ToolResultBlock } from './types'
 
@@ -69,7 +69,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => {
   const context = (threadId: string) => {
     const s = useAstra.getState()
     const role = ROLE_BY_ID[s.roleId]
-    const def = threadDefs(Object.values(s.missions), s.mi).find((d) => d.id === threadId)
+    const def = [...threadDefs(Object.values(s.missions), s.mi), ...Object.values(VIEW_THREADS)].find((d) => d.id === threadId)
     return {
       client: CLIENT.name,
       person: role.person,
