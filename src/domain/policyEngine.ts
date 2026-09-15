@@ -31,6 +31,8 @@ export interface ActionContext {
    * compensate.
    */
   audience?: { endUser: boolean }
+  /** Whether a legal or retention hold covers anything the action touches. */
+  hold?: { active: boolean }
 }
 
 const GRADE_RANK: Record<string, number> = { A: 4, B: 3, C: 2, D: 1 }

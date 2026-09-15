@@ -2,6 +2,7 @@ import { evaluate, type ActionContext, type EngineResult } from './policyEngine'
 import { missionCeiling, missionFor, type Mission } from './missions'
 import { AGENTS, AGENT_BY_ID, CLIENT, GRAPH_EDGES, GRAPH_NODES, POLICIES, SKILLS, TOWERS, TOWER_BY_ID, policyForTower } from './estate'
 import { DATA_ITEMS, contractState, descendants, itemsNamedIn, policyAsset, withoutContract } from './dataEstate'
+import { holdsOn } from './privacy'
 import { ACTION_CLASSES, AC } from './reference'
 import { DEMAND_CLASSES, SLAS } from './ledgers'
 import { ago } from '@/lib/format'
@@ -194,6 +195,7 @@ export function estateDigest(work: WorkObject[], proposals: Proposal[], nowMs: n
     data: DATA_ITEMS.map((i) => ({
       id: i.id, name: i.name, kind: i.kind, tower: i.tower, platform: i.platform, upstream: i.upstream,
       contract: contractState(i), classification: i.classification ?? 'unclassified', steward: i.steward ?? null,
+      holds: holdsOn(i.id).map((h) => h.id),
     })),
     agents: AGENTS.map((a) => ({
       id: a.id, name: a.name, mission: a.mission, origin: a.origin,
@@ -368,6 +370,7 @@ export function decide(p: AgentProposal, missions: Mission[] = [], opts: RunOpti
     asset: targets.length
       ? policyAsset(targets)
       : AC[cls]?.domain === 'Data' ? { contract: null, pii: null } : undefined,
+    hold: { active: targets.some((t) => holdsOn(t.id).length > 0) },
   }
 
   const result = evaluate(policy, ctx, agent.ceiling)

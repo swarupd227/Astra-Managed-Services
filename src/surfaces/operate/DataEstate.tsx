@@ -5,6 +5,7 @@ import {
   ancestors, dataSummary, descendants, impact, isBreach, type DataReading, type OwnState,
 } from '@/domain/dataEstate'
 import { TOWER_BY_ID, agentsForClass } from '@/domain/estate'
+import { holdsOn } from '@/domain/privacy'
 import { PageHeader } from '@/ui/domain'
 import { ProducedBy } from '@/ui/ProducedBy'
 import { Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
@@ -149,6 +150,11 @@ export function DataEstate() {
                 <dd className="text-ink-2">{TOWER_BY_ID[sel.tower]?.name ?? sel.tower}</dd>
                 <dt className="text-ink-3">Recovery</dt>
                 <dd><Recovery i={sel} /></dd>
+                <dt className="text-ink-3">Holds</dt>
+                <dd className="flex flex-wrap gap-1">
+                  {holdsOn(sel.id).map((h) => <Chip key={h.id} tone="warn" mono title={h.matter}>{h.id}</Chip>)}
+                  {!holdsOn(sel.id).length && <span className="text-2xs text-ink-3">—</span>}
+                </dd>
               </dl>
 
               <div className="mt-3 border-t border-line pt-3">

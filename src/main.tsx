@@ -46,6 +46,8 @@ import { Portfolio } from './surfaces/governance/Portfolio'
 import { Releases } from './surfaces/operate/Releases'
 import { Vendors } from './surfaces/operate/Vendors'
 import { DataEstate } from './surfaces/operate/DataEstate'
+import { PrivacyRequests } from './surfaces/operate/PrivacyRequests'
+import { TechDebt } from './surfaces/transform/TechDebt'
 import { WorkOrders } from './surfaces/transform/WorkOrders'
 import { Coverage } from './surfaces/atlas/Coverage'
 
@@ -108,6 +110,8 @@ const router = createHashRouter([
       { path: 'operate/releases', element: <Releases /> },
       { path: 'operate/vendors', element: <Vendors /> },
       { path: 'operate/data', element: <DataEstate /> },
+      { path: 'operate/privacy', element: <PrivacyRequests /> },
+      { path: 'transform/debt', element: <TechDebt /> },
       { path: 'transform/work-orders', element: <WorkOrders /> },
       { path: 'atlas/coverage', element: <Coverage /> },
 

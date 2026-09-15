@@ -451,7 +451,7 @@ export const POLICIES: Policy[] = [
     updatedAt: T(40), updatedBy: 'M. Okonkwo', source: 'git://kearney-astra-policy/prod/euc_standard.yaml@v6',
   },
   {
-    id: 'pol_data_contract', name: 'data_contract_gate', version: 'v5',
+    id: 'pol_data_contract', name: 'data_contract_gate', version: 'v6',
     appliesTo: { towers: ['twr_dataplat', 'twr_bi'], envs: ['prod'] },
     rules: [
       { id: 'r0a', when: 'model.whitelisted == false', maxMode: 'manual' },
@@ -466,10 +466,11 @@ export const POLICIES: Policy[] = [
       { id: 'r4', when: 'incident.major_active == true', maxMode: 'advise' },
       { id: 'r5', when: 'action.class == AC-44 and asset.contract != null', mode: 'approve_first', gate: { approverRole: 'data_owner', artefacts: ['schema_diff', 'contract_check', 'downstream_impact'], timeoutSec: 3600, escalatesTo: 'data_governance_lead' } },
       { id: 'r6', when: 'action.class == AC-58', mode: 'approve_first', gate: { approverRole: 'data_owner+second_control', artefacts: ['entitlement_diff', 'sod_check', 'classification'], timeoutSec: 1800, escalatesTo: 'security_lead' } },
+      { id: 'r7', when: 'action.class == AC-71 and hold.active == true', maxMode: 'manual' },
     ],
     budgets: { tokensUsdPerRun: 2.5, runsPerHour: 60 },
     evidence: { sealRequired: true, exportTo: ['client_grc', 'purview'] },
-    updatedAt: T(2), updatedBy: 'S. Okafor', source: 'git://kearney-astra-policy/prod/data_contract_gate.yaml@v5',
+    updatedAt: T(1), updatedBy: 'S. Okafor', source: 'git://kearney-astra-policy/prod/data_contract_gate.yaml@v6',
   },
 ]
 

@@ -135,6 +135,14 @@ export const CONFORMANCE_CASES: ConformanceCase[] = [
     expect: { mode: 'advise' },
   },
   {
+    id: 'cf_legal_hold',
+    commitment: 'Nothing under a legal or retention hold is deleted with an agent involved — not even as a proposal.',
+    clause: 'pol_data_contract r7',
+    policyId: 'pol_data_contract', agentId: 'agt_custodian',
+    ctx: base({ action: { class: 'AC-71', env: 'prod', hasCompensation: false }, blast: { tier: 1, services: 1, dependents: 2, dataMutation: true }, asset: { contract: 'dc_utilisation_gold_v2', pii: 'restricted' }, hold: { active: true } }),
+    expect: { mode: 'manual' },
+  },
+  {
     id: 'cf_unregistered_model',
     commitment: 'A model outside the approved AI-system registry cannot drive any action.',
     clause: 'Schedule O §(b) · rule r0a',

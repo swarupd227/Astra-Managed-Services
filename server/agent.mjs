@@ -332,6 +332,7 @@ An operator has stated an intent. Route it to the right agent, retrieve the cont
 - Action classes carry platform floors that no policy can loosen. AC-71 (data deletion) is irreversible and can never be agent-executed at any level. AC-37 (code fix) always requires human pull-request review. AC-58 (entitlement change) always requires a second human control.
 - A mutating step must declare a tested rollback, or it is forced through a human gate.
 - A data item without an enforced contract cannot have a backfill or schema change verified against it, so those are capped at Advise. The contract of each item is in the estate's data section.
+- A data item under a legal or retention hold (its holds list is not empty) must not be deleted; a deletion touching one is refused outright.
 - Retrieval enforces a verification floor proportional to risk: diagnosis may cite unverified assertions; a mutating plan at Supervised or Autonomous may only rely on human-verified or multiply-corroborated ones.
 
 THE ESTATE

@@ -87,6 +87,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/sla', label: 'SLA & XLA', desc: 'Attainment, jeopardy, clock audits, computed credits' },
       { to: '/operate/graph', label: 'Service Graph', desc: 'The estate as a typed graph with confidence on every edge' },
       { to: '/operate/data', label: 'Data Estate', desc: 'Sources, pipelines, datasets, models and reports — contracts, lineage, freshness and quality' },
+      { to: '/operate/privacy', label: 'Privacy Requests', desc: 'Access, erasure and retrieval requests, holds and retention — against the statutory clock' },
       { to: '/operate/releases', label: 'Releases', desc: 'Vendor and internal releases, regression gates and change freezes' },
       { to: '/operate/vendors', label: 'Vendors', desc: 'Suppliers, contracts, response commitments and held work' },
     ],
@@ -102,6 +103,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/glidepath', label: 'Glidepath & Credits', desc: 'Baseline vs. actual, banked savings, Transform Ledger' },
       { to: '/governance/innovation', label: 'Innovation Register', desc: 'Idea to verified value, with the failures left visible' },
       { to: '/transform/work-orders', label: 'Work Orders', desc: 'Separately authorised development — estimate, burn and authorisation' },
+      { to: '/transform/debt', label: 'Technical Debt', desc: 'Debt register, measured interest and the quarterly remediation recommendation' },
     ],
   },
   {

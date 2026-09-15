@@ -113,8 +113,17 @@ export interface DataItem {
   lastLandedHrsAgo?: number
   lastRun?: 'succeeded' | 'failed'
   runs30d?: { total: number; late: number; failed: number }
+  /** Days a record may be kept. Absent means no retention schedule. */
+  retentionDays?: number
+  /** Age in days of the oldest record held. */
+  oldestRecordDays?: number
+  /** Days a deleted record survives in backups. */
+  backupRetentionDays?: number
   demandClasses: string[]
 }
+
+/** Kinds that hold records, and so can hold a person's data. Pipelines move it; reports render it. */
+export const STORES: DataKind[] = ['source', 'dataset', 'semantic_model']
 
 /* --------------------------------- The seed --------------------------------- */
 
@@ -192,12 +201,14 @@ export const DATA_ITEMS: DataItem[] = [
     id: 'ds_engagement_silver', name: 'engagement_silver', kind: 'dataset', tower: 'twr_dataplat', platform: 'Cloud datamart (Azure SQL)',
     appId: 'inv_cloud_dm', owner: 'KNet Data', classification: 'confidential',
     upstream: ['pl_engagement_ingest'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 23,
+    retentionDays: 730, oldestRecordDays: 912, backupRetentionDays: 35,
     demandClasses: ['dc_job_cost'],
   },
   {
     id: 'ds_engagement_gold', name: 'engagement_gold', kind: 'dataset', tower: 'twr_dataplat', platform: 'Cloud datamart (Azure SQL)',
     appId: 'inv_cloud_dm', owner: 'KNet Data', steward: 'S. Okafor', classification: 'confidential',
     upstream: ['ds_engagement_silver'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 23,
+    retentionDays: 730, oldestRecordDays: 1104, backupRetentionDays: 35,
     contract: {
       id: 'dc_engagement_gold_v1', version: 'v1', state: 'enforced', freshnessHrs: 24,
       checks: [
@@ -211,6 +222,7 @@ export const DATA_ITEMS: DataItem[] = [
     id: 'ds_client_dim', name: 'client_dim', kind: 'dataset', tower: 'twr_dataplat', platform: 'Cloud datamart (Azure SQL)',
     appId: 'inv_cloud_dm', owner: 'KNet Data', steward: 'Market & Client Development', classification: 'confidential',
     upstream: ['pl_engagement_ingest'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 23,
+    retentionDays: 1825, oldestRecordDays: 1460, backupRetentionDays: 35,
     contract: {
       id: 'dc_client_dim_v3', version: 'v3', state: 'enforced', freshnessHrs: 24,
       checks: [{ name: 'Referential integrity to engagement_gold', bound: '100%', observed: '100%', passed: true }],
@@ -221,6 +233,7 @@ export const DATA_ITEMS: DataItem[] = [
     id: 'ds_utilisation_gold', name: 'utilisation_gold', kind: 'dataset', tower: 'twr_dataplat', platform: 'Cloud datamart (Azure SQL)',
     aliases: ['utilization_gold'], appId: 'inv_cloud_dm', owner: 'KNet Data', steward: 'S. Okafor', classification: 'restricted',
     upstream: ['pl_utilisation_load'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 50,
+    retentionDays: 1095, oldestRecordDays: 1240, backupRetentionDays: 35,
     contract: {
       id: 'dc_utilisation_gold_v2', version: 'v2', state: 'enforced', freshnessHrs: 24,
       checks: [{ name: 'Row count against trailing mean', bound: '±5%', observed: '+0.4%', passed: true }],
