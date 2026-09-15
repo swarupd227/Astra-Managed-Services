@@ -1,6 +1,7 @@
 import React from 'react'
 import type { CardKind } from '../types'
 import type { CardProps } from './frame'
+import { FiguresCard } from './figures'
 import { AgentRunCard, ApprovalsCard, BriefCard, EstateOverviewCard, SlaCard, WorkItemCard, WorkQueueCard } from './operate'
 import { CoverageCard, DataEstateCard, DataItemCard, PrivacyRequestCard, PrivacyRequestsCard, ReleasesCard, TechDebtCard } from './registers'
 
@@ -25,6 +26,7 @@ export const CARDS: Record<CardKind, React.ComponentType<CardProps>> = {
   techDebt: TechDebtCard,
   coverage: CoverageCard,
   agentRun: AgentRunCard,
+  figures: FiguresCard,
 }
 
 /** A card whose props do not match what the component expects shows nothing rather than failing the thread. */

@@ -1,4 +1,5 @@
 import { buildBrief, readLastSeen } from '@/domain/brief'
+import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
@@ -10,6 +11,7 @@ import { useAstra } from '@/domain/store'
 import { debtSummary } from '@/domain/techDebt'
 import type { WorkObject } from '@/domain/types'
 import { startRun } from './runs'
+import { REGISTER_EXECUTORS } from './toolsRegisters'
 import type { Artifact } from './types'
 
 /* ==========================================================================
@@ -48,6 +50,15 @@ function findWork(idOrRef: string): WorkObject {
   return w
 }
 
+const person = () => ROLE_BY_ID[useAstra.getState().roleId]?.person ?? 'operator'
+
+function findAgent(idOrName: string) {
+  const key = idOrName.toLowerCase()
+  const agent = Object.values(useAstra.getState().agents).find((a) => a.id.toLowerCase() === key || a.name.toLowerCase() === key)
+  if (!agent) throw new ToolError(`No agent has the id or name "${idOrName}".`)
+  return agent
+}
+
 function findData(idOrName: string) {
   const key = idOrName.toLowerCase()
   const item = DATA_ITEM_BY_ID[idOrName] ?? DATA_ITEMS.find((i) => i.name.toLowerCase() === key || (i.aliases ?? []).some((a) => a.toLowerCase() === key))
@@ -56,6 +67,8 @@ function findData(idOrName: string) {
 }
 
 export const EXECUTORS: Record<string, Executor> = {
+  ...REGISTER_EXECUTORS,
+
   get_estate_overview: () => {
     const work = Object.values(useAstra.getState().work)
     const towers = TOWERS.map((t) => {
@@ -267,6 +280,77 @@ export const EXECUTORS: Record<string, Executor> = {
     s.approve(w.id, ROLE_BY_ID[s.roleId].person, str(input.note) || undefined)
     const after = useAstra.getState().work[w.id]
     return { payload: { id: w.id, ref: w.ref, approvedBy: ROLE_BY_ID[s.roleId].person, stateNow: after?.state }, artifacts: [card('workItem', `${w.ref} · ${w.title}`, { id: w.id }, `/operate/work/${w.id}`)] }
+  },
+
+  decide_proposal: (input) => {
+    const s = useAstra.getState()
+    const p = s.proposals[str(input.id)]
+    if (!p) throw new ToolError(`No proposal has the id "${str(input.id)}".`)
+    if (p.state !== 'open') throw new ToolError(`Proposal ${p.id} is already ${p.state}.`)
+    const verdict = str(input.verdict) === 'accepted' ? 'accepted' : 'rejected'
+    s.decideProposal(p.id, verdict, person(), str(input.note) || undefined)
+    return { payload: { id: p.id, state: useAstra.getState().proposals[p.id]?.state, decidedBy: person() }, artifacts: [] }
+  },
+
+  set_brake: (input) => {
+    const on = Boolean(input.on)
+    const s = useAstra.getState()
+    s.setBrake('global', on, person())
+    const after = useAstra.getState()
+    return { payload: { globalBrake: after.suspensions.some((x) => x.scope === 'global'), by: person() }, artifacts: [] }
+  },
+
+  suspend_agent: (input) => {
+    const agent = findAgent(str(input.agent_id))
+    if (agent.state === 'suspended') throw new ToolError(`${agent.name} is already suspended.`)
+    const reason = str(input.reason)
+    if (!reason) throw new ToolError('A suspension needs a reason.')
+    useAstra.getState().suspendAgent(agent.id, person(), reason)
+    return { payload: { agent: agent.name, stateNow: useAstra.getState().agents[agent.id]?.state }, artifacts: [] }
+  },
+
+  reinstate_agent: (input) => {
+    const agent = findAgent(str(input.agent_id))
+    if (agent.state !== 'suspended') throw new ToolError(`${agent.name} is not suspended; it is ${agent.state}.`)
+    useAstra.getState().reinstateAgent(agent.id, person())
+    return { payload: { agent: agent.name, stateNow: useAstra.getState().agents[agent.id]?.state }, artifacts: [] }
+  },
+
+  declare_major_incident: (input) => {
+    const w = findWork(str(input.work_item_id))
+    const s = useAstra.getState()
+    if (s.mi.active) throw new ToolError(`A major incident is already open: ${s.mi.title}.`)
+    s.declareMi(w.id, person())
+    return { payload: { declaredOn: w.ref, majorIncidentOpen: useAstra.getState().mi.active }, artifacts: [card('workItem', `${w.ref} · ${w.title}`, { id: w.id }, '/operate/mim')] }
+  },
+
+  run_conformance: () => {
+    const run = runConformance()
+    useAstra.getState().recordConformance(run, person())
+    return {
+      payload: { held: run.held, total: run.total, failing: run.results.filter((r) => !r.holds).map((r) => ({ id: r.caseId, commitment: r.commitment, expected: r.expected, observed: r.observed })) },
+      artifacts: [],
+    }
+  },
+
+  accept_objective: (input) => {
+    const s = useAstra.getState()
+    const o = s.objectives.find((x) => x.id === str(input.id))
+    if (!o) throw new ToolError(`No objective has the id "${str(input.id)}".`)
+    if (o.state === 'accepted') throw new ToolError(`${o.id} is already accepted.`)
+    s.acceptObjective(o.id, person())
+    return { payload: { id: o.id, state: useAstra.getState().objectives.find((x) => x.id === o.id)?.state, acceptedBy: person(), gapsAccepted: o.gaps }, artifacts: [] }
+  },
+
+  verify_assertion: (input) => {
+    const s = useAstra.getState()
+    const a = s.assertions.find((x) => x.id === str(input.id))
+    if (!a) throw new ToolError(`No assertion has the id "${str(input.id)}".`)
+    if (a.verification === 'human_verified' || a.verification === 'stale') throw new ToolError(`${a.id} is ${a.verification.replace(/_/g, ' ')} and cannot be ruled on again.`)
+    const verdict = (['verify', 'correct', 'reject'].includes(str(input.verdict)) ? str(input.verdict) : 'verify') as 'verify' | 'correct' | 'reject'
+    if (verdict === 'correct' && !str(input.correction)) throw new ToolError('A correction needs the corrected claim.')
+    s.verifyAssertion(a.id, verdict, person(), str(input.correction) || undefined)
+    return { payload: { id: a.id, verificationNow: useAstra.getState().assertions.find((x) => x.id === a.id)?.verification }, artifacts: [] }
   },
 
   reject_gate: (input) => {

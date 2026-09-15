@@ -157,7 +157,10 @@ function openers(def: ThreadDef, roleId: string): string[] {
     if (has('get_work_queue')) out.push(`What is most at risk of breaching in ${id}?`)
     return out.slice(0, 4)
   }
+  if (has('get_my_workplace')) out.push('Is anything affecting the systems I use?')
   if (has('get_approvals')) out.push('What is waiting for my approval?')
+  if (has('get_objectives') && !has('get_approvals')) out.push('Which objectives are at risk?')
+  if (has('get_verification_queue') && !has('get_approvals')) out.push('What knowledge is waiting for me to verify?')
   if (has('get_sla')) out.push('Which service levels are below target?')
   if (has('get_data_estate')) out.push('What is broken in the data estate?')
   if (has('get_tech_debt')) out.push('What should we pay down next quarter?')

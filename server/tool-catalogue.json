@@ -112,6 +112,154 @@
       }
     },
     {
+      "name": "get_objectives", "agent": "agt_herald", "surfaces": ["governance", "transform"],
+      "description": "The client's stated objectives with each measure resolved to its current value, target and state (on track, at risk, not measured), whether a measure is a proxy, acceptance, and the gaps each objective declares.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_programmes", "agent": "agt_herald", "surfaces": ["governance", "transform"],
+      "description": "Programme burn-down: scope remaining when only evidenced completion counts against remaining if declarations are taken at face value, items declared but not evidenced, overdue items and the projected end.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_client_effort", "agent": "agt_herald", "surfaces": ["governance", "transform"],
+      "description": "What the client declares about its own staff effort released to strategic work, per function: released and gained FTE, the strength of each declaration, and which are stale or never re-attested. Declared, not measured.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_deflection", "agent": "agt_prospect", "surfaces": ["governance", "transform"],
+      "description": "Demand deflection against signed baselines: the attributed rate beside the total fall, unexplained volume, classes withheld for short windows and baseline basis.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_headroom", "agent": "agt_prospect", "surfaces": ["governance", "transform"],
+      "description": "Growth headroom: whether business growth has been absorbed or the test is untested, forward headroom against declared drivers, and what is actually rising by cause.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_glidepath", "agent": "agt_prospect", "surfaces": ["transform", "governance"],
+      "description": "Productivity glidepath delivered against contract, per tower, with banked and verifying hours and the transform credit position including freezes.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_demand", "agent": "agt_prospect", "surfaces": ["transform", "governance", "run"],
+      "description": "Costed demand classes from the demand ledger with annual volume, effort, trend, cause and elimination state, largest first. Optionally for one tower.",
+      "input_schema": { "type": "object", "properties": { "tower": { "type": "string" } }, "additionalProperties": false }
+    },
+    {
+      "name": "get_proposals", "agent": "agt_prospect", "surfaces": ["governance", "transform", "run"],
+      "description": "Open proposals the workforce raised: the claim, the authoring agent, the decision requested and when it expires.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_vendors", "agent": "agt_diagnost", "surfaces": ["run", "governance"],
+      "description": "Suppliers with contract, support tier, contracted response, applications supplied, work held on them and renewal dates.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_work_orders", "agent": "agt_forge", "surfaces": ["transform", "run"],
+      "description": "Separately authorised development orders against applications and data items: state, authorisation, estimate, burn and flags such as unauthorised delivery or overrun.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_portfolio", "agent": "agt_archivist", "surfaces": ["governance", "run"],
+      "description": "The application portfolio reconciled against the client's own record: count under support (a floor), agreement share, incidents in dispute, configuration drift and ungoverned embedded AI.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_agents", "agent": "astra", "surfaces": ["platform", "run", "governance"],
+      "description": "The agent fleet, the platform's and the client's: state, autonomy ceiling, towers, live success, drift alarms, cost and incidents.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_autonomy", "agent": "astra", "surfaces": ["governance", "platform"],
+      "description": "Autonomy posture by tower and action class where the current level is below target, with the blocker. Optionally for one tower.",
+      "input_schema": { "type": "object", "properties": { "tower": { "type": "string" } }, "additionalProperties": false }
+    },
+    {
+      "name": "get_ai_incidents", "agent": "agt_herald", "surfaces": ["governance", "platform"],
+      "description": "AI incidents — fabrication, injection, oversight and cohort findings — with severity, state and the notification and root-cause clocks.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_missions", "agent": "astra", "surfaces": ["run", "platform", "governance"],
+      "description": "Standing missions: goal, tower, workforce, state and budget used.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "search_evidence", "agent": "agt_herald", "surfaces": ["governance", "run"],
+      "description": "Search the sealed evidence chain by record id, work item, agent, action class, actor or words in the summary. Returns the latest matches.",
+      "input_schema": { "type": "object", "properties": { "query": { "type": "string" } }, "additionalProperties": false }
+    },
+    {
+      "name": "get_my_workplace", "agent": "agt_concierge", "surfaces": ["workplace"],
+      "description": "For the service consumer: open issues affecting the systems they use, the self-service routes genuinely available for what they raise, and how the service is running for their cohort.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "get_verification_queue", "agent": "agt_archivist", "surfaces": ["transition", "governance"],
+      "description": "Knowledge assertions not yet human-verified: the claim, tower, tier, confidence and verification state.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "decide_proposal", "agent": "agt_prospect", "surfaces": ["governance", "transform"], "mutating": true, "approval": true,
+      "description": "Accept or reject an open proposal the workforce raised, with a note. Recorded under the user's name.",
+      "describe": "Mark proposal {id} {verdict}: {note}",
+      "input_schema": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "verdict": { "type": "string", "enum": ["accepted", "rejected"] }, "note": { "type": "string" } },
+        "required": ["id", "verdict", "note"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_brake", "agent": "astra", "surfaces": ["run", "governance", "platform"], "mutating": true, "approval": true,
+      "description": "Apply or release the global autonomy brake. Applied, every agent drops to Advise platform-wide and work continues through humans.",
+      "describe": "Set the global autonomy brake: {on}.",
+      "input_schema": { "type": "object", "properties": { "on": { "type": "boolean" } }, "required": ["on"], "additionalProperties": false }
+    },
+    {
+      "name": "suspend_agent", "agent": "astra", "surfaces": ["platform", "run", "governance"], "mutating": true, "approval": true,
+      "description": "Suspend one agent, with the reason. A suspended agent takes no work until reinstated.",
+      "describe": "Suspend {agent_id}: {reason}",
+      "input_schema": { "type": "object", "properties": { "agent_id": { "type": "string" }, "reason": { "type": "string" } }, "required": ["agent_id", "reason"], "additionalProperties": false }
+    },
+    {
+      "name": "reinstate_agent", "agent": "astra", "surfaces": ["platform", "run", "governance"], "mutating": true, "approval": true,
+      "description": "Reinstate a suspended agent.",
+      "describe": "Reinstate {agent_id}.",
+      "input_schema": { "type": "object", "properties": { "agent_id": { "type": "string" } }, "required": ["agent_id"], "additionalProperties": false }
+    },
+    {
+      "name": "declare_major_incident", "agent": "astra", "surfaces": ["run"], "mutating": true, "approval": true,
+      "description": "Declare a major incident on a work item. Autonomy caps to Advise platform-wide while it is open, and an incident conversation opens.",
+      "describe": "Declare a major incident on {work_item_id}.",
+      "input_schema": { "type": "object", "properties": { "work_item_id": { "type": "string" } }, "required": ["work_item_id"], "additionalProperties": false }
+    },
+    {
+      "name": "run_conformance", "agent": "agt_herald", "surfaces": ["governance", "platform"], "mutating": true,
+      "description": "Run the contract-conformance set against the deployed policy engine and record the result: each commitment, expected and observed decision, and whether it holds.",
+      "describe": "Run the conformance set and record the result under your name.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "accept_objective", "agent": "agt_herald", "surfaces": ["governance"], "mutating": true, "approval": true,
+      "description": "Accept an objective with its measures and declared gaps, sealing it under the user's name. Only a client-side role should accept.",
+      "describe": "Accept objective {id} with its measures and gaps.",
+      "input_schema": { "type": "object", "properties": { "id": { "type": "string" } }, "required": ["id"], "additionalProperties": false }
+    },
+    {
+      "name": "verify_assertion", "agent": "agt_archivist", "surfaces": ["transition"], "mutating": true,
+      "description": "Verify, correct or reject a knowledge assertion. A correction states the right claim.",
+      "describe": "Mark assertion {id} {verdict}.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "id": { "type": "string" }, "verdict": { "type": "string", "enum": ["verify", "correct", "reject"] }, "correction": { "type": "string" } },
+        "required": ["id", "verdict"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "run_agent", "agent": "astra", "surfaces": ["run", "transition", "platform"], "mutating": true,
       "description": "Hand an operational intent to the agent runtime: an agent is routed, retrieves context, reasons, and if the estate must change proposes a plan that the Autonomy Policy Engine decides — advise, a human gate, supervised or autonomous. Use for diagnosing a live problem in depth or remediating one. The run narrates itself and returns its finding, mode and outcome.",
       "describe": "Hand “{intent}” to the agent runtime. If it proposes a change, the policy engine decides whether it runs.",

@@ -36,7 +36,10 @@ export const agentName = (id: string) => (id === 'astra' ? 'Astra' : AGENT_BY_ID
 
 /** The confirmation sentence, with the call's input substituted in. */
 export function describeCall(tool: ToolSpec, input: Record<string, unknown>): string {
-  return (tool.describe ?? tool.name).replace(/\{(\w+)\}/g, (_, k) => String(input[k] ?? '—'))
+  return (tool.describe ?? tool.name).replace(/\{(\w+)\}/g, (_, k) => {
+    const v = input[k]
+    return typeof v === 'boolean' ? (v ? 'on' : 'off') : String(v ?? '—')
+  })
 }
 
 /** What the working row says while a tool runs. */
@@ -53,7 +56,33 @@ export const TOOL_VERB: Record<string, string> = {
   get_releases: 'reading the release calendar',
   get_tech_debt: 'costing the debt register',
   get_coverage: 'deriving coverage from charters',
+  get_objectives: 'resolving the objective measures',
+  get_programmes: 'reading the programme burn-down',
+  get_client_effort: 'reading the client declarations',
+  get_deflection: 'reading deflection against baseline',
+  get_headroom: 'testing growth headroom',
+  get_glidepath: 'reading the glidepath ledger',
+  get_demand: 'reading the demand ledger',
+  get_proposals: 'reading open proposals',
+  get_vendors: 'reading vendor positions',
+  get_work_orders: 'reading work orders',
+  get_portfolio: 'reconciling the portfolio',
+  get_agents: 'reading the fleet',
+  get_autonomy: 'reading autonomy posture',
+  get_ai_incidents: 'reading AI incidents',
+  get_missions: 'reading missions',
+  search_evidence: 'searching the evidence chain',
+  get_my_workplace: 'checking what affects you',
+  get_verification_queue: 'reading the verification queue',
   run_agent: 'running the intent',
   approve_gate: 'sealing the approval',
+  decide_proposal: 'recording the decision',
+  set_brake: 'setting the autonomy brake',
+  suspend_agent: 'suspending the agent',
+  reinstate_agent: 'reinstating the agent',
+  declare_major_incident: 'declaring the major incident',
+  run_conformance: 'running the conformance set',
+  accept_objective: 'sealing the acceptance',
+  verify_assertion: 'recording the verification',
   reject_gate: 'recording the rejection',
 }
