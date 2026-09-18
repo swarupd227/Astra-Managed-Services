@@ -87,6 +87,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/sla', label: 'SLA & XLA', desc: 'Attainment, jeopardy, clock audits, computed credits' },
       { to: '/operate/graph', label: 'Service Graph', desc: 'The estate as a typed graph with confidence on every edge' },
       { to: '/operate/data', label: 'Data Estate', desc: 'Sources, pipelines, datasets, models and reports — contracts, lineage, freshness and quality' },
+      { to: '/operate/data-reliability', label: 'Data Reliability', desc: 'Data service availability and error budgets, tonight’s runs against their windows, capacity, and who recovered each failure' },
       { to: '/operate/privacy', label: 'Privacy Requests', desc: 'Access, erasure and retrieval requests, holds and retention — against the statutory clock' },
       { to: '/operate/releases', label: 'Releases', desc: 'Vendor and internal releases, regression gates and change freezes' },
       { to: '/operate/vendors', label: 'Vendors', desc: 'Suppliers, contracts, response commitments and held work' },

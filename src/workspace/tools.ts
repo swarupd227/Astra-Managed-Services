@@ -2,6 +2,7 @@ import { buildBrief, readLastSeen } from '@/domain/brief'
 import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
+import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
 import { holdsOn, privacySummary, readRequest, REQUESTS } from '@/domain/privacy'
@@ -180,11 +181,56 @@ export const EXECUTORS: Record<string, Executor> = {
         id: i.id, name: i.name, kind: i.kind, platform: i.platform, owner: i.owner, steward: i.steward ?? null, classification: i.classification ?? 'unclassified',
         ownState: reading.own, inherited: reading.inherited ? { state: reading.inherited.state, via: reading.inherited.via.id } : null,
         contract: i.contract ? { id: i.contract.id, state: i.contract.state, freshnessHrs: i.contract.freshnessHrs ?? null, checks: i.contract.checks } : null,
-        landedHrsAgo: i.lastLandedHrsAgo ?? null, runs30d: i.runs30d ?? null, lineage: i.lineage, telemetry: i.telemetry,
+        landedHrsAgo: i.lastLandedHrsAgo ?? null, runs30d: reading.level.runs, lineage: i.lineage, telemetry: i.telemetry,
         upstream: ancestors(i.id).map((a) => a.id), feeds: descendants(i.id).map((d) => d.id),
         holds: holdsOn(i.id).map((h) => h.id), recovery: DATA_LIFECYCLE[i.kind].recovery,
       },
       artifacts: [card('dataItem', i.name, { id: i.id }, '/operate/data')],
+    }
+  },
+
+  get_data_reliability: (input) => {
+    const focus = (str(input.focus) || 'services') as 'services' | 'tonight' | 'failures'
+    const want = str(input.service).toLowerCase()
+    const s = reliabilitySummary()
+    const service = want ? s.services.find((x) => x.service.id === want || x.service.name.toLowerCase() === want) : undefined
+    if (want && !service) throw new ToolError(`No data service is called "${input.service}". Known: ${s.services.map((x) => x.service.id).join(', ')}.`)
+    const readService = (x: ServiceReading) => ({
+      id: x.service.id, name: x.service.name, tier: x.service.tier, declaredBy: x.service.declaredBy, due: `${x.service.due} ${x.service.tz}`,
+      target: x.service.target, availabilityPct: x.availabilityPct === null ? null : Math.round(x.availabilityPct * 100) / 100,
+      measured: x.measured, unplannedMins: x.unplannedMins, plannedMins: x.plannedMins, degradedMins: x.degradedMins,
+      budget: x.budget, openOutage: x.open ? { since: x.open.since, cause: x.open.cause?.id ?? null } : null,
+      noTelemetryUpstream: x.unobserved.map((i) => i.id), slaId: x.service.slaId ?? null,
+    })
+    const totals = {
+      servicesMeasured: s.measured, servicesOnTarget: s.meetingTarget, servicesNotMeasured: s.services.length - s.measured,
+      openOutages: s.openOutages, runs: s.totalRuns, runsOnTime: s.onTime, failuresByRecovery: s.byPath,
+      recoveredWithoutAPersonPct: s.withoutPersonPct === null ? null : Math.round(s.withoutPersonPct),
+      medianRestartMins: s.medianRestartMins, medianMinsToLanding: s.medianRecoverMins, atRiskTonight: s.atRisk, lengthening: s.lengthening,
+    }
+    const payload =
+      service ? { totals, service: { ...readService(service), outages: service.outages.map((o) => ({ ...o, cause: o.cause?.id ?? null })) } }
+      : focus === 'tonight' ? {
+        totals,
+        runs: s.runs.map((r) => ({
+          id: r.item.id, name: r.item.name, platform: r.item.platform, window: `${r.schedule.start}–${r.schedule.due} ${r.schedule.tz}`,
+          state: r.tonight.state, risk: r.tonight.risk, projectedAt: r.tonight.projectedAt, marginMins: r.tonight.marginMins,
+          blockedBy: r.tonight.blockedBy?.id ?? null, fittedMins: r.duration.fittedMins, slopeMinsPerNight: r.duration.slopePerDay,
+          daysToMiss: r.duration.daysToMiss, capacity: r.capacity.map((c) => ({ id: c.id, metric: `${c.platform} ${c.metric}`, peakPct: c.peakPct, thresholdPct: c.thresholdPct, window: c.window })),
+        })),
+      }
+      : focus === 'failures' ? {
+        totals,
+        failures: s.failures.map((f) => ({
+          item: f.item.id, scheduledAt: f.run.scheduledAt, error: f.error, recovery: f.path, recoveredBy: f.recoveredBy,
+          restartMins: f.restartMins, minsToLanding: f.recoverMins, inWindow: f.onTime,
+        })),
+      }
+      : { totals, services: s.services.map(readService) }
+    const title = service ? service.service.name : focus === 'tonight' ? 'Tonight’s runs' : focus === 'failures' ? 'Data failures · 30 days' : 'Data services'
+    return {
+      payload,
+      artifacts: [card('dataReliability', title, service ? { service: service.service.id } : { focus }, '/operate/data-reliability')],
     }
   },
 

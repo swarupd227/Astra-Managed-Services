@@ -5,6 +5,7 @@ import { FiguresCard } from './figures'
 import { AgentRunCard, ApprovalsCard, BriefCard, EstateOverviewCard, SlaCard, WorkItemCard, WorkQueueCard } from './operate'
 import { coverageView } from './coverage'
 import { dataEstateView, dataItemView } from './dataEstate'
+import { dataReliabilityView } from './dataReliability'
 import { privacyRequestView, privacyRequestsView } from './privacy'
 import { releasesView } from './releases'
 import { techDebtView } from './techDebt'
@@ -26,6 +27,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   sla: { Body: SlaCard },
   dataEstate: dataEstateView,
   dataItem: dataItemView,
+  dataReliability: dataReliabilityView,
   privacyRequests: privacyRequestsView,
   privacyRequest: privacyRequestView,
   releases: releasesView,

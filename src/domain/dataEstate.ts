@@ -23,6 +23,9 @@
    engine treats only an enforced contract as something to verify against.
    ========================================================================== */
 
+import { completedRuns, isOnTime } from './dataRuns'
+import { NOW } from './workSeed'
+
 export type DataKind = 'source' | 'pipeline' | 'dataset' | 'semantic_model' | 'report'
 
 export const DATA_KINDS: DataKind[] = ['source', 'pipeline', 'dataset', 'semantic_model', 'report']
@@ -70,6 +73,11 @@ export interface ContractCheck {
   bound: string
   observed: string
   passed: boolean
+  /**
+   * When a failing check on the data itself began. Timeliness checks carry
+   * none: whether data landed on time is read from the run history.
+   */
+  failingSince?: string
 }
 
 export interface DataContract {
@@ -109,10 +117,10 @@ export interface DataItem {
   /** People who read it, where known. */
   consumers?: number
   contract?: DataContract
-  /** Hours since data last landed. Absent without telemetry. */
+  /** Hours since data last landed. Absent without telemetry; read from the run history for scheduled items. */
   lastLandedHrsAgo?: number
+  /** The last finished run. Read from the run history for scheduled items. */
   lastRun?: 'succeeded' | 'failed'
-  runs30d?: { total: number; late: number; failed: number }
   /** Days a record may be kept. Absent means no retention schedule. */
   retentionDays?: number
   /** Age in days of the oldest record held. */
@@ -136,7 +144,7 @@ export const DATA_ITEMS: DataItem[] = [
     contract: {
       id: 'dc_hcm_feed_v1', version: 'v1', state: 'declared', freshnessHrs: 24,
       checks: [
-        { name: 'Schema matches contract', bound: 'v14', observed: 'v15 · hours_minor widened', passed: false },
+        { name: 'Schema matches contract', bound: 'v14', observed: 'v15 · hours_minor widened', passed: false, failingSince: '2027-02-17T09:14:00.000Z' },
         { name: 'Row count against trailing mean', bound: '±5%', observed: '+0.8%', passed: true },
       ],
     },
@@ -172,7 +180,6 @@ export const DATA_ITEMS: DataItem[] = [
     aliases: ['adf_engagement_ingest', 'nightly datamart refresh', 'ADF nightly load'], nodeId: 'pipe_datamart', appId: 'inv_adf',
     owner: 'KNet Data', steward: 'S. Okafor', classification: 'restricted',
     upstream: ['src_customer_feed', 'src_focus_extract'], lineage: 'mapped', telemetry: true,
-    lastLandedHrsAgo: 23, lastRun: 'succeeded', runs30d: { total: 30, late: 1, failed: 0 },
     contract: {
       id: 'dc_datamart_v2', version: 'v2', state: 'enforced', freshnessHrs: 24,
       checks: [{ name: 'Delivered by 05:00 CST', bound: '05:00', observed: '04:42', passed: true }],
@@ -183,7 +190,6 @@ export const DATA_ITEMS: DataItem[] = [
     id: 'pl_utilisation_load', name: 'Utilisation load', kind: 'pipeline', tower: 'twr_dataplat', platform: 'Azure Data Factory',
     aliases: ['utilization load'], appId: 'inv_adf', owner: 'KNet Data', steward: 'S. Okafor', classification: 'restricted',
     upstream: ['src_hcm_feed', 'src_focus_extract'], lineage: 'mapped', telemetry: true,
-    lastLandedHrsAgo: 50, lastRun: 'failed', runs30d: { total: 30, late: 2, failed: 3 },
     contract: {
       id: 'dc_utilisation_load_v1', version: 'v1', state: 'enforced', freshnessHrs: 24,
       checks: [{ name: 'Delivered by 05:30 CST', bound: '05:30', observed: 'not delivered', passed: false }],
@@ -212,7 +218,7 @@ export const DATA_ITEMS: DataItem[] = [
     contract: {
       id: 'dc_engagement_gold_v1', version: 'v1', state: 'enforced', freshnessHrs: 24,
       checks: [
-        { name: 'Null ratio · engagement_code', bound: '≤ 0.5%', observed: '4.1%', passed: false },
+        { name: 'Null ratio · engagement_code', bound: '≤ 0.5%', observed: '4.1%', passed: false, failingSince: '2027-02-14T12:00:00.000Z' },
         { name: 'Row count against trailing mean', bound: '±5%', observed: '−1.2%', passed: true },
       ],
     },
@@ -232,7 +238,7 @@ export const DATA_ITEMS: DataItem[] = [
   {
     id: 'ds_utilisation_gold', name: 'utilisation_gold', kind: 'dataset', tower: 'twr_dataplat', platform: 'Cloud datamart (Azure SQL)',
     aliases: ['utilization_gold'], appId: 'inv_cloud_dm', owner: 'KNet Data', steward: 'S. Okafor', classification: 'restricted',
-    upstream: ['pl_utilisation_load'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 50,
+    upstream: ['pl_utilisation_load'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 48,
     retentionDays: 1095, oldestRecordDays: 1240, backupRetentionDays: 35,
     contract: {
       id: 'dc_utilisation_gold_v2', version: 'v2', state: 'enforced', freshnessHrs: 24,
@@ -252,11 +258,10 @@ export const DATA_ITEMS: DataItem[] = [
     id: 'sm_research', name: 'Research & Analytics model', kind: 'semantic_model', tower: 'twr_bi', platform: 'Power BI',
     aliases: ['sem_model_research', 'Research & Analytics semantic model'], appId: 'inv_powerbi', owner: 'KNet Data', steward: 'S. Okafor', classification: 'confidential',
     upstream: ['ds_engagement_gold', 'ds_client_dim', 'ds_oracle_dm'], lineage: 'mapped', telemetry: true,
-    lastLandedHrsAgo: 21, lastRun: 'succeeded', runs30d: { total: 30, late: 2, failed: 1 },
     contract: {
       id: 'dc_sm_research_v4', version: 'v4', state: 'enforced', freshnessHrs: 24,
       checks: [
-        { name: 'One definition per measure', bound: '1', observed: '2 · net revenue', passed: false },
+        { name: 'One definition per measure', bound: '1', observed: '2 · net revenue', passed: false, failingSince: '2027-02-16T13:00:00.000Z' },
         { name: 'Refreshed by 07:00 CST', bound: '07:00', observed: '06:31', passed: true },
       ],
     },
@@ -266,7 +271,6 @@ export const DATA_ITEMS: DataItem[] = [
     id: 'sm_utilisation', name: 'Utilisation model', kind: 'semantic_model', tower: 'twr_bi', platform: 'Power BI',
     appId: 'inv_powerbi', owner: 'KNet Data', classification: 'restricted',
     upstream: ['ds_utilisation_gold'], lineage: 'mapped', telemetry: true,
-    lastLandedHrsAgo: 21, lastRun: 'succeeded', runs30d: { total: 30, late: 0, failed: 0 },
     demandClasses: ['dc_bi_refresh'],
   },
 
@@ -296,6 +300,17 @@ export const DATA_ITEMS: DataItem[] = [
     demandClasses: ['dc_shadow_app'],
   },
 ]
+
+// A scheduled item's last run and last landing come from its run history, so
+// the register and the reliability readings cannot disagree about them.
+for (const i of DATA_ITEMS) {
+  const done = completedRuns(i.id)
+  const last = done[done.length - 1]
+  if (!last) continue
+  i.lastRun = last.path === 'open' ? 'failed' : 'succeeded'
+  const landed = [...done].reverse().find((r) => r.landedAt)?.landedAt
+  if (landed) i.lastLandedHrsAgo = Math.round((NOW.getTime() - Date.parse(landed)) / 3_600_000)
+}
 
 export const DATA_ITEM_BY_ID = Object.fromEntries(DATA_ITEMS.map((i) => [i.id, i])) as Record<string, DataItem>
 
@@ -394,16 +409,17 @@ export function impact(id: string): Impact {
 export interface ServiceLevel {
   freshness: { targetHrs: number; landedHrsAgo: number | null } | null
   checks: { passed: number; total: number } | null
-  /** The last thirty runs, and how many of them landed on time. */
+  /** The last thirty finished runs, and how many landed by their due time, retries included. */
   runs: { onTime: number; total: number } | null
 }
 
 export function serviceLevel(i: DataItem): ServiceLevel {
   const c = i.contract
+  const done = completedRuns(i.id)
   return {
     freshness: c?.freshnessHrs !== undefined ? { targetHrs: c.freshnessHrs, landedHrsAgo: i.lastLandedHrsAgo ?? null } : null,
     checks: c && c.checks.length ? { passed: c.checks.filter((k) => k.passed).length, total: c.checks.length } : null,
-    runs: i.runs30d?.total ? { onTime: i.runs30d.total - i.runs30d.late - i.runs30d.failed, total: i.runs30d.total } : null,
+    runs: done.length ? { onTime: done.filter(isOnTime).length, total: done.length } : null,
   }
 }
 

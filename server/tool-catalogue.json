@@ -83,6 +83,18 @@
       }
     },
     {
+      "name": "get_data_reliability", "agent": "agt_custodian", "surfaces": ["run", "governance"],
+      "description": "Reliability of the data services over the last 30 days. services: each declared data service's tier, availability against its target, unplanned, planned and degraded minutes, error budget, any outage open now and the items upstream with no telemetry. tonight: each scheduled run's projected landing against its window from its duration trend, its margin, whether it is lengthening and how many days until it misses, whether an open failure blocks it, and capacity pressure on its platform. failures: every failed run, the error, how it was recovered (platform retry, agent, person, code change, or still open), by whom, minutes to restart and to landing, and whether it landed within its window. A run recovered within its window counts as on time.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "focus": { "type": "string", "enum": ["services", "tonight", "failures"], "description": "Default services" },
+          "service": { "type": "string", "description": "A data service id (e.g. dsv_utilisation) or name, to read one service and its outages" }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_privacy_requests", "agent": "agt_archivist", "surfaces": ["run", "governance"],
       "description": "Access, erasure and retrieval requests against the statutory clock, with search gaps, process breaches, holds and retention. Give an id for one request's store-by-store search and actions.",
       "input_schema": {
