@@ -7,7 +7,7 @@ import { ROLE_BY_ID } from '@/domain/reference'
 import { useAstra } from '@/domain/store'
 import { Button, Chip, Dot } from '@/ui/primitives'
 import { cn } from '@/lib/format'
-import { CARDS, CardBoundary } from './cards'
+import { ArtifactBody } from './cards/view'
 import { TOOL_BY_NAME, agentName, roleHolds } from './catalogue'
 import { useWorkspace } from './store'
 import { threadDefs, type ThreadDef } from './threads'
@@ -54,7 +54,6 @@ function Speaker({ id }: { id: string }) {
 }
 
 function ArtifactCard({ artifact, threadId, active, compact }: { artifact: Artifact; threadId: string; active: boolean; compact?: boolean }) {
-  const Card = CARDS[artifact.kind]
   const openPane = useWorkspace((s) => s.openPane)
   return (
     <div className={cn('overflow-hidden rounded-md border bg-surface shadow-e1', active ? 'border-brand/60' : 'border-line')}>
@@ -72,7 +71,7 @@ function ArtifactCard({ artifact, threadId, active, compact }: { artifact: Artif
         )}
       </div>
       <div className="max-h-[360px] overflow-y-auto px-3 py-2.5">
-        <CardBoundary>{Card ? <Card props={artifact.props} size="card" /> : null}</CardBoundary>
+        <ArtifactBody kind={artifact.kind} props={artifact.props} size="card" />
       </div>
     </div>
   )
@@ -216,7 +215,6 @@ function Opening({ def, onSuggest }: { def: ThreadDef; onSuggest: (s: string) =>
 }
 
 function Pane({ artifact, threadId }: { artifact: Artifact; threadId: string }) {
-  const Card = CARDS[artifact.kind]
   const openPane = useWorkspace((s) => s.openPane)
   return (
     <aside className="hidden min-h-0 w-[480px] shrink-0 flex-col border-l border-line bg-surface xl:flex">
@@ -230,7 +228,7 @@ function Pane({ artifact, threadId }: { artifact: Artifact; threadId: string }) 
         <button onClick={() => openPane(threadId, null)} className="text-ink-3 hover:text-ink" aria-label="Close"><X size={13} /></button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <CardBoundary>{Card ? <Card props={artifact.props} size="pane" /> : null}</CardBoundary>
+        <ArtifactBody kind={artifact.kind} props={artifact.props} size="pane" />
       </div>
     </aside>
   )

@@ -1,32 +1,38 @@
 import React from 'react'
 import type { CardKind } from '../types'
-import type { CardProps } from './frame'
+import type { ArtifactView } from './frame'
 import { FiguresCard } from './figures'
 import { AgentRunCard, ApprovalsCard, BriefCard, EstateOverviewCard, SlaCard, WorkItemCard, WorkQueueCard } from './operate'
-import { CoverageCard, DataEstateCard, DataItemCard, PrivacyRequestCard, PrivacyRequestsCard, ReleasesCard, TechDebtCard } from './registers'
+import { coverageView } from './coverage'
+import { dataEstateView, dataItemView } from './dataEstate'
+import { privacyRequestView, privacyRequestsView } from './privacy'
+import { releasesView } from './releases'
+import { techDebtView } from './techDebt'
 
 /* ==========================================================================
-   The card registry. A card renders from its kind and props; the same
-   component draws the compact card in a message and the full view in the
-   side pane, so the two can never disagree about a figure.
+   The card registry. A result is drawn by one component at three sizes —
+   the card in a message, the pane beside the thread, and the page it links
+   to — so none of the three can disagree about a figure. A view that also
+   has a page carries the page's heading, workers and conversation in
+   `page`; `ArtifactPage` renders it around the same component.
    ========================================================================== */
 
-export const CARDS: Record<CardKind, React.ComponentType<CardProps>> = {
-  estateOverview: EstateOverviewCard,
-  brief: BriefCard,
-  workQueue: WorkQueueCard,
-  workItem: WorkItemCard,
-  approvals: ApprovalsCard,
-  sla: SlaCard,
-  dataEstate: DataEstateCard,
-  dataItem: DataItemCard,
-  privacyRequests: PrivacyRequestsCard,
-  privacyRequest: PrivacyRequestCard,
-  releases: ReleasesCard,
-  techDebt: TechDebtCard,
-  coverage: CoverageCard,
-  agentRun: AgentRunCard,
-  figures: FiguresCard,
+export const CARDS: Record<CardKind, ArtifactView> = {
+  estateOverview: { Body: EstateOverviewCard },
+  brief: { Body: BriefCard },
+  workQueue: { Body: WorkQueueCard },
+  workItem: { Body: WorkItemCard },
+  approvals: { Body: ApprovalsCard },
+  sla: { Body: SlaCard },
+  dataEstate: dataEstateView,
+  dataItem: dataItemView,
+  privacyRequests: privacyRequestsView,
+  privacyRequest: privacyRequestView,
+  releases: releasesView,
+  techDebt: techDebtView,
+  coverage: coverageView,
+  agentRun: { Body: AgentRunCard },
+  figures: { Body: FiguresCard },
 }
 
 /** A card whose props do not match what the component expects shows nothing rather than failing the thread. */
