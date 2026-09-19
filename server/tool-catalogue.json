@@ -65,7 +65,7 @@
     },
     {
       "name": "get_data_estate", "agent": "agt_custodian", "surfaces": ["run", "governance"],
-      "description": "The data estate register: sources, pipelines, datasets, semantic models and reports, with each item's own state against its contract, what reaches it from upstream, contract enforcement, classification, stewardship and lineage gaps. Breaches carry the reports they make wrong and the recovery path.",
+      "description": "The data estate register: sources, feeds, pipelines, self-service workflows, datasets, semantic models, reports, operational applications and external recipients, with each item's own state against its contract, what reaches it from upstream, contract enforcement, classification, stewardship and lineage gaps. Breaches carry every consumer they make wrong (reports, applications, and external parties with the categories of personal data they receive) and the recovery path.",
       "input_schema": {
         "type": "object",
         "properties": { "filter": { "type": "string", "enum": ["breaches", "unobserved", "uncontracted", "all"], "description": "Default breaches" } },
@@ -74,7 +74,7 @@
     },
     {
       "name": "get_data_item", "agent": "agt_custodian", "surfaces": ["run", "governance"],
-      "description": "One data item by id or name: contract and its checks, freshness, runs, classification, steward, holds, lineage upstream and everything it feeds.",
+      "description": "One data item by id or name: contract and its checks, freshness, runs, classification, steward, holds, lineage upstream and everything it feeds. External recipients carry the receiving party, the categories they receive and how often.",
       "input_schema": {
         "type": "object",
         "properties": { "id": { "type": "string", "description": "Data item id (e.g. ds_engagement_gold) or its name" } },
@@ -96,7 +96,7 @@
     },
     {
       "name": "get_privacy_requests", "agent": "agt_archivist", "surfaces": ["run", "governance"],
-      "description": "Access, erasure and retrieval requests against the statutory clock, with search gaps, process breaches, holds and retention. Give an id for one request's store-by-store search and actions.",
+      "description": "Access, erasure and retrieval requests against the statutory clock, with search gaps, process breaches, holds and retention. Give an id for one request's store-by-store search and actions, and the external recipients sent the person's records, with whether each has been told of an erasure.",
       "input_schema": {
         "type": "object",
         "properties": { "id": { "type": "string", "description": "Request id, e.g. PR-0226" } },

@@ -17,6 +17,14 @@ const DATA_CHANGE: Record<DataKind, Lifecycle> = {
   dataset: { codeReleasedBy: 'us', canRollBackCode: false, compensable: true, vendorRole: 'none', configScope: 'schema' },
   semantic_model: { codeReleasedBy: 'us', canRollBackCode: true, vendorRole: 'none', configScope: 'model definition' },
   report: { codeReleasedBy: 'us', canRollBackCode: true, vendorRole: 'none', configScope: 'report definition' },
+  // A transfer is our code, but what was sent cannot be recalled, only sent again.
+  feed: { codeReleasedBy: 'us', canRollBackCode: true, compensable: true, vendorRole: 'none', configScope: 'interface contract' },
+  // Built by the business on a platform we run: the logic is theirs, the platform ours.
+  workflow: { codeReleasedBy: 'both', canRollBackCode: false, vendorRole: 'none', configScope: 'codebase' },
+  // Changed through application management, which governs its own releases.
+  application: { codeReleasedBy: 'both', canRollBackCode: false, vendorRole: 'secondary', configScope: 'instance' },
+  // Outside the estate: only the recipient changes how it receives.
+  recipient: { codeReleasedBy: 'vendor', canRollBackCode: false, vendorRole: 'primary', configScope: 'interface contract' },
 }
 
 export interface SupportedItem {

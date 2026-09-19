@@ -1,7 +1,7 @@
 /* ==========================================================================
-   Data estate — the sources, pipelines, datasets, semantic models and
-   reports under support, the contract each is held to, and the lineage
-   between them.
+   Data estate — the sources, feeds, pipelines, workflows, datasets,
+   semantic models, reports, applications and external recipients under
+   support, the contract each is held to, and the lineage between them.
 
    The kind of an item decides how a bad state is put right, and that is the
    part that carries to any client. A source belongs to the system that emits
@@ -21,21 +21,37 @@
    A contract is enforced when a breach stops publication, and declared when
    it is written and monitored but the data moves regardless. The policy
    engine treats only an enforced contract as something to verify against.
+
+   The estate does not end at a report. Operational applications read from
+   it and write back into it, so an application can sit both upstream and
+   downstream of the same dataset and lineage has to tolerate the loop.
+   Feeds carry data between systems and out to other organisations;
+   self-service workflows are built and owned by the business on a platform
+   the service runs; and an external recipient is a party outside the
+   estate that holds a copy. Each kind declares whether it holds records,
+   whether the platform should expect a signal from it, and how it is put
+   right, so a new kind needs a row in DATA_LIFECYCLE, not new logic.
    ========================================================================== */
 
 import { completedRuns, isOnTime } from './dataRuns'
 import { NOW } from './workSeed'
 
-export type DataKind = 'source' | 'pipeline' | 'dataset' | 'semantic_model' | 'report'
+export type DataKind =
+  | 'source' | 'feed' | 'pipeline' | 'workflow' | 'dataset' | 'semantic_model' | 'report' | 'application' | 'recipient'
 
-export const DATA_KINDS: DataKind[] = ['source', 'pipeline', 'dataset', 'semantic_model', 'report']
+/** Left to right as data usually flows; applications sit with the consumers, though they also emit. */
+export const DATA_KINDS: DataKind[] = ['source', 'feed', 'pipeline', 'workflow', 'dataset', 'semantic_model', 'report', 'application', 'recipient']
 
 export const DATA_KIND_LABEL: Record<DataKind, string> = {
   source: 'Source',
+  feed: 'Feed',
   pipeline: 'Pipeline',
+  workflow: 'Workflow',
   dataset: 'Dataset',
   semantic_model: 'Semantic model',
   report: 'Report',
+  application: 'Application',
+  recipient: 'External recipient',
 }
 
 export interface DataLifecycle {
@@ -47,15 +63,36 @@ export interface DataLifecycle {
   change: 'reversible' | 'compensable' | 'not ours'
   /** Whether the kind is held to a contract of its own rather than inheriting its upstream's. */
   contracted: boolean
+  /** Whether it keeps records, and so can hold a person's data and must be searched for it. */
+  holdsRecords: boolean
+  /** Whether the platform should expect a signal from it. A party outside the estate sends none. */
+  observed: boolean
 }
 
 export const DATA_LIFECYCLE: Record<DataKind, DataLifecycle> = {
-  source: { recovery: 'Upstream owner', recoveryClass: null, change: 'not ours', contracted: true },
-  pipeline: { recovery: 'Redeploy and rerun', recoveryClass: 'AC-12', change: 'reversible', contracted: true },
-  dataset: { recovery: 'Backfill', recoveryClass: 'AC-49', change: 'compensable', contracted: true },
-  semantic_model: { recovery: 'Refresh', recoveryClass: 'AC-12', change: 'reversible', contracted: true },
-  report: { recovery: 'Refresh', recoveryClass: 'AC-12', change: 'reversible', contracted: false },
+  source: { recovery: 'Upstream owner', recoveryClass: null, change: 'not ours', contracted: true, holdsRecords: true, observed: true },
+  // A transfer already received cannot be recalled; sending it again can duplicate at the other end.
+  feed: { recovery: 'Replay the transfer', recoveryClass: 'AC-49', change: 'compensable', contracted: true, holdsRecords: false, observed: true },
+  pipeline: { recovery: 'Redeploy and rerun', recoveryClass: 'AC-12', change: 'reversible', contracted: true, holdsRecords: false, observed: true },
+  // Built and run by the business; the service keeps the platform up, not the logic.
+  workflow: { recovery: 'Owner reruns', recoveryClass: null, change: 'not ours', contracted: false, holdsRecords: false, observed: true },
+  dataset: { recovery: 'Backfill', recoveryClass: 'AC-49', change: 'compensable', contracted: true, holdsRecords: true, observed: true },
+  semantic_model: { recovery: 'Refresh', recoveryClass: 'AC-12', change: 'reversible', contracted: true, holdsRecords: true, observed: true },
+  report: { recovery: 'Refresh', recoveryClass: 'AC-12', change: 'reversible', contracted: false, holdsRecords: false, observed: true },
+  application: { recovery: 'Application support', recoveryClass: null, change: 'not ours', contracted: false, holdsRecords: true, observed: true },
+  recipient: { recovery: 'Notify the recipient', recoveryClass: null, change: 'not ours', contracted: false, holdsRecords: false, observed: false },
 }
+
+/** What an external recipient receives. */
+export type DataCategory = 'identity' | 'contact' | 'employment' | 'compensation' | 'bank' | 'tax' | 'health' | 'dependants' | 'immigration'
+
+export const CATEGORY_LABEL: Record<DataCategory, string> = {
+  identity: 'Identity', contact: 'Contact', employment: 'Employment', compensation: 'Compensation', bank: 'Bank details',
+  tax: 'Tax', health: 'Health', dependants: 'Dependants', immigration: 'Immigration',
+}
+
+/** Categories the law treats as special: they carry stricter conditions wherever they go. */
+export const SPECIAL_CATEGORIES: DataCategory[] = ['health']
 
 export type Classification = 'public' | 'internal' | 'confidential' | 'restricted'
 
@@ -128,12 +165,26 @@ export interface DataItem {
   /** Days a deleted record survives in backups. */
   backupRetentionDays?: number
   demandClasses: string[]
+  /** External recipients: the organisation that receives it. */
+  party?: string
+  /** External recipients: what they receive. */
+  categories?: DataCategory[]
+  /** Feeds and recipients: how often data moves. */
+  transfer?: string
+  /** When the platform first registered it. Absent: held from the start. */
+  discoveredAt?: string
 }
 
-/** Kinds that hold records, and so can hold a person's data. Pipelines move it; reports render it. */
-export const STORES: DataKind[] = ['source', 'dataset', 'semantic_model']
+/** Kinds that hold records, and so can hold a person's data. Pipelines and feeds move it; reports render it. */
+export const STORES: DataKind[] = DATA_KINDS.filter((k) => DATA_LIFECYCLE[k].holdsRecords)
+
+/** Whether an item received anything the law treats as a special category. */
+export const carriesSpecial = (i: DataItem) => (i.categories ?? []).some((c) => SPECIAL_CATEGORIES.includes(c))
 
 /* --------------------------------- The seed --------------------------------- */
+
+/** When discovery registered the items it found beyond the original register. */
+const DISCOVERED = '2027-02-15T00:00:00.000Z'
 
 export const DATA_ITEMS: DataItem[] = [
   // Sources
@@ -163,7 +214,7 @@ export const DATA_ITEMS: DataItem[] = [
   {
     id: 'src_focus_extract', name: 'FOCUS time & billing extract', kind: 'source', tower: 'twr_dataplat', platform: 'SAP HANA',
     aliases: ['FOCUS extract', 'FOCUS/SAP-HANA nightly load'], appId: 'inv_focus', owner: 'KNet Finance Systems', steward: 'Finance Operations', classification: 'restricted',
-    upstream: [], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 6,
+    upstream: ['ap_sap'], lineage: 'mapped', telemetry: true, lastLandedHrsAgo: 6,
     contract: {
       id: 'dc_focus_extract_v3', version: 'v3', state: 'enforced', freshnessHrs: 24,
       checks: [
@@ -299,6 +350,114 @@ export const DATA_ITEMS: DataItem[] = [
     upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: false,
     demandClasses: ['dc_shadow_app'],
   },
+
+  // Registered by discovery rather than held from the start. The seed follows
+  // one client's landscape; the kinds are the platform's.
+  // Applications — systems of record that read from the estate, and write back into it.
+  {
+    id: 'ap_sap', name: 'SAP S/4HANA', kind: 'application', tower: 'twr_dataplat', platform: 'SAP',
+    aliases: ['SAP'], nodeId: 'db_sap_prod', appId: 'inv_sap', owner: 'KNet Finance Systems', steward: 'Finance Operations', classification: 'restricted',
+    upstream: ['fd_datamart_sap'], lineage: 'mapped', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'ap_iem', name: 'IEM time and expenses', kind: 'application', tower: 'twr_dataplat', platform: 'KNet custom',
+    aliases: ['IEM'], appId: 'inv_iem', owner: 'KNet Applications', classification: 'restricted',
+    upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'ap_gbart', name: 'GBART', kind: 'application', tower: 'twr_dataplat', platform: 'KNet custom',
+    owner: 'KNet Applications', classification: 'confidential',
+    upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'ap_finance_reporting', name: 'Finance Reporting', kind: 'application', tower: 'twr_dataplat', platform: 'KNet custom',
+    owner: 'KNet Finance Systems', classification: 'confidential',
+    upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: false, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'ap_trackit', name: 'TrackIT', kind: 'application', tower: 'twr_dataplat', platform: 'KNet custom',
+    owner: 'KNet Applications', classification: 'internal',
+    upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'ap_anaplan', name: 'Anaplan workforce planning', kind: 'application', tower: 'twr_dataplat', platform: 'Anaplan',
+    aliases: ['Anaplan'], owner: 'FP&A', classification: 'confidential',
+    upstream: ['wf_workforce_prep'], lineage: 'partial', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+
+  // Feeds — transfers between systems, and out to other organisations.
+  {
+    id: 'fd_datamart_sap', name: 'Client master sync to SAP', kind: 'feed', tower: 'twr_dataplat', platform: 'MuleSoft',
+    appId: 'inv_mulesoft', owner: 'KNet Integration', classification: 'confidential',
+    upstream: ['ds_client_dim'], lineage: 'mapped', telemetry: true, lastRun: 'succeeded', lastLandedHrsAgo: 22, transfer: 'Daily',
+    contract: { id: 'dc_client_sync_v1', version: 'v1', state: 'declared', freshnessHrs: 24, checks: [{ name: 'Records rejected by SAP', bound: '0', observed: '0', passed: true }] },
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'fd_hcm_payroll', name: 'Payroll master data file', kind: 'feed', tower: 'twr_dataplat', platform: 'MuleSoft',
+    appId: 'inv_mulesoft', owner: 'HR Operations', classification: 'restricted',
+    upstream: ['src_hcm_feed'], lineage: 'mapped', telemetry: true, lastRun: 'succeeded', lastLandedHrsAgo: 20, transfer: 'Each pay cycle',
+    contract: { id: 'dc_payroll_file_v3', version: 'v3', state: 'declared', freshnessHrs: 24, checks: [{ name: 'Schema matches contract', bound: 'v14', observed: 'v14', passed: true }] },
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'fd_hcm_benefits', name: 'Benefits eligibility file', kind: 'feed', tower: 'twr_dataplat', platform: 'SFTP',
+    owner: 'HR Operations', classification: 'restricted',
+    upstream: ['src_hcm_feed'], lineage: 'mapped', telemetry: false, transfer: 'Daily',
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'fd_hcm_immigration', name: 'Immigration case file', kind: 'feed', tower: 'twr_dataplat', platform: 'SFTP',
+    owner: 'HR Operations', classification: 'restricted',
+    upstream: ['src_hcm_feed'], lineage: 'mapped', telemetry: false, transfer: 'Daily or as needed',
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'fd_hcm_equity', name: 'Equity participant sync', kind: 'feed', tower: 'twr_dataplat', platform: 'Workato',
+    owner: 'HR Operations', classification: 'restricted',
+    upstream: ['src_hcm_feed'], lineage: 'mapped', telemetry: true, lastRun: 'failed', lastLandedHrsAgo: 31, transfer: 'Monthly',
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+
+  // Workflows — built and owned by the business on a platform the service runs.
+  {
+    id: 'wf_workforce_prep', name: 'Workforce planning prep', kind: 'workflow', tower: 'twr_dataplat', platform: 'KNIME',
+    aliases: ['KNIME workflow'], owner: 'FP&A analyst',
+    upstream: ['src_hcm_feed', 'ds_utilisation_gold'], lineage: 'partial', telemetry: false,
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'wf_practice_margin', name: 'Practice margin workflow', kind: 'workflow', tower: 'twr_bi', platform: 'Alteryx',
+    aliases: ['Alteryx workflow'], appId: 'inv_alteryx', owner: 'Practice finance analyst',
+    upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: false,
+    discoveredAt: DISCOVERED, demandClasses: [],
+  },
+
+  // External recipients — parties outside the estate that hold a copy.
+  {
+    id: 'rc_payroll', name: 'Payroll provider', kind: 'recipient', tower: 'twr_dataplat', platform: 'ADP',
+    party: 'ADP', owner: 'HR Operations', classification: 'restricted',
+    upstream: ['fd_hcm_payroll'], lineage: 'mapped', telemetry: false, transfer: 'Each pay cycle',
+    categories: ['identity', 'employment', 'compensation', 'bank', 'tax'], discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'rc_health', name: 'Health insurer', kind: 'recipient', tower: 'twr_dataplat', platform: 'Cigna',
+    party: 'Cigna', owner: 'HR Operations', classification: 'restricted',
+    upstream: ['fd_hcm_benefits'], lineage: 'mapped', telemetry: false, transfer: 'Daily',
+    categories: ['identity', 'contact', 'health', 'dependants'], discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'rc_immigration', name: 'Immigration counsel', kind: 'recipient', tower: 'twr_dataplat', platform: 'Fragomen',
+    party: 'Fragomen', owner: 'HR Operations', classification: 'restricted',
+    upstream: ['fd_hcm_immigration'], lineage: 'mapped', telemetry: false, transfer: 'Daily or as needed',
+    categories: ['identity', 'immigration', 'dependants'], discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
+    id: 'rc_equity', name: 'Equity plan administrator', kind: 'recipient', tower: 'twr_dataplat', platform: 'Ledgy',
+    party: 'Ledgy', owner: 'HR Operations', classification: 'restricted',
+    upstream: ['fd_hcm_equity'], lineage: 'mapped', telemetry: false, transfer: 'Monthly',
+    categories: ['identity', 'employment', 'compensation'], discoveredAt: DISCOVERED, demandClasses: [],
+  },
 ]
 
 // A scheduled item's last run and last landing come from its run history, so
@@ -352,7 +511,7 @@ export type ContractState = 'enforced' | 'declared' | 'none'
 
 export const contractState = (i: DataItem): ContractState => i.contract?.state ?? 'none'
 
-export type OwnState = 'failed' | 'stale' | 'failing' | 'unobserved' | 'uncontracted' | 'healthy'
+export type OwnState = 'failed' | 'stale' | 'failing' | 'unobserved' | 'uncontracted' | 'healthy' | 'outside'
 
 export const OWN_LABEL: Record<OwnState, string> = {
   failed: 'Run failed',
@@ -361,11 +520,13 @@ export const OWN_LABEL: Record<OwnState, string> = {
   unobserved: 'No telemetry',
   uncontracted: 'No contract',
   healthy: 'Healthy',
+  outside: 'Outside the estate',
 }
 
 export const isBreach = (s: OwnState) => s === 'failed' || s === 'stale' || s === 'failing'
 
 export function ownState(i: DataItem): OwnState {
+  if (!DATA_LIFECYCLE[i.kind].observed) return 'outside'
   if (!i.telemetry) return 'unobserved'
   if (i.lastRun === 'failed') return 'failed'
   const fresh = i.contract?.freshnessHrs
@@ -393,6 +554,10 @@ export function inherited(id: string): Inherited | null {
 export interface Impact {
   items: DataItem[]
   reports: DataItem[]
+  applications: DataItem[]
+  recipients: DataItem[]
+  /** Everything a person or another system acts on: reports, applications and external recipients. */
+  consumers: DataItem[]
   /** The largest known audience among the reports reached. Readers overlap across reports, so they are not summed. */
   largestAudience: number | null
 }
@@ -400,8 +565,10 @@ export interface Impact {
 export function impact(id: string): Impact {
   const items = descendants(id)
   const reports = items.filter((i) => i.kind === 'report')
+  const applications = items.filter((i) => i.kind === 'application')
+  const recipients = items.filter((i) => i.kind === 'recipient')
   const audiences = reports.map((r) => r.consumers).filter((c): c is number => c !== undefined)
-  return { items, reports, largestAudience: audiences.length ? Math.max(...audiences) : null }
+  return { items, reports, applications, recipients, consumers: [...reports, ...applications, ...recipients], largestAudience: audiences.length ? Math.max(...audiences) : null }
 }
 
 /* ------------------------------ Service levels ------------------------------ */
@@ -488,6 +655,9 @@ export interface DataSummary {
   noSteward: number
   lineageGaps: number
   personalData: number
+  recipients: number
+  /** External recipients sent a special category of personal data. */
+  specialRecipients: number
 }
 
 export function dataSummary(items: DataItem[] = DATA_ITEMS): DataSummary {
@@ -500,7 +670,7 @@ export function dataSummary(items: DataItem[] = DATA_ITEMS): DataSummary {
     breaches: readings.filter((i) => isBreach(i.own)).length,
     exposed: readings.filter((i) => !isBreach(i.own) && i.inherited?.state === 'exposed').length,
     unobserved: readings.filter((i) => i.own === 'unobserved').length,
-    unverifiable: readings.filter((i) => i.own !== 'unobserved' && !isBreach(i.own) && i.inherited?.state === 'unverifiable').length,
+    unverifiable: readings.filter((i) => i.own !== 'unobserved' && i.own !== 'outside' && !isBreach(i.own) && i.inherited?.state === 'unverifiable').length,
     contracts: {
       eligible: eligible.length,
       enforced: eligible.filter((i) => i.contractState === 'enforced').length,
@@ -510,5 +680,7 @@ export function dataSummary(items: DataItem[] = DATA_ITEMS): DataSummary {
     noSteward: readings.filter((i) => !i.steward).length,
     lineageGaps: readings.filter((i) => i.lineage !== 'mapped').length,
     personalData: readings.filter((i) => i.classification === 'restricted').length,
+    recipients: readings.filter((i) => i.kind === 'recipient').length,
+    specialRecipients: readings.filter((i) => i.kind === 'recipient' && carriesSpecial(i)).length,
   }
 }

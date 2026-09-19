@@ -1,8 +1,8 @@
 import React from 'react'
 import { Database, GitBranch, TriangleAlert } from 'lucide-react'
 import {
-  CLASSIFICATION_LABEL, DATA_ITEM_BY_ID, DATA_KINDS, DATA_KIND_LABEL, DATA_LIFECYCLE, LINEAGE_LABEL, OWN_LABEL,
-  ancestors, dataSummary, descendants, impact, isBreach, type DataReading, type OwnState,
+  CATEGORY_LABEL, CLASSIFICATION_LABEL, DATA_ITEM_BY_ID, DATA_KINDS, DATA_KIND_LABEL, DATA_LIFECYCLE, LINEAGE_LABEL, OWN_LABEL,
+  SPECIAL_CATEGORIES, ancestors, dataSummary, descendants, impact, isBreach, type DataItem, type DataReading, type OwnState,
 } from '@/domain/dataEstate'
 import { TOWER_BY_ID, agentsForClass } from '@/domain/estate'
 import { holdsOn } from '@/domain/privacy'
@@ -17,21 +17,21 @@ import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
    where it is sound in itself, by what reaches it from upstream. Selecting
    an item lights its ancestry and everything it feeds; the panel beside it
    carries its contract, checks and recovery path. Breaches are listed with
-   the reports they make wrong, and the register below holds every item's
+   every consumer they make wrong, and the register below holds every item's
    service levels. A card shows the same reading, cut to its first rows.
    ========================================================================== */
 
 type Tone = 'neutral' | 'ok' | 'warn' | 'crit' | 'info' | 'brand' | 'agent'
 
 const OWN_TONE: Record<OwnState, Tone> = {
-  failed: 'crit', stale: 'crit', failing: 'crit', unobserved: 'neutral', uncontracted: 'info', healthy: 'ok',
+  failed: 'crit', stale: 'crit', failing: 'crit', unobserved: 'neutral', uncontracted: 'info', healthy: 'ok', outside: 'neutral',
 }
 
 /** Own breach first, then what reaches it from upstream, then what it lacks. */
 function toneOf(i: DataReading): Tone {
   if (isBreach(i.own)) return 'crit'
   if (i.inherited?.state === 'exposed') return 'warn'
-  if (i.own === 'unobserved' || i.inherited?.state === 'unverifiable') return 'neutral'
+  if (i.own === 'unobserved' || i.own === 'outside' || i.inherited?.state === 'unverifiable') return 'neutral'
   if (i.own === 'uncontracted') return 'info'
   return 'ok'
 }
@@ -47,7 +47,7 @@ const BOX: Record<Tone, string> = {
   brand: 'border-line', agent: 'border-line',
 }
 
-const LEGEND: [Tone, string][] = [['crit', 'Breach'], ['warn', 'Exposed'], ['neutral', 'Unobserved'], ['info', 'No contract'], ['ok', 'Healthy']]
+const LEGEND: [Tone, string][] = [['crit', 'Breach'], ['warn', 'Exposed'], ['neutral', 'Unobserved or outside'], ['info', 'No contract'], ['ok', 'Healthy']]
 
 function InheritedChip({ i }: { i: DataReading }) {
   if (!i.inherited) return null
@@ -70,23 +70,35 @@ function Recovery({ i }: { i: DataReading }) {
   )
 }
 
-function ReportChips({ id }: { id: string }) {
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
+
+const consumerName = (c: DataItem) => (c.party ? `${c.name} · ${c.party}` : c.name)
+
+/** Everything a breach reaches that a person or another system acts on. */
+function ConsumerChips({ id }: { id: string }) {
   const reach = impact(id)
-  if (!reach.reports.length) return <span className="text-2xs text-ink-3">—</span>
-  return <>{reach.reports.map((r) => <Chip key={r.id} tone="warn">{r.name}</Chip>)}</>
+  if (!reach.consumers.length) return <span className="text-2xs text-ink-3">—</span>
+  return (
+    <>
+      {reach.consumers.map((c) => (
+        <Chip key={c.id} tone={c.kind === 'recipient' ? 'crit' : 'warn'} title={DATA_KIND_LABEL[c.kind]}>{consumerName(c)}</Chip>
+      ))}
+    </>
+  )
 }
 
 function DataEstateMetrics({ size }: CardProps) {
   const s = React.useMemo(() => dataSummary(), [])
   const page = size === 'page'
   return (
-    <Band size={size} cols={6}>
+    <Band size={size} cols={7}>
       <Metric size="sm" label="In breach" value={s.breaches} deltaTone={s.breaches ? 'crit' : 'ok'} hint={`${s.exposed} exposed${page ? ' downstream' : ''}`} />
       <Metric size="sm" label="No telemetry" value={s.unobserved} deltaTone={s.unobserved ? 'warn' : 'ok'} hint={page ? `${s.unverifiable} unverifiable downstream` : undefined} />
       <Metric size="sm" label={page ? 'Contracts enforced' : 'Contracts'} value={`${s.contracts.enforced}/${s.contracts.eligible}`} deltaTone={page ? (s.contracts.enforced === s.contracts.eligible ? 'ok' : 'warn') : undefined} hint={page ? `${s.contracts.declared} declared only` : 'enforced'} />
       {page && <Metric size="sm" label="Lineage gaps" value={s.lineageGaps} deltaTone={s.lineageGaps ? 'warn' : 'ok'} />}
       <Metric size="sm" label="Unclassified" value={s.unclassified} deltaTone={s.unclassified ? 'crit' : 'ok'} hint={page ? `${s.personalData} hold personal data` : undefined} />
       {page && <Metric size="sm" label="No steward" value={s.noSteward} deltaTone={s.noSteward ? 'warn' : 'ok'} />}
+      {page && <Metric size="sm" label="External recipients" value={s.recipients} hint={`${s.specialRecipients} special category`} deltaTone={s.specialRecipients ? 'warn' : undefined} />}
     </Band>
   )
 }
@@ -101,6 +113,7 @@ function DataEstateBody({ props, size }: CardProps) {
   )
   const sel = s.items.find((i) => i.id === selected)
   const breaches = ranked.filter((i) => isBreach(i.own))
+  const kinds = DATA_KINDS.filter((k) => s.items.some((i) => i.kind === k))
 
   if (size !== 'page') {
     const filter = String(props.filter ?? 'breaches')
@@ -110,13 +123,13 @@ function DataEstateBody({ props, size }: CardProps) {
     return (
       <>
         <Table>
-          <thead><tr><Th>Item</Th><Th>State</Th><Th>Reports affected</Th></tr></thead>
+          <thead><tr><Th>Item</Th><Th>State</Th><Th>Consumers affected</Th></tr></thead>
           <tbody>
             {shown.map((i) => (
               <Tr key={i.id}>
                 <Td className="text-2xs text-ink"><span className="block">{i.name}</span><span className="block text-[10px] text-ink-3">{DATA_KIND_LABEL[i.kind]} · {i.platform}</span></Td>
                 <Td><Chip tone={isBreach(i.own) ? 'crit' : i.own === 'healthy' ? 'ok' : 'neutral'}>{OWN_LABEL[i.own]}</Chip></Td>
-                <Td><div className="flex max-w-[260px] flex-wrap gap-1"><ReportChips id={i.id} /></div></Td>
+                <Td><div className="flex max-w-[260px] flex-wrap gap-1"><ConsumerChips id={i.id} /></div></Td>
               </Tr>
             ))}
           </tbody>
@@ -131,8 +144,8 @@ function DataEstateBody({ props, size }: CardProps) {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card title="Lineage" right={<GitBranch size={13} className="text-ink-3" />}>
           <div className="overflow-x-auto">
-            <div className="grid min-w-[720px] grid-cols-5 gap-2">
-              {DATA_KINDS.map((k) => (
+            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${kinds.length}, minmax(128px, 1fr))` }}>
+              {kinds.map((k) => (
                 <div key={k} className="space-y-1.5">
                   <div className="label-cap">{DATA_KIND_LABEL[k]}</div>
                   {s.items.filter((i) => i.kind === k).map((i) => (
@@ -169,7 +182,7 @@ function DataEstateBody({ props, size }: CardProps) {
       <Card className="mt-4" title="Breaches" subtitle={`${breaches.length} items`} right={<TriangleAlert size={13} className="text-crit" />}>
         <Table>
           <thead>
-            <tr><Th>Item</Th><Th>State</Th><Th>Reports affected</Th><Th align="right">Largest audience</Th><Th>Recovery</Th></tr>
+            <tr><Th>Item</Th><Th>State</Th><Th>Consumers affected</Th><Th align="right">Largest audience</Th><Th>Recovery</Th></tr>
           </thead>
           <tbody>
             {breaches.map((i) => {
@@ -181,7 +194,7 @@ function DataEstateBody({ props, size }: CardProps) {
                     <span className="block text-[10px] text-ink-3">{DATA_KIND_LABEL[i.kind]} · {i.platform}</span>
                   </Td>
                   <Td><Chip tone="crit">{OWN_LABEL[i.own]}</Chip></Td>
-                  <Td><div className="flex max-w-[320px] flex-wrap gap-1"><ReportChips id={i.id} /></div></Td>
+                  <Td><div className="flex max-w-[320px] flex-wrap gap-1"><ConsumerChips id={i.id} /></div></Td>
                   <Td align="right" className="tnum text-2xs text-ink-2">{reach.largestAudience ? num(reach.largestAudience) : '—'}</Td>
                   <Td><Recovery i={i} /></Td>
                 </Tr>
@@ -279,6 +292,16 @@ function DataItemBody({ props, size }: CardProps) {
         {!full && <><dt className="text-ink-3">Contract</dt><dd className="text-ink-2">{item.contract ? <>{item.contract.id} · {item.contract.state}</> : '—'}</dd></>}
         <dt className="text-ink-3">Recovery</dt>
         <dd>{full ? <Recovery i={reading} /> : <span className="text-ink-2">{DATA_LIFECYCLE[item.kind].recovery}</span>}</dd>
+        {item.party && <><dt className="text-ink-3">Party</dt><dd className="text-ink-2">{item.party}</dd></>}
+        {item.transfer && <><dt className="text-ink-3">Transfer</dt><dd className="text-ink-2">{item.transfer}</dd></>}
+        {item.categories && (
+          <>
+            <dt className="text-ink-3">Receives</dt>
+            <dd className="flex flex-wrap gap-1">
+              {item.categories.map((c) => <Chip key={c} tone={SPECIAL_CATEGORIES.includes(c) ? 'crit' : 'neutral'}>{CATEGORY_LABEL[c]}</Chip>)}
+            </dd>
+          </>
+        )}
         {full && (
           <>
             <dt className="text-ink-3">Holds</dt>
@@ -291,7 +314,7 @@ function DataItemBody({ props, size }: CardProps) {
       </dl>
 
       <div className="mt-3 border-t border-line pt-3">
-        {full && (
+        {full && (DATA_LIFECYCLE[item.kind].contracted || item.kind === 'report') && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="label-cap">Contract</span>
             {item.contract ? (
@@ -335,12 +358,20 @@ function DataItemBody({ props, size }: CardProps) {
 
       <div className="mt-3 border-t border-line pt-3">
         <div className="flex items-center gap-1.5">
-          <span className="label-cap">Feeds</span>
-          {full && <span className="tnum text-2xs text-ink-3">{reach.items.length} items · {reach.reports.length} reports</span>}
+          <span className="label-cap">Reaches</span>
+          {full && (
+            <span className="tnum text-2xs text-ink-3">
+              {count(reach.items.length, 'item')} · {count(reach.reports.length, 'report')} · {count(reach.applications.length, 'application')} · {reach.recipients.length} external
+            </span>
+          )}
         </div>
         <div className="mt-1.5 flex flex-wrap gap-1">
-          {reach.reports.map((r) => <Chip key={r.id}>{r.name}{r.consumers ? ` · ${num(r.consumers)}` : ''}</Chip>)}
-          {!reach.reports.length && <span className="text-2xs text-ink-3">—</span>}
+          {reach.consumers.map((c) => (
+            <Chip key={c.id} tone={c.kind === 'recipient' ? 'crit' : 'neutral'} title={DATA_KIND_LABEL[c.kind]}>
+              {consumerName(c)}{c.consumers ? ` · ${num(c.consumers)}` : ''}
+            </Chip>
+          ))}
+          {!reach.consumers.length && <span className="text-2xs text-ink-3">—</span>}
         </div>
       </div>
     </>
@@ -352,7 +383,7 @@ export const dataEstateView: ArtifactView = {
   Metrics: DataEstateMetrics,
   page: {
     title: 'Data estate',
-    subtitle: 'Sources, pipelines, datasets, semantic models and reports',
+    subtitle: 'Sources, feeds, pipelines, workflows, datasets, models, reports, applications and external recipients',
     agents: ['agt_custodian', 'agt_archivist'],
     what: 'checking contracts and mapping lineage',
   },

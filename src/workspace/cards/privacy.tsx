@@ -6,7 +6,7 @@ import {
   type RequestState, type RetentionState, type SearchVerdict,
 } from '@/domain/privacy'
 import { AGENT_BY_ID } from '@/domain/estate'
-import { DATA_ITEM_BY_ID, DATA_KIND_LABEL } from '@/domain/dataEstate'
+import { CATEGORY_LABEL, DATA_ITEM_BY_ID, DATA_KIND_LABEL, SPECIAL_CATEGORIES } from '@/domain/dataEstate'
 import { NOW } from '@/domain/workSeed'
 import { Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
 import { dateShort, num } from '@/lib/format'
@@ -256,6 +256,46 @@ function PrivacyRequestBody({ props, size }: CardProps) {
         </tbody>
       </Table>
       <More shown={shown.length} total={r.items.length} />
+
+      {r.recipients.length > 0 && (
+        full ? (
+          <Table className="mt-3">
+            <thead>
+              <tr><Th>External recipient</Th><Th>Receives</Th><Th>Via</Th><Th>{req.kind === 'erasure' ? 'Told' : 'Named'}</Th></tr>
+            </thead>
+            <tbody>
+              {r.recipients.map((x) => (
+                <Tr key={x.item.id} className={req.kind === 'erasure' && !x.notice ? 'bg-warn/[0.05]' : undefined}>
+                  <Td className="text-2xs text-ink">
+                    {x.item.name}
+                    <span className="block text-[10px] text-ink-3">{x.item.party} · {x.item.transfer}</span>
+                  </Td>
+                  <Td>
+                    <div className="flex max-w-[240px] flex-wrap gap-1">
+                      {(x.item.categories ?? []).map((c) => <Chip key={c} tone={SPECIAL_CATEGORIES.includes(c) ? 'crit' : 'neutral'}>{CATEGORY_LABEL[c]}</Chip>)}
+                    </div>
+                  </Td>
+                  <Td className="text-2xs text-ink-2">{x.via.map((v) => v.name).join(', ')}</Td>
+                  <Td>
+                    {req.kind !== 'erasure'
+                      ? <span className="text-2xs text-ink-3">—</span>
+                      : x.notice
+                        ? <Chip tone="ok">{who(x.notice.by)} · {dateShort(x.notice.at)}</Chip>
+                        : <Chip tone="warn">Not told</Chip>}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        ) : (
+          <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-line pt-2">
+            <span className="label-cap mr-1">External recipients</span>
+            {r.recipients.map((x) => (
+              <Chip key={x.item.id} tone={req.kind === 'erasure' && !x.notice ? 'warn' : 'neutral'}>{x.item.party ?? x.item.name}</Chip>
+            ))}
+          </div>
+        )
+      )}
     </>
   )
 }

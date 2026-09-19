@@ -158,13 +158,16 @@ export const EXECUTORS: Record<string, Executor> = {
     return {
       payload: {
         breaches: s.breaches, exposedDownstream: s.exposed, noTelemetry: s.unobserved, contracts: s.contracts,
+        externalRecipients: s.recipients, externalRecipientsWithSpecialCategory: s.specialRecipients,
         unclassified: s.unclassified, noSteward: s.noSteward, lineageGaps: s.lineageGaps,
         items: rows.map((i) => {
           const reach = impact(i.id)
           return {
             id: i.id, name: i.name, kind: i.kind, platform: i.platform, ownState: i.own, inherited: i.inherited ? { state: i.inherited.state, via: i.inherited.via.id } : null,
             contract: i.contractState, classification: i.classification ?? 'unclassified', steward: i.steward ?? null,
-            reportsAffected: reach.reports.map((r) => r.name), largestAudience: reach.largestAudience,
+            reportsAffected: reach.reports.map((r) => r.name), applicationsAffected: reach.applications.map((a) => a.name),
+            externalRecipientsAffected: reach.recipients.map((r) => ({ id: r.id, party: r.party ?? null, categories: r.categories ?? [] })),
+            largestAudience: reach.largestAudience,
             recovery: DATA_LIFECYCLE[i.kind].recovery,
           }
         }),
@@ -184,6 +187,8 @@ export const EXECUTORS: Record<string, Executor> = {
         landedHrsAgo: i.lastLandedHrsAgo ?? null, runs30d: reading.level.runs, lineage: i.lineage, telemetry: i.telemetry,
         upstream: ancestors(i.id).map((a) => a.id), feeds: descendants(i.id).map((d) => d.id),
         holds: holdsOn(i.id).map((h) => h.id), recovery: DATA_LIFECYCLE[i.kind].recovery,
+        party: i.party ?? null, receives: i.categories ?? null, transfer: i.transfer ?? null, discoveredAt: i.discoveredAt ?? null,
+        consumers: impact(i.id).consumers.map((c) => ({ id: c.id, kind: c.kind, party: c.party ?? null })),
       },
       artifacts: [card('dataItem', i.name, { id: i.id }, '/operate/data')],
     }
@@ -245,6 +250,10 @@ export const EXECUTORS: Record<string, Executor> = {
           id: req.id, kind: req.kind, subject: req.subject, subjectType: req.subjectType, state: req.state, daysLeft: r.daysLeft, extended: Boolean(req.extended),
           approvedBy: req.approvedBy ?? null, refusal: req.refusal ?? null, flags: r.flags, searchGaps: r.gaps.map((g) => g.id),
           stores: r.items.map((i) => ({ id: i.item.id, verdict: i.verdict, records: i.records, holds: i.holds.map((h) => h.id), action: i.action?.outcome ?? null, backupsUntil: i.residualUntil ?? null })),
+          externalRecipients: r.recipients.map((x) => ({
+            id: x.item.id, party: x.item.party ?? null, receives: x.item.categories ?? [], specialCategory: x.special,
+            via: x.via.map((v) => v.id), told: x.notice ? { by: x.notice.by, at: x.notice.at } : null,
+          })),
         },
         artifacts: [card('privacyRequest', `${req.id} · ${req.kind}`, { id: req.id }, '/operate/privacy')],
       }

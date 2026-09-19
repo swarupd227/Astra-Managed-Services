@@ -1,6 +1,6 @@
 import { NOW } from './workSeed'
 import { AGENT_BY_ID } from './estate'
-import { DATA_ITEMS, DATA_ITEM_BY_ID, STORES, descendants, type DataItem } from './dataEstate'
+import { DATA_ITEMS, DATA_ITEM_BY_ID, STORES, carriesSpecial, descendants, type DataItem } from './dataEstate'
 import type { ISO } from './types'
 
 /* ==========================================================================
@@ -26,6 +26,12 @@ import type { ISO } from './types'
 
    Deletion is irreversible and is never executed by an agent. Agents
    locate; people delete, under the client's approval, with evidence.
+
+   A record that left the estate is not reached by deleting it here. Every
+   external recipient downstream of a store where the person was found was
+   sent a copy: an erasure must tell each of them, and an access request
+   must name them. A store the platform only registered after a request
+   closed was not a gap in that request; it is one in every request since.
    ========================================================================== */
 
 const ago = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString()
@@ -119,7 +125,8 @@ export interface Search {
   by: string
 }
 
-export type Outcome = 'exported' | 'deleted' | 'retained'
+/** `notified`: an external recipient was told of an erasure. */
+export type Outcome = 'exported' | 'deleted' | 'retained' | 'notified'
 
 export interface RequestAction {
   itemId: string
@@ -183,6 +190,7 @@ export const REQUESTS: PrivacyRequest[] = [
       { itemId: 'src_hcm_feed', outcome: 'deleted', by: 'HR Operations', at: ago(6), evidenceId: 'ev_pr_0226_1' },
       { itemId: 'ds_utilisation_gold', outcome: 'retained', by: 'S. Okafor', at: ago(6), evidenceId: 'ev_pr_0226_2' },
       { itemId: 'src_focus_extract', outcome: 'retained', by: 'Finance Operations', at: ago(6), evidenceId: 'ev_pr_0226_3' },
+      { itemId: 'rc_payroll', outcome: 'notified', by: 'HR Operations', at: ago(5), evidenceId: 'ev_pr_0226_4' },
     ],
   },
   {
@@ -255,9 +263,16 @@ export const REQUESTS: PrivacyRequest[] = [
 
 /* ------------------------------- The reading -------------------------------- */
 
-/** Stores a person's data could be in: personal or confidential, or not classified at all. */
-export const inScope = (): DataItem[] =>
-  DATA_ITEMS.filter((i) => STORES.includes(i.kind) && (!i.classification || i.classification === 'restricted' || i.classification === 'confidential'))
+/**
+ * Stores a person's data could be in: personal or confidential, or not
+ * classified at all — as the register stood at a moment, so a store found
+ * later is not charged to a request already closed.
+ */
+export const inScope = (asOfMs = NOW.getTime()): DataItem[] =>
+  DATA_ITEMS.filter((i) =>
+    STORES.includes(i.kind)
+    && (!i.classification || i.classification === 'restricted' || i.classification === 'confidential')
+    && (!i.discoveredAt || Date.parse(i.discoveredAt) <= asOfMs))
 
 /** Whether a search that found nothing in this store can be believed. */
 export const vouched = (i: DataItem) => Boolean(i.classification) && i.lineage === 'mapped'
@@ -273,7 +288,7 @@ export const SEARCH_LABEL: Record<SearchVerdict, string> = {
 
 export type RequestFlag =
   | 'deleted_under_hold' | 'agent_deleted' | 'unapproved_erasure' | 'no_evidence'
-  | 'overdue' | 'due_soon' | 'search_gaps' | 'copies_downstream' | 'pending_action' | 'closed_with_gaps'
+  | 'overdue' | 'due_soon' | 'search_gaps' | 'copies_downstream' | 'pending_action' | 'closed_with_gaps' | 'recipients_not_told'
 
 export const REQUEST_FLAG_LABEL: Record<RequestFlag, string> = {
   deleted_under_hold: 'Deleted under hold',
@@ -286,13 +301,14 @@ export const REQUEST_FLAG_LABEL: Record<RequestFlag, string> = {
   copies_downstream: 'Copies downstream unsearched',
   pending_action: 'Found, no action',
   closed_with_gaps: 'Closed with gaps',
+  recipients_not_told: 'Recipients not told',
 }
 
 /** Flags that are a breach of the process rather than a state of it. */
 export const REQUEST_FLAG_CRIT: Record<RequestFlag, boolean> = {
   deleted_under_hold: true, agent_deleted: true, unapproved_erasure: true, no_evidence: true,
   overdue: true, closed_with_gaps: true,
-  due_soon: false, search_gaps: false, copies_downstream: false, pending_action: false,
+  due_soon: false, search_gaps: false, copies_downstream: false, pending_action: false, recipients_not_told: false,
 }
 
 export interface ItemReading {
@@ -305,12 +321,22 @@ export interface ItemReading {
   residualUntil?: ISO
 }
 
+/** An external party sent a copy of the person's records, and whether it has been told. */
+export interface RecipientReading {
+  item: DataItem
+  /** The stores where the person was found that reach it. */
+  via: DataItem[]
+  special: boolean
+  notice?: RequestAction
+}
+
 export interface RequestReading {
   request: PrivacyRequest
   dueAt: ISO
   daysLeft: number
   items: ItemReading[]
   gaps: DataItem[]
+  recipients: RecipientReading[]
   flags: RequestFlag[]
   open: boolean
 }
@@ -321,7 +347,7 @@ export function readRequest(r: PrivacyRequest, nowMs = NOW.getTime()): RequestRe
   const open = !['closed', 'refused'].includes(r.state)
 
   // Searched stores outside the scope still appear, so nothing done is hidden.
-  const scope = new Map(inScope().map((i) => [i.id, i]))
+  const scope = new Map(inScope(r.closedAt ? Date.parse(r.closedAt) : nowMs).map((i) => [i.id, i]))
   for (const s of r.searches) if (DATA_ITEM_BY_ID[s.itemId]) scope.set(s.itemId, DATA_ITEM_BY_ID[s.itemId])
 
   // A matter is not a person: a retrieval for one is not searched store by store.
@@ -349,6 +375,21 @@ export function readRequest(r: PrivacyRequest, nowMs = NOW.getTime()): RequestRe
   // is not searched further, so neither has a gap.
   const gaps = r.state === 'verifying_identity' || r.state === 'refused' ? [] : items.filter((i) => i.verdict === 'not_searched' || i.verdict === 'unvouched').map((i) => i.item)
 
+  // Recipients downstream of every store the person was found in. A matter is not a person.
+  const reached = new Map<string, RecipientReading>()
+  if (r.kind !== 'retrieval') {
+    for (const found of r.searches.filter((x) => x.records > 0)) {
+      const store = DATA_ITEM_BY_ID[found.itemId]
+      if (!store) continue
+      for (const d of descendants(found.itemId).filter((x) => x.kind === 'recipient')) {
+        const entry = reached.get(d.id) ?? { item: d, via: [], special: carriesSpecial(d), notice: r.actions.find((a) => a.itemId === d.id && a.outcome === 'notified') }
+        entry.via.push(store)
+        reached.set(d.id, entry)
+      }
+    }
+  }
+  const recipients = [...reached.values()]
+
   const flags: RequestFlag[] = []
   const deletions = r.actions.filter((a) => a.outcome === 'deleted')
   if (deletions.some((a) => holdsOn(a.itemId, r.subject).length)) flags.push('deleted_under_hold')
@@ -361,13 +402,16 @@ export function readRequest(r: PrivacyRequest, nowMs = NOW.getTime()): RequestRe
   if (r.kind === 'erasure') {
     const searched = new Set(r.searches.map((s) => s.itemId))
     const found = r.searches.filter((s) => s.records > 0).map((s) => s.itemId)
-    const copies = found.flatMap((id) => descendants(id)).filter((d) => STORES.includes(d.kind) && !searched.has(d.id))
+    const asOf = r.closedAt ? Date.parse(r.closedAt) : nowMs
+    const copies = found.flatMap((id) => descendants(id))
+      .filter((d) => STORES.includes(d.kind) && !searched.has(d.id) && (!d.discoveredAt || Date.parse(d.discoveredAt) <= asOf))
     if (copies.length) flags.push('copies_downstream')
   }
   if (open && ['fulfilling', 'awaiting_approval'].includes(r.state) && items.some((i) => i.verdict === 'found' && !i.action)) flags.push('pending_action')
   if (r.state === 'closed' && gaps.length) flags.push('closed_with_gaps')
+  if (r.kind === 'erasure' && ['fulfilling', 'closed'].includes(r.state) && recipients.some((x) => !x.notice)) flags.push('recipients_not_told')
 
-  return { request: r, dueAt: new Date(dueMs).toISOString(), daysLeft: Math.ceil((dueMs - nowMs) / DAY), items, gaps, flags, open }
+  return { request: r, dueAt: new Date(dueMs).toISOString(), daysLeft: Math.ceil((dueMs - nowMs) / DAY), items, gaps, recipients, flags, open }
 }
 
 /* -------------------------------- Retention --------------------------------- */

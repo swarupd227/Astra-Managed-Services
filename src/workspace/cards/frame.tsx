@@ -47,7 +47,7 @@ export function More({ shown, total }: { shown: number; total: number }) {
   return <p className="tnum mt-1.5 text-right text-[10px] text-ink-3">+{total - shown}</p>
 }
 
-const COLS: Record<number, string> = { 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-5', 6: 'md:grid-cols-6' }
+const COLS: Record<number, string> = { 3: 'md:grid-cols-3', 4: 'md:grid-cols-4', 5: 'md:grid-cols-5', 6: 'md:grid-cols-6', 7: 'md:grid-cols-7' }
 
 /** The figures grid: four across inside a card, the full band on a page. */
 export function Band({ size, cols = 6, children }: { size: CardSize; cols?: number; children: React.ReactNode }) {

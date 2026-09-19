@@ -104,7 +104,7 @@ export function estateIds(): EstateIds {
 }
 
 // Identifiers in this estate follow prefix_snake conventions plus AC-nn codes.
-const ID_TOKEN = /\b(?:agt|sk|dc|twr|svc|app|db|inf|net|if|rb|ke|da|pipe|pol|es|msn|prp|src|pl|ds|sm|rp)_[a-z0-9_]+\b|\bAC-\d{2}\b/g
+const ID_TOKEN = /\b(?:agt|sk|dc|twr|svc|app|db|inf|net|if|rb|ke|da|pipe|pol|es|msn|prp|src|pl|ds|sm|rp|ap|fd|wf|rc)_[a-z0-9_]+\b|\bAC-\d{2}\b/g
 
 function citedIds(text: string): string[] {
   return [...new Set(text.match(ID_TOKEN) ?? [])]
