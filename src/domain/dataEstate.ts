@@ -173,6 +173,8 @@ export interface DataItem {
   transfer?: string
   /** When the platform first registered it. Absent: held from the start. */
   discoveredAt?: string
+  /** External recipients: where the party processes what it receives (ISO country, or EEA). */
+  country?: string
 }
 
 /** Kinds that hold records, and so can hold a person's data. Pipelines and feeds move it; reports render it. */
@@ -380,6 +382,11 @@ export const DATA_ITEMS: DataItem[] = [
     upstream: ['ds_oracle_dm'], lineage: 'partial', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
   },
   {
+    id: 'ap_m365_mail', name: 'Microsoft 365 mailboxes', kind: 'application', tower: 'twr_dataplat', platform: 'Exchange Online',
+    aliases: ['mailboxes', 'M365 mailboxes'], appId: 'inv_m365', owner: 'KNet Digital Workplace', classification: 'restricted',
+    upstream: [], lineage: 'mapped', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
+  },
+  {
     id: 'ap_anaplan', name: 'Anaplan workforce planning', kind: 'application', tower: 'twr_dataplat', platform: 'Anaplan',
     aliases: ['Anaplan'], owner: 'FP&A', classification: 'confidential',
     upstream: ['wf_workforce_prep'], lineage: 'partial', telemetry: true, discoveredAt: DISCOVERED, demandClasses: [],
@@ -436,25 +443,25 @@ export const DATA_ITEMS: DataItem[] = [
   // External recipients — parties outside the estate that hold a copy.
   {
     id: 'rc_payroll', name: 'Payroll provider', kind: 'recipient', tower: 'twr_dataplat', platform: 'ADP',
-    party: 'ADP', owner: 'HR Operations', classification: 'restricted',
+    party: 'ADP', country: 'US', owner: 'HR Operations', classification: 'restricted',
     upstream: ['fd_hcm_payroll'], lineage: 'mapped', telemetry: false, transfer: 'Each pay cycle',
     categories: ['identity', 'employment', 'compensation', 'bank', 'tax'], discoveredAt: DISCOVERED, demandClasses: [],
   },
   {
     id: 'rc_health', name: 'Health insurer', kind: 'recipient', tower: 'twr_dataplat', platform: 'Cigna',
-    party: 'Cigna', owner: 'HR Operations', classification: 'restricted',
+    party: 'Cigna', country: 'US', owner: 'HR Operations', classification: 'restricted',
     upstream: ['fd_hcm_benefits'], lineage: 'mapped', telemetry: false, transfer: 'Daily',
     categories: ['identity', 'contact', 'health', 'dependants'], discoveredAt: DISCOVERED, demandClasses: [],
   },
   {
     id: 'rc_immigration', name: 'Immigration counsel', kind: 'recipient', tower: 'twr_dataplat', platform: 'Fragomen',
-    party: 'Fragomen', owner: 'HR Operations', classification: 'restricted',
+    party: 'Fragomen', country: 'US', owner: 'HR Operations', classification: 'restricted',
     upstream: ['fd_hcm_immigration'], lineage: 'mapped', telemetry: false, transfer: 'Daily or as needed',
     categories: ['identity', 'immigration', 'dependants'], discoveredAt: DISCOVERED, demandClasses: [],
   },
   {
     id: 'rc_equity', name: 'Equity plan administrator', kind: 'recipient', tower: 'twr_dataplat', platform: 'Ledgy',
-    party: 'Ledgy', owner: 'HR Operations', classification: 'restricted',
+    party: 'Ledgy', country: 'CH', owner: 'HR Operations', classification: 'restricted',
     upstream: ['fd_hcm_equity'], lineage: 'mapped', telemetry: false, transfer: 'Monthly',
     categories: ['identity', 'employment', 'compensation'], discoveredAt: DISCOVERED, demandClasses: [],
   },

@@ -6,7 +6,7 @@ import { AgentRunCard, ApprovalsCard, BriefCard, EstateOverviewCard, SlaCard, Wo
 import { coverageView } from './coverage'
 import { dataEstateView, dataItemView } from './dataEstate'
 import { dataReliabilityView } from './dataReliability'
-import { privacyRequestView, privacyRequestsView } from './privacy'
+import { privacyObligationsView, privacyRequestView, privacyRequestsView } from './privacy'
 import { releasesView } from './releases'
 import { techDebtView } from './techDebt'
 
@@ -30,6 +30,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   dataReliability: dataReliabilityView,
   privacyRequests: privacyRequestsView,
   privacyRequest: privacyRequestView,
+  privacyObligations: privacyObligationsView,
   releases: releasesView,
   techDebt: techDebtView,
   coverage: coverageView,

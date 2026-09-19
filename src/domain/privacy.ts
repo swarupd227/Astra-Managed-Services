@@ -1,6 +1,6 @@
 import { NOW } from './workSeed'
 import { AGENT_BY_ID } from './estate'
-import { DATA_ITEMS, DATA_ITEM_BY_ID, STORES, carriesSpecial, descendants, type DataItem } from './dataEstate'
+import { DATA_ITEMS, DATA_ITEM_BY_ID, SPECIAL_CATEGORIES, STORES, carriesSpecial, descendants, type DataCategory, type DataItem } from './dataEstate'
 import type { ISO } from './types'
 
 /* ==========================================================================
@@ -32,16 +32,36 @@ import type { ISO } from './types'
    sent a copy: an erasure must tell each of them, and an access request
    must name them. A store the platform only registered after a request
    closed was not a gap in that request; it is one in every request since.
+
+   Two further obligations sit beside the requests. A data incident runs
+   against the notice the contract requires to the client, and, where
+   personal data is involved, the client's own notice to its regulator; the
+   platform keeps the first clock and shows the second. And every
+   processing activity has a record: the platform reads the recipients,
+   stores and transfers from lineage and reports where the record and the
+   estate disagree, rather than taking the record's word for it.
+
+   Notices recorded in the session are passed in, not held here, so every
+   reading — page, card and tool — is computed from the same log.
    ========================================================================== */
 
 const ago = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString()
+const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3_600_000).toISOString()
 const ahead = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOString()
 const DAY = 86_400_000
 
 /* ------------------------------ The regime ---------------------------------- */
 
 /** The statutory clock requests run against. Seed data — another client configures its own. */
-export const REGIME = { name: 'GDPR', responseDays: 30, extensionDays: 60 }
+export const REGIME = {
+  name: 'GDPR', responseDays: 30, extensionDays: 60,
+  /** Hours the contract allows to notify the client of an incident touching its data. */
+  clientNoticeHrs: 24,
+  /** Hours the client has to notify its regulator of a personal data breach. The client's clock, shown for reference. */
+  regulatorNoticeHrs: 72,
+  /** Where personal data may go without a transfer mechanism. */
+  adequate: ['EEA', 'UK', 'CH', 'JP', 'KR', 'CA', 'NZ', 'IL'],
+}
 
 /* --------------------------------- Holds ------------------------------------ */
 
@@ -72,6 +92,11 @@ export const HOLDS: Hold[] = [
     id: 'RH-2027-001', kind: 'retention', matter: 'Billing records kept seven years for audit',
     itemIds: ['src_focus_extract', 'ds_engagement_gold'],
     placedAt: ago(210), placedBy: 'Finance Operations', reviewBy: ahead(300),
+  },
+  {
+    id: 'LH-2025-001', kind: 'legal', matter: 'Litigation hold · every mailbox',
+    itemIds: ['ap_m365_mail'],
+    placedAt: ago(400), placedBy: 'General Counsel', reviewBy: ahead(180),
   },
   {
     id: 'LH-2026-009', kind: 'legal', matter: 'Supplier dispute · matter M-2026-017',
@@ -136,9 +161,15 @@ export interface RequestAction {
   evidenceId?: string
 }
 
+/** How a request reached the service. Not every channel raises a ticket. */
+export type Intake = 'ticket' | 'legal_counsel' | 'email'
+
+export const INTAKE_LABEL: Record<Intake, string> = { ticket: 'Ticket', legal_counsel: 'Legal counsel', email: 'Email' }
+
 export interface PrivacyRequest {
   id: string
   kind: RequestKind
+  intake: Intake
   /** A pseudonymous reference. The register never holds the person's name. */
   subject: string
   subjectType: SubjectType
@@ -154,7 +185,7 @@ export interface PrivacyRequest {
 
 export const REQUESTS: PrivacyRequest[] = [
   {
-    id: 'PR-0231', kind: 'access', subject: 'DS-0231', subjectType: 'employee', receivedAt: ago(12), state: 'fulfilling',
+    id: 'PR-0231', kind: 'access', intake: 'legal_counsel', subject: 'DS-0231', subjectType: 'employee', receivedAt: ago(12), state: 'fulfilling',
     searches: [
       { itemId: 'src_hcm_feed', records: 1, by: 'agt_archivist' },
       { itemId: 'src_customer_feed', records: 0, by: 'agt_archivist' },
@@ -173,7 +204,7 @@ export const REQUESTS: PrivacyRequest[] = [
     ],
   },
   {
-    id: 'PR-0226', kind: 'erasure', subject: 'DS-0226', subjectType: 'former_employee', receivedAt: ago(26), state: 'fulfilling',
+    id: 'PR-0226', kind: 'erasure', intake: 'legal_counsel', subject: 'DS-0226', subjectType: 'former_employee', receivedAt: ago(26), state: 'fulfilling',
     approvedBy: 'Privacy Office',
     searches: [
       { itemId: 'src_hcm_feed', records: 1, by: 'agt_archivist' },
@@ -194,7 +225,7 @@ export const REQUESTS: PrivacyRequest[] = [
     ],
   },
   {
-    id: 'PR-0219', kind: 'erasure', subject: 'DS-0219', subjectType: 'client_contact', receivedAt: ago(41), extended: true, state: 'closed',
+    id: 'PR-0219', kind: 'erasure', intake: 'email', subject: 'DS-0219', subjectType: 'client_contact', receivedAt: ago(41), extended: true, state: 'closed',
     approvedBy: 'Privacy Office', closedAt: ago(4),
     searches: [
       { itemId: 'src_customer_feed', records: 2, by: 'agt_archivist' },
@@ -215,7 +246,7 @@ export const REQUESTS: PrivacyRequest[] = [
     ],
   },
   {
-    id: 'PR-0229', kind: 'erasure', subject: 'DS-0229', subjectType: 'former_employee', receivedAt: ago(15), state: 'refused',
+    id: 'PR-0229', kind: 'erasure', intake: 'legal_counsel', subject: 'DS-0229', subjectType: 'former_employee', receivedAt: ago(15), state: 'refused',
     approvedBy: 'Privacy Office', closedAt: ago(9),
     refusal: 'Every record found is under legal hold LH-2027-002',
     searches: [
@@ -228,18 +259,18 @@ export const REQUESTS: PrivacyRequest[] = [
     ],
   },
   {
-    id: 'PR-0234', kind: 'retrieval', subject: 'M-2027-004', subjectType: 'matter', receivedAt: ago(3), state: 'locating',
+    id: 'PR-0234', kind: 'retrieval', intake: 'legal_counsel', subject: 'M-2027-004', subjectType: 'matter', receivedAt: ago(3), state: 'locating',
     searches: [
       { itemId: 'ds_utilisation_gold', records: 1860, by: 'agt_archivist' },
     ],
     actions: [],
   },
   {
-    id: 'PR-0236', kind: 'access', subject: 'DS-0236', subjectType: 'contractor', receivedAt: ago(1), state: 'verifying_identity',
+    id: 'PR-0236', kind: 'access', intake: 'ticket', subject: 'DS-0236', subjectType: 'contractor', receivedAt: ago(1), state: 'verifying_identity',
     searches: [], actions: [],
   },
   {
-    id: 'PR-0212', kind: 'access', subject: 'DS-0212', subjectType: 'employee', receivedAt: ago(58), state: 'closed', closedAt: ago(35),
+    id: 'PR-0212', kind: 'access', intake: 'ticket', subject: 'DS-0212', subjectType: 'employee', receivedAt: ago(58), state: 'closed', closedAt: ago(35),
     searches: [
       { itemId: 'src_hcm_feed', records: 1, by: 'agt_archivist' },
       { itemId: 'src_customer_feed', records: 0, by: 'agt_archivist' },
@@ -341,7 +372,14 @@ export interface RequestReading {
   open: boolean
 }
 
-export function readRequest(r: PrivacyRequest, nowMs = NOW.getTime()): RequestReading {
+/** An action recorded in the session against a request in the register. */
+export interface LoggedAction extends RequestAction {
+  requestId: string
+}
+
+export function readRequest(base: PrivacyRequest, nowMs = NOW.getTime(), logged: LoggedAction[] = []): RequestReading {
+  const extra = logged.filter((l) => l.requestId === base.id)
+  const r: PrivacyRequest = extra.length ? { ...base, actions: [...base.actions, ...extra] } : base
   const dueMs = Date.parse(r.receivedAt) + (REGIME.responseDays + (r.extended ? REGIME.extensionDays : 0)) * DAY
   const endMs = r.closedAt ? Date.parse(r.closedAt) : nowMs
   const open = !['closed', 'refused'].includes(r.state)
@@ -452,10 +490,16 @@ export interface PrivacySummary {
   breaches: number
   holds: { active: number; reviewOverdue: number; items: number }
   retention: RetentionReading[]
+  incidents: IncidentReading[]
+  /** Open incidents whose notice to the client is still owed. */
+  noticeOwed: number
+  records: RecordReading[]
+  /** External recipients no processing record declares. */
+  unrecorded: DataItem[]
 }
 
-export function privacySummary(nowMs = NOW.getTime()): PrivacySummary {
-  const readings = REQUESTS.map((r) => readRequest(r, nowMs)).sort((a, b) => Number(b.open) - Number(a.open) || a.daysLeft - b.daysLeft)
+export function privacySummary(nowMs = NOW.getTime(), logged: LoggedAction[] = [], notices: IncidentNotice[] = []): PrivacySummary {
+  const readings = REQUESTS.map((r) => readRequest(r, nowMs, logged)).sort((a, b) => Number(b.open) - Number(a.open) || a.daysLeft - b.daysLeft)
   const active = HOLDS.filter(isActive)
   const breachFlags: RequestFlag[] = ['deleted_under_hold', 'agent_deleted', 'unapproved_erasure', 'no_evidence']
   return {
@@ -471,5 +515,203 @@ export function privacySummary(nowMs = NOW.getTime()): PrivacySummary {
       items: new Set(active.flatMap((h) => h.itemIds)).size,
     },
     retention: inScope().map(readRetention),
+    ...obligations(nowMs, notices),
+  }
+}
+
+/* ------------------------------ Data incidents ------------------------------ */
+
+export type IncidentKind = 'personal_data' | 'security'
+
+export const INCIDENT_KIND_LABEL: Record<IncidentKind, string> = { personal_data: 'Personal data breach', security: 'Security incident' }
+
+export interface DataIncident {
+  id: string
+  kind: IncidentKind
+  title: string
+  detectedAt: ISO
+  itemIds: string[]
+  /** People whose records were involved, where estimated. */
+  subjects: number | null
+  categories: DataCategory[]
+  containedAt?: ISO
+  closedAt?: ISO
+  /** Notice to the client already in the register. Session notices are passed in. */
+  clientNotice?: { at: ISO; by: string; reference: string }
+}
+
+export interface IncidentNotice {
+  incidentId: string
+  at: ISO
+  by: string
+  reference: string
+}
+
+export const INCIDENTS: DataIncident[] = [
+  {
+    id: 'DI-2027-004', kind: 'personal_data', title: 'Benefits eligibility file delivered to a superseded folder',
+    detectedAt: hoursAgo(18), containedAt: hoursAgo(15), itemIds: ['fd_hcm_benefits'], subjects: 1240,
+    categories: ['identity', 'contact', 'health', 'dependants'],
+  },
+  {
+    id: 'DI-2027-003', kind: 'security', title: 'Service account secret written to a pipeline log',
+    detectedAt: ago(9), containedAt: ago(9), closedAt: ago(4), itemIds: ['pl_engagement_ingest'], subjects: null, categories: [],
+    clientNotice: { at: new Date(Date.parse(ago(9)) + 11 * 3_600_000).toISOString(), by: 'Service Delivery Manager', reference: 'SEC-NOTE-0311' },
+  },
+  {
+    id: 'DI-2027-001', kind: 'personal_data', title: 'Utilisation extract shared outside its distribution list',
+    detectedAt: ago(40), containedAt: ago(40), closedAt: ago(30), itemIds: ['rp_utilisation'], subjects: 210,
+    categories: ['identity', 'employment'],
+    clientNotice: { at: new Date(Date.parse(ago(40)) + 31 * 3_600_000).toISOString(), by: 'Service Delivery Manager', reference: 'DPN-0107' },
+  },
+]
+
+export type IncidentFlag = 'notice_overdue' | 'notice_due_soon' | 'notice_late' | 'special_category' | 'reached_external'
+
+export const INCIDENT_FLAG_LABEL: Record<IncidentFlag, string> = {
+  notice_overdue: 'Notice overdue',
+  notice_due_soon: 'Notice due within 6 h',
+  notice_late: 'Notified late',
+  special_category: 'Special category',
+  reached_external: 'Reached an external party',
+}
+
+export const INCIDENT_FLAG_CRIT: Record<IncidentFlag, boolean> = {
+  notice_overdue: true, notice_late: true, notice_due_soon: false, special_category: false, reached_external: false,
+}
+
+export interface IncidentReading {
+  incident: DataIncident
+  clientDueAt: ISO
+  /** Hours left on the client notice; negative once overdue. Null once notified. */
+  hoursLeft: number | null
+  notice: { at: ISO; by: string; reference: string } | null
+  /** The client's own clock to its regulator, for personal data breaches. */
+  regulatorDueAt: ISO | null
+  recipients: DataItem[]
+  flags: IncidentFlag[]
+}
+
+export function readIncident(i: DataIncident, nowMs = NOW.getTime(), notices: IncidentNotice[] = []): IncidentReading {
+  const detected = Date.parse(i.detectedAt)
+  const due = detected + REGIME.clientNoticeHrs * 3_600_000
+  const logged = notices.find((n) => n.incidentId === i.id)
+  const notice = i.clientNotice ?? (logged ? { at: logged.at, by: logged.by, reference: logged.reference } : null)
+  const recipients = [...new Map(i.itemIds.flatMap((id) => [DATA_ITEM_BY_ID[id], ...descendants(id)])
+    .filter((d): d is DataItem => Boolean(d) && d.kind === 'recipient').map((d) => [d.id, d])).values()]
+  const hoursLeft = notice ? null : Math.round(((due - nowMs) / 3_600_000) * 10) / 10
+  const flags: IncidentFlag[] = []
+  if (!notice && hoursLeft !== null && hoursLeft < 0) flags.push('notice_overdue')
+  if (!notice && hoursLeft !== null && hoursLeft >= 0 && hoursLeft <= 6) flags.push('notice_due_soon')
+  if (notice && Date.parse(notice.at) > due) flags.push('notice_late')
+  if (i.categories.some((c) => SPECIAL_CATEGORIES.includes(c))) flags.push('special_category')
+  if (recipients.length) flags.push('reached_external')
+  return {
+    incident: i, clientDueAt: new Date(due).toISOString(), hoursLeft, notice,
+    regulatorDueAt: i.kind === 'personal_data' ? new Date(detected + REGIME.regulatorNoticeHrs * 3_600_000).toISOString() : null,
+    recipients, flags,
+  }
+}
+
+/* ---------------------------- Records of processing ------------------------- */
+
+export type LawfulBasis = 'contract' | 'legal_obligation' | 'legitimate_interests' | 'consent'
+
+export const BASIS_LABEL: Record<LawfulBasis, string> = {
+  contract: 'Contract', legal_obligation: 'Legal obligation', legitimate_interests: 'Legitimate interests', consent: 'Consent',
+}
+
+export interface ProcessingRecord {
+  id: string
+  activity: string
+  purpose: string
+  basis: LawfulBasis
+  subjects: string
+  categories: DataCategory[]
+  /** The stores, feeds and reports the activity runs through. */
+  itemIds: string[]
+  /** Recipients the record declares. */
+  recipientIds: string[]
+  /** Transfer mechanism per declared recipient outside an adequate country. */
+  transfers: Record<string, string>
+  dpia: { state: 'done' | 'not_done' | 'not_required'; at?: ISO }
+  owner: string
+}
+
+export const RECORDS: ProcessingRecord[] = [
+  {
+    id: 'ROP-01', activity: 'Payroll', purpose: 'Pay people and meet tax obligations', basis: 'contract', subjects: 'Employees',
+    categories: ['identity', 'employment', 'compensation', 'bank', 'tax'], itemIds: ['fd_hcm_payroll'],
+    recipientIds: ['rc_payroll'], transfers: { rc_payroll: 'Standard contractual clauses' }, dpia: { state: 'not_required' }, owner: 'HR Operations',
+  },
+  {
+    id: 'ROP-02', activity: 'Benefits administration', purpose: 'Enrol people and dependants in health cover', basis: 'contract', subjects: 'Employees and dependants',
+    categories: ['identity', 'contact', 'health', 'dependants'], itemIds: ['fd_hcm_benefits'],
+    recipientIds: ['rc_health'], transfers: { rc_health: 'Standard contractual clauses' }, dpia: { state: 'done', at: ago(470) }, owner: 'HR Operations',
+  },
+  {
+    id: 'ROP-03', activity: 'Immigration and mobility', purpose: 'Visas and work permits for assignments', basis: 'legal_obligation', subjects: 'Employees and dependants',
+    categories: ['identity', 'immigration', 'dependants'], itemIds: ['fd_hcm_immigration'],
+    recipientIds: ['rc_immigration'], transfers: {}, dpia: { state: 'not_required' }, owner: 'HR Operations',
+  },
+  {
+    id: 'ROP-04', activity: 'Resourcing and utilisation', purpose: 'Staff engagements and report utilisation', basis: 'legitimate_interests', subjects: 'Employees and contractors',
+    categories: ['identity', 'employment'], itemIds: ['ds_utilisation_gold', 'sm_utilisation', 'rp_utilisation', 'wf_workforce_prep', 'ap_anaplan'],
+    recipientIds: [], transfers: {}, dpia: { state: 'not_required' }, owner: 'Resource Management',
+  },
+]
+
+export type RecordFlag = 'undeclared_recipient' | 'dpia_missing' | 'transfer_unassessed' | 'no_retention'
+
+export const RECORD_FLAG_LABEL: Record<RecordFlag, string> = {
+  undeclared_recipient: 'Recipient not declared',
+  dpia_missing: 'No DPIA',
+  transfer_unassessed: 'Transfer unassessed',
+  no_retention: 'Store without retention',
+}
+
+export const RECORD_FLAG_CRIT: Record<RecordFlag, boolean> = {
+  undeclared_recipient: true, dpia_missing: true, transfer_unassessed: true, no_retention: false,
+}
+
+export interface RecordReading {
+  record: ProcessingRecord
+  /** Recipients lineage says the activity reaches. */
+  reached: DataItem[]
+  undeclared: DataItem[]
+  special: boolean
+  /** Declared recipients outside an adequate country with no mechanism. */
+  unassessed: DataItem[]
+  /** Stores in the activity with no retention schedule. */
+  unscheduled: DataItem[]
+  flags: RecordFlag[]
+}
+
+export function readRecord(rec: ProcessingRecord): RecordReading {
+  const items = rec.itemIds.map((id) => DATA_ITEM_BY_ID[id]).filter((d): d is DataItem => Boolean(d))
+  const reached = [...new Map(items.flatMap((i) => [i, ...descendants(i.id)]).filter((d) => d.kind === 'recipient').map((d) => [d.id, d])).values()]
+  const undeclared = reached.filter((d) => !rec.recipientIds.includes(d.id))
+  const declared = rec.recipientIds.map((id) => DATA_ITEM_BY_ID[id]).filter((d): d is DataItem => Boolean(d))
+  const special = rec.categories.some((c) => SPECIAL_CATEGORIES.includes(c)) || reached.some(carriesSpecial)
+  const unassessed = declared.filter((d) => d.country && !REGIME.adequate.includes(d.country) && !rec.transfers[d.id])
+  const unscheduled = items.filter((i) => STORES.includes(i.kind) && !i.retentionDays)
+  const flags: RecordFlag[] = []
+  if (undeclared.length) flags.push('undeclared_recipient')
+  if (special && rec.dpia.state !== 'done') flags.push('dpia_missing')
+  if (unassessed.length) flags.push('transfer_unassessed')
+  if (unscheduled.length) flags.push('no_retention')
+  return { record: rec, reached, undeclared, special, unassessed, unscheduled, flags }
+}
+
+function obligations(nowMs: number, notices: IncidentNotice[]) {
+  const incidents = INCIDENTS.map((i) => readIncident(i, nowMs, notices))
+    .sort((a, b) => Number(Boolean(a.incident.closedAt)) - Number(Boolean(b.incident.closedAt)) || (a.hoursLeft ?? 1e9) - (b.hoursLeft ?? 1e9))
+  const records = RECORDS.map(readRecord)
+  const declared = new Set(RECORDS.flatMap((r) => r.recipientIds))
+  return {
+    incidents,
+    noticeOwed: incidents.filter((i) => !i.notice).length,
+    records,
+    unrecorded: DATA_ITEMS.filter((d) => d.kind === 'recipient' && !declared.has(d.id)),
   }
 }

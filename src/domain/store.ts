@@ -1,3 +1,4 @@
+import type { IncidentNotice, LoggedAction } from './privacy'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, verifyChain, type ChainVerification } from './evidence'
@@ -64,6 +65,10 @@ interface State {
   agents: Record<string, Agent>
   missions: Record<string, Mission>
   proposals: Record<string, Proposal>
+  /** Privacy actions recorded this session against requests in the register. */
+  privacyLog: LoggedAction[]
+  /** Incident notices to the client recorded this session. */
+  incidentNotices: IncidentNotice[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -158,6 +163,11 @@ interface State {
   setMissionState: (missionId: string, state: Mission['state'], by: string) => void
 
   decideProposal: (id: string, verdict: Exclude<ProposalState, 'open'>, by: string, note?: string) => void
+
+  /** A person records that an external recipient was told of an erasure. The platform does not tell them itself. */
+  recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
+  /** A person records the notice given to the client of a data incident, which stops the contractual clock. */
+  recordIncidentNotice: (incidentId: string, by: string, reference: string) => void
 
   /** D8 — record a correction and compute what it reaches. Returns the lesson. */
   teach: (kind: LessonKind, targetId: string, by: string, correction: string) => Lesson | null
@@ -254,6 +264,8 @@ export const useAstra = create<State>((set, get) => ({
   agents: byId(AGENTS),
   missions: byId(MISSIONS),
   proposals: byId(PROPOSALS),
+  privacyLog: [],
+  incidentNotices: [],
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1378,6 +1390,21 @@ export const useAstra = create<State>((set, get) => ({
         : 'The disagreement feeds the evaluation service.',
       tone: verdict === 'accepted' ? 'ok' : 'warn',
     })
+  },
+
+  recordRecipientNotice: (requestId, recipientId, by, reference) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const evidenceId = get().logEvidence('action', by, `Recipient ${recipientId} told of erasure ${requestId}`, { requestId, recipientId, reference })
+    set({ privacyLog: [...get().privacyLog, { requestId, itemId: recipientId, outcome: 'notified', by, at, evidenceId }] })
+  },
+
+  recordIncidentNotice: (incidentId, by, reference) => {
+    const s = get()
+    if (s.incidentNotices.some((n) => n.incidentId === incidentId)) return
+    const at = nowIso(s.clockOffsetMins)
+    get().logEvidence('clock', by, `Client notified of data incident ${incidentId}`, { incidentId, reference })
+    set({ incidentNotices: [...get().incidentNotices, { incidentId, at, by, reference }] })
   },
 
   reinstateAgent: (agentId, by) => {

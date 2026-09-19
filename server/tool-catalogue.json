@@ -104,6 +104,44 @@
       }
     },
     {
+      "name": "get_privacy_obligations", "agent": "agt_archivist", "surfaces": ["run", "governance"],
+      "description": "incidents: data incidents touching the client's data, each against the 24-hour notice the contract requires to the client (hours left, or when and by whom it was notified and whether late), the client's own 72-hour clock to its regulator for personal data breaches, people involved, categories, and the external parties the data had reached. records: the records of processing, each checked against lineage: recipients the record declares against those lineage says it reaches, undeclared recipients, transfers outside an adequate country without a mechanism, whether a DPIA is required for special-category data and done, and stores without retention; plus external recipients no record declares.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "focus": { "type": "string", "enum": ["incidents", "records"], "description": "Default incidents" } },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "record_recipient_notice", "agent": "agt_archivist", "surfaces": ["run", "governance"], "mutating": true,
+      "description": "Record that a person told an external recipient of an erasure request, with the reference of the message sent. The platform does not contact the recipient; it records the notice and seals it to the evidence chain.",
+      "describe": "Record that {recipient_id} was told of erasure {request_id} (reference {reference}).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "request_id": { "type": "string", "description": "Erasure request id, e.g. PR-0226" },
+          "recipient_id": { "type": "string", "description": "External recipient id (e.g. rc_health) or party name" },
+          "reference": { "type": "string", "description": "Reference of the notice sent" }
+        },
+        "required": ["request_id", "recipient_id", "reference"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "record_incident_notice", "agent": "astra", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
+      "description": "Record the notice given to the client of a data incident, with its reference. Stops the contractual notice clock and seals the notice to the evidence chain. The client's own notice to its regulator is theirs to give.",
+      "describe": "Record that the client was notified of {incident_id} (reference {reference}).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "incident_id": { "type": "string", "description": "Data incident id, e.g. DI-2027-004" },
+          "reference": { "type": "string", "description": "Reference of the notice sent to the client" }
+        },
+        "required": ["incident_id", "reference"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_releases", "agent": "agt_sentryq", "surfaces": ["run", "transform"],
       "description": "Vendor and internal releases across applications and the data estate: window, state, regression gate, blocking and informing flags, and change freezes.",
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }

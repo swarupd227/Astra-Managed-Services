@@ -5,7 +5,8 @@ import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, de
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
-import { holdsOn, privacySummary, readRequest, REQUESTS } from '@/domain/privacy'
+import { INCIDENTS, holdsOn, privacySummary, readIncident, readRequest, REQUESTS } from '@/domain/privacy'
+import { NOW } from '@/domain/workSeed'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { releaseSummary } from '@/domain/releases'
 import { useAstra } from '@/domain/store'
@@ -244,7 +245,7 @@ export const EXECUTORS: Record<string, Executor> = {
     if (id) {
       const req = REQUESTS.find((r) => r.id.toLowerCase() === id.toLowerCase())
       if (!req) throw new ToolError(`No privacy request has the id "${id}".`)
-      const r = readRequest(req)
+      const r = readRequest(req, NOW.getTime(), useAstra.getState().privacyLog)
       return {
         payload: {
           id: req.id, kind: req.kind, subject: req.subject, subjectType: req.subjectType, state: req.state, daysLeft: r.daysLeft, extended: Boolean(req.extended),
@@ -258,14 +259,78 @@ export const EXECUTORS: Record<string, Executor> = {
         artifacts: [card('privacyRequest', `${req.id} · ${req.kind}`, { id: req.id }, '/operate/privacy')],
       }
     }
-    const s = privacySummary()
+    const s = privacySummary(NOW.getTime(), useAstra.getState().privacyLog, useAstra.getState().incidentNotices)
     return {
       payload: {
         open: s.open, dueWithin7Days: s.dueSoon, overdue: s.overdue, withSearchGaps: s.withGaps, processBreaches: s.breaches, holds: s.holds,
-        requests: s.readings.map((r) => ({ id: r.request.id, kind: r.request.kind, state: r.request.state, daysLeft: r.open ? r.daysLeft : null, flags: r.flags })),
+        requests: s.readings.map((r) => ({ id: r.request.id, kind: r.request.kind, intake: r.request.intake, state: r.request.state, daysLeft: r.open ? r.daysLeft : null, flags: r.flags })),
         pastRetention: s.retention.filter((x) => x.state === 'past').map((x) => ({ id: x.item.id, overDays: x.overDays })),
       },
       artifacts: [card('privacyRequests', 'Privacy requests', {}, '/operate/privacy')],
+    }
+  },
+
+  get_privacy_obligations: (input) => {
+    const focus = str(input.focus) === 'records' ? 'records' : 'incidents'
+    const st = useAstra.getState()
+    const s = privacySummary(NOW.getTime(), st.privacyLog, st.incidentNotices)
+    const payload = focus === 'incidents'
+      ? {
+        clientNoticeHrs: 24, noticeOwed: s.noticeOwed,
+        incidents: s.incidents.map((x) => ({
+          id: x.incident.id, kind: x.incident.kind, title: x.incident.title, detectedAt: x.incident.detectedAt, people: x.incident.subjects,
+          categories: x.incident.categories, items: x.incident.itemIds, closed: Boolean(x.incident.closedAt),
+          clientNoticeDueAt: x.clientDueAt, hoursLeft: x.hoursLeft, notified: x.notice, clientRegulatorDueAt: x.regulatorDueAt,
+          externalParties: x.recipients.map((r) => r.party ?? r.id), flags: x.flags,
+        })),
+      }
+      : {
+        records: s.records.map((x) => ({
+          id: x.record.id, activity: x.record.activity, basis: x.record.basis, owner: x.record.owner, categories: x.record.categories,
+          declaredRecipients: x.record.recipientIds, reachedByLineage: x.reached.map((r) => r.id), undeclared: x.undeclared.map((r) => r.id),
+          transfers: x.record.transfers, unassessedTransfers: x.unassessed.map((r) => ({ id: r.id, country: r.country })),
+          dpia: x.record.dpia, specialCategory: x.special, storesWithoutRetention: x.unscheduled.map((i) => i.id), flags: x.flags,
+        })),
+        recipientsWithNoRecord: s.unrecorded.map((r) => ({ id: r.id, party: r.party ?? null })),
+      }
+    return {
+      payload,
+      artifacts: [card('privacyObligations', focus === 'incidents' ? 'Data incidents' : 'Records of processing', { focus }, '/operate/privacy')],
+    }
+  },
+
+  record_recipient_notice: (input) => {
+    const reqId = str(input.request_id), rcpt = str(input.recipient_id), reference = str(input.reference)
+    const req = REQUESTS.find((r) => r.id.toLowerCase() === reqId.toLowerCase())
+    if (!req) throw new ToolError(`No privacy request has the id "${reqId}".`)
+    if (req.kind !== 'erasure') throw new ToolError(`${req.id} is ${req.kind === 'access' ? 'an access' : 'a retrieval'} request; only an erasure is notified to recipients.`)
+    const st = useAstra.getState()
+    const reading = readRequest(req, NOW.getTime(), st.privacyLog)
+    const target = reading.recipients.find((x) => x.item.id === rcpt || x.item.party?.toLowerCase() === rcpt.toLowerCase())
+    if (!target) throw new ToolError(`${rcpt} did not receive ${req.id}'s records. Recipients: ${reading.recipients.map((x) => x.item.id).join(', ') || 'none'}.`)
+    if (target.notice) throw new ToolError(`${target.item.party ?? target.item.id} was already told, on ${target.notice.at.slice(0, 10)}.`)
+    if (!reference) throw new ToolError('A notice needs the reference of the message sent.')
+    st.recordRecipientNotice(req.id, target.item.id, person(), reference)
+    const after = readRequest(req, NOW.getTime(), useAstra.getState().privacyLog)
+    return {
+      payload: { request: req.id, recipient: target.item.id, party: target.item.party ?? null, recordedBy: person(), stillNotTold: after.recipients.filter((x) => !x.notice).map((x) => x.item.id), flags: after.flags },
+      artifacts: [card('privacyRequest', `${req.id} · erasure`, { id: req.id }, '/operate/privacy')],
+    }
+  },
+
+  record_incident_notice: (input) => {
+    const id = str(input.incident_id), reference = str(input.reference)
+    const inc = INCIDENTS.find((i) => i.id.toLowerCase() === id.toLowerCase())
+    if (!inc) throw new ToolError(`No data incident has the id "${id}".`)
+    const st = useAstra.getState()
+    const before = readIncident(inc, NOW.getTime(), st.incidentNotices)
+    if (before.notice) throw new ToolError(`${inc.id} was already notified to the client, on ${before.notice.at.slice(0, 16).replace('T', ' ')}.`)
+    if (!reference) throw new ToolError('A notice needs the reference of the message sent to the client.')
+    st.recordIncidentNotice(inc.id, person(), reference)
+    const after = readIncident(inc, NOW.getTime(), useAstra.getState().incidentNotices)
+    return {
+      payload: { incident: inc.id, notifiedAt: after.notice?.at, by: person(), reference, late: after.flags.includes('notice_late'), clientRegulatorDueAt: after.regulatorDueAt },
+      artifacts: [card('privacyObligations', 'Data incidents', { focus: 'incidents' }, '/operate/privacy')],
     }
   },
 

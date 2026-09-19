@@ -151,7 +151,7 @@ function openers(def: ThreadDef, roleId: string): string[] {
     const byView: Record<string, [string, string][]> = {
       'view-approvals': [['get_approvals', 'Which gates are past their SLA?'], ['get_approvals', 'Which of these carry a tier-0 blast radius?']],
       'view-proposals': [['get_proposals', 'Which proposals expire soonest?'], ['get_proposals', 'Which proposal would save the most hours?']],
-      'view-privacy': [['get_privacy_requests', 'Which requests are due this week?'], ['get_privacy_requests', 'Why do requests have search gaps?']],
+      'view-privacy': [['get_privacy_obligations', 'Which data incidents are close to their notice deadline?'], ['get_privacy_requests', 'Which requests are due this week?'], ['get_privacy_obligations', 'Which processing records disagree with the lineage?']],
       'view-work-orders': [['get_work_orders', 'Which orders are in delivery without authorisation?'], ['get_work_orders', 'Which orders are over estimate?']],
     }
     return (byView[def.id] ?? []).filter(([tool]) => has(tool)).map(([, s]) => s)
