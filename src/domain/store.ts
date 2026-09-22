@@ -1,4 +1,5 @@
 import type { IncidentNotice, LoggedAction } from './privacy'
+import type { Settlement } from './exit'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, verifyChain, type ChainVerification } from './evidence'
@@ -69,6 +70,8 @@ interface State {
   privacyLog: LoggedAction[]
   /** Incident notices to the client recorded this session. */
   incidentNotices: IncidentNotice[]
+  /** Returns and destructions of what the platform holds, recorded this session. */
+  exitLog: Settlement[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -163,6 +166,11 @@ interface State {
   setMissionState: (missionId: string, state: Mission['state'], by: string) => void
 
   decideProposal: (id: string, verdict: Exclude<ProposalState, 'open'>, by: string, note?: string) => void
+
+  /** Records the return of one holding to the client, with the reference of the handover. */
+  recordDataReturn: (holdingId: string, by: string, reference: string) => void
+  /** Certifies the destruction of one holding: the method, the person, and the seal. */
+  certifyHoldingDestruction: (holdingId: string, by: string, reference: string, method: string) => void
 
   /** A person records that an external recipient was told of an erasure. The platform does not tell them itself. */
   recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
@@ -266,6 +274,7 @@ export const useAstra = create<State>((set, get) => ({
   proposals: byId(PROPOSALS),
   privacyLog: [],
   incidentNotices: [],
+  exitLog: [],
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1390,6 +1399,22 @@ export const useAstra = create<State>((set, get) => ({
         : 'The disagreement feeds the evaluation service.',
       tone: verdict === 'accepted' ? 'ok' : 'warn',
     })
+  },
+
+  recordDataReturn: (holdingId, by, reference) => {
+    const s = get()
+    if (s.exitLog.some((x) => x.holdingId === holdingId && x.action === 'returned')) return
+    const at = nowIso(s.clockOffsetMins)
+    get().logEvidence('action', by, `Client data returned — ${holdingId}`, { holdingId, reference })
+    set({ exitLog: [...get().exitLog, { holdingId, action: 'returned', at, by, reference }] })
+  },
+
+  certifyHoldingDestruction: (holdingId, by, reference, method) => {
+    const s = get()
+    if (s.exitLog.some((x) => x.holdingId === holdingId && x.action === 'destroyed')) return
+    const at = nowIso(s.clockOffsetMins)
+    get().logEvidence('approval', by, `Destruction certified — ${holdingId}`, { holdingId, reference, method })
+    set({ exitLog: [...get().exitLog, { holdingId, action: 'destroyed', at, by, reference, method }] })
   },
 
   recordRecipientNotice: (requestId, recipientId, by, reference) => {

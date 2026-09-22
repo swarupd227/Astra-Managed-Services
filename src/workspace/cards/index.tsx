@@ -7,6 +7,7 @@ import { accelerationView } from './acceleration'
 import { coverageView } from './coverage'
 import { dataEstateView, dataItemView } from './dataEstate'
 import { dataReliabilityView } from './dataReliability'
+import { exitView } from './exit'
 import { privacyObligationsView, privacyRequestView, privacyRequestsView } from './privacy'
 import { releasesView } from './releases'
 import { techDebtView } from './techDebt'
@@ -36,6 +37,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   techDebt: techDebtView,
   coverage: coverageView,
   acceleration: accelerationView,
+  exit: exitView,
   agentRun: { Body: AgentRunCard },
   figures: { Body: FiguresCard },
 }

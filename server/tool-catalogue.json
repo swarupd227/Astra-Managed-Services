@@ -113,6 +113,40 @@
       }
     },
     {
+      "name": "get_exit_readiness", "agent": "agt_archivist", "surfaces": ["governance", "transform", "run"],
+      "description": "Renew or exit: the months left on the term, the exit obligations with the clause behind each, its owner, whether it is ready and why, and what the platform itself holds of the client store by store — what each contains, where it is processed, how many records where they can be counted, whether it can be returned, whether it has been returned or destroyed, and what is retained with the reason and the date it falls away. Also the benchmark pack the ledger can evidence (quarters of contracted against actual reduction, baseline hours, service level attainment, banked hours) and the successor pack (verified assertions, demand classes, estate items, applications, runbook artefacts, evidence records).",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "record_data_return", "agent": "agt_archivist", "surfaces": ["governance", "run"], "mutating": true, "approval": true,
+      "description": "Record that one of the platform's holdings has been returned to the client, with the reference of the handover. Sealed to the evidence chain. Refused for a holding that cannot be returned in a usable form.",
+      "describe": "Record that {holding_id} was returned to the client (reference {reference}).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "holding_id": { "type": "string", "description": "Holding id (e.g. hold_knowledge) or its name" },
+          "reference": { "type": "string", "description": "Reference of the handover" }
+        },
+        "required": ["holding_id", "reference"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "certify_destruction", "agent": "astra", "surfaces": ["governance", "run"], "mutating": true, "approval": true,
+      "description": "Certify that one of the platform's holdings has been destroyed, with the method and reference, and seal the certificate to the evidence chain. Refused where the holding is retained under a stated reason, or where it is returnable and has not been returned yet.",
+      "describe": "Certify destruction of {holding_id} by {method} (reference {reference}).",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "holding_id": { "type": "string", "description": "Holding id (e.g. hold_context) or its name" },
+          "method": { "type": "string", "description": "How it was destroyed, e.g. crypto-erase of the index and its keys" },
+          "reference": { "type": "string", "description": "Reference of the destruction record" }
+        },
+        "required": ["holding_id", "method", "reference"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_privacy_obligations", "agent": "agt_archivist", "surfaces": ["run", "governance"],
       "description": "incidents: data incidents touching the client's data, each against the 24-hour notice the contract requires to the client (hours left, or when and by whom it was notified and whether late), the client's own 72-hour clock to its regulator for personal data breaches, people involved, categories, and the external parties the data had reached. records: the records of processing, each checked against lineage: recipients the record declares against those lineage says it reaches, undeclared recipients, transfers outside an adequate country without a mechanism, whether a DPIA is required for special-category data and done, and stores without retention; plus external recipients no record declares.",
       "input_schema": {

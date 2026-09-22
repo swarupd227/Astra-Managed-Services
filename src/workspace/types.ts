@@ -10,7 +10,7 @@
 export type CardKind =
   | 'estateOverview' | 'brief' | 'workQueue' | 'workItem' | 'approvals' | 'sla'
   | 'dataEstate' | 'dataItem' | 'dataReliability' | 'privacyRequests' | 'privacyRequest' | 'privacyObligations' | 'releases' | 'techDebt' | 'coverage'
-  | 'acceleration' | 'agentRun' | 'figures'
+  | 'acceleration' | 'exit' | 'agentRun' | 'figures'
 
 export interface Artifact {
   id: string

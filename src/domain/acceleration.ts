@@ -1,6 +1,7 @@
 import { bundleCoverage, COVERED_BUNDLES } from './coverage'
 import { reliabilitySummary } from './dataReliability'
 import { ENGAGEMENT, STAGES, type StageId } from './engagement'
+import { readExit } from './exit'
 import { DEMAND_CLASSES } from './ledgers'
 import { COVERAGE, HANDOVER, SHADOW } from './knowledge'
 import { OPERATIONAL, autonomyEligible, glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './metrics'
@@ -68,7 +69,8 @@ export interface Accelerator {
 
 const pct1 = (n: number) => `${n.toFixed(1)}%`
 const declared = (value: string, note: string): Reading => ({ value, basis: 'declared', note })
-const notBuilt: Reading = { value: '—', basis: 'not_measured', note: 'Not built' }
+/** For a row whose capability has not been built: no figure at all. */
+export const notBuilt: Reading = { value: '—', basis: 'not_measured', note: 'Not built' }
 
 /* --------------------------------- The rows --------------------------------- */
 
@@ -274,24 +276,33 @@ export const ACCELERATORS: Accelerator[] = [
     does: 'Supplies the benchmarker measured effort, volume and attainment instead of a reconstruction',
     agents: ['agt_herald', 'agt_bursar'],
     baseline: { value: 'Data pack rebuilt by hand per review', source: 'Commercial register' },
-    state: 'not_built',
-    read: () => notBuilt,
+    state: 'live', route: '/governance/exit',
+    read: () => {
+      const b = readExit().benchmark
+      return { value: `${b.quarters.length} quarters ready`, basis: 'measured', note: `${b.serviceLevels.length} service levels and ${b.bankedHrs.toLocaleString('en-GB')} banked hours from the ledger` }
+    },
   },
   {
     id: 'acc_exit', saves: 'client', stage: 'exit', name: 'Data returned and destruction certified',
     does: 'Holds what the platform itself keeps of the client, returns it and certifies destruction, backups included',
     agents: ['agt_archivist'],
     baseline: { value: 'Manual inventory, contested at exit', source: 'Contract requirement' },
-    state: 'not_built',
-    read: () => notBuilt,
+    state: 'live', route: '/governance/exit',
+    read: () => {
+      const r = readExit()
+      return { value: `${r.returned + r.destroyed}/${r.holdings.length} settled`, basis: 'measured', note: `${r.residual.length} retained, each with a stated reason` }
+    },
   },
   {
     id: 'acc_reverse', saves: 'client', stage: 'exit', name: 'Knowledge handed to the next provider',
     does: 'Exports the verified estate knowledge, runbooks and demand classes as the successor’s starting position',
     agents: ['agt_archivist', 'agt_herald'],
     baseline: { value: 'Reverse transition from scratch', source: 'Contract requirement' },
-    state: 'not_built',
-    read: () => notBuilt,
+    state: 'live', route: '/governance/exit',
+    read: () => {
+      const p = readExit().reverse
+      return { value: `${p.verifiedAssertions} verified assertions`, basis: 'measured', note: `${p.demandClasses} demand classes, ${p.estateItems} estate items, ${p.runbooks} handover artefacts` }
+    },
   },
 ]
 

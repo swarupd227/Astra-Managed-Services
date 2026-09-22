@@ -178,6 +178,7 @@ function openers(def: ThreadDef, roleId: string): string[] {
   if (has('get_tech_debt')) out.push('What should we pay down next quarter?')
   if (has('get_estate_overview')) out.push('How is the service running overall?')
   if (has('get_acceleration')) out.push('Where does the platform save time in this engagement?')
+  if (has('get_exit_readiness')) out.push('What would we have to hand back at exit?')
   return out.slice(0, 4)
 }
 

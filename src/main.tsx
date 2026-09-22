@@ -47,6 +47,7 @@ import { Portfolio } from './surfaces/governance/Portfolio'
 import { Releases } from './surfaces/operate/Releases'
 import { Vendors } from './surfaces/operate/Vendors'
 import { Acceleration } from './surfaces/governance/Acceleration'
+import { ExitReadiness } from './surfaces/governance/ExitReadiness'
 import {
   DataGroup, EvaluationGroup, FleetGroup, OperationsGroup, OutcomesGroup, ProofGroup, SavingsGroup, SystemsGroup, TransitionGroup,
 } from './app/groups'
@@ -118,6 +119,7 @@ const router = createHashRouter([
       { path: 'operate/releases', element: <Releases /> },
       { path: 'operate/vendors', element: <Vendors /> },
       { path: 'governance/acceleration', element: <Acceleration /> },
+      { path: 'governance/exit', element: <ExitReadiness /> },
       { path: 'transition', element: <TransitionGroup /> },
       { path: 'operate/operations', element: <OperationsGroup /> },
       { path: 'governance/savings', element: <SavingsGroup /> },

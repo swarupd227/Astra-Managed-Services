@@ -5,6 +5,7 @@ import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, de
 import { accelerationSummary } from '@/domain/acceleration'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, notIngested } from '@/domain/engagement'
+import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
 import { INCIDENTS, holdsOn, privacySummary, readIncident, readRequest, REQUESTS } from '@/domain/privacy'
@@ -297,6 +298,65 @@ export const EXECUTORS: Record<string, Executor> = {
         accelerators: rows,
       },
       artifacts: [card('acceleration', stage ? `Acceleration · ${stage}` : 'Engagement and acceleration', stage ? { stage } : {}, '/governance/acceleration')],
+    }
+  },
+
+  get_exit_readiness: () => {
+    const st = useAstra.getState()
+    const r = readExit(st.exitLog, st.assertions.filter((x) => x.verification === 'human_verified').length)
+    return {
+      payload: {
+        monthsLeftOnTerm: r.monthsLeft,
+        obligations: r.obligations.map((o) => ({ id: o.obligation.id, clause: o.obligation.clause, obligation: o.obligation.obligation, owner: o.obligation.owner, state: o.state, note: o.note })),
+        platformHoldings: r.holdings.map((h) => ({
+          id: h.holding.id, name: h.holding.name, kind: h.holding.kind, contains: h.holding.what, location: h.holding.location,
+          records: h.count, returnable: h.returnable, state: h.state,
+          retainedBecause: h.mustKeep ? `${h.mustKeep.reason} · ${h.mustKeep.until}` : null,
+          settled: h.settlement ? { action: h.settlement.action, at: h.settlement.at, by: h.settlement.by, reference: h.settlement.reference, method: h.settlement.method ?? null } : null,
+        })),
+        returned: r.returned, destroyed: r.destroyed, retained: r.residual.length,
+        benchmarkPack: r.benchmark,
+        successorPack: r.reverse,
+      },
+      artifacts: [card('exit', 'Renew or exit', {}, '/governance/exit')],
+    }
+  },
+
+  record_data_return: (input) => {
+    const id = str(input.holding_id), reference = str(input.reference)
+    const holding = HOLDINGS.find((h) => h.id === id || h.name.toLowerCase() === id.toLowerCase())
+    if (!holding) throw new ToolError(`The platform holds nothing called "${id}". Holdings: ${HOLDINGS.map((h) => h.id).join(', ')}.`)
+    if (!holding.returnable) throw new ToolError(`${holding.name} cannot be returned in a usable form; it can only be destroyed.`)
+    if (!reference) throw new ToolError('A return needs the reference of the handover.')
+    const st = useAstra.getState()
+    if (st.exitLog.some((x) => x.holdingId === holding.id && x.action === 'returned')) throw new ToolError(`${holding.name} was already returned.`)
+    st.recordDataReturn(holding.id, person(), reference)
+    const after = readExit(useAstra.getState().exitLog)
+    return {
+      payload: { holding: holding.id, recordedBy: person(), reference, outstanding: after.holdings.filter((h) => h.returnable && !h.settlement).map((h) => h.holding.id) },
+      artifacts: [card('exit', 'Renew or exit', {}, '/governance/exit')],
+    }
+  },
+
+  certify_destruction: (input) => {
+    const id = str(input.holding_id), reference = str(input.reference), method = str(input.method)
+    const holding = HOLDINGS.find((h) => h.id === id || h.name.toLowerCase() === id.toLowerCase())
+    if (!holding) throw new ToolError(`The platform holds nothing called "${id}". Holdings: ${HOLDINGS.map((h) => h.id).join(', ')}.`)
+    if (holding.mustKeep) throw new ToolError(`${holding.name} is retained: ${holding.mustKeep.reason} · ${holding.mustKeep.until}.`)
+    if (!reference || !method) throw new ToolError('A certificate needs the reference and the method of destruction.')
+    const st = useAstra.getState()
+    const before = readExit(st.exitLog).holdings.find((h) => h.holding.id === holding.id)!
+    if (before.destroyRecord) throw new ToolError(`${holding.name} was already destroyed on ${before.destroyRecord.at.slice(0, 10)}.`)
+    if (holding.returnable && !before.returnRecord) throw new ToolError(`${holding.name} has not been returned yet. Return it before destroying it, or record the client's waiver first.`)
+    st.certifyHoldingDestruction(holding.id, person(), reference, method)
+    const after = readExit(useAstra.getState().exitLog)
+    return {
+      payload: {
+        holding: holding.id, certifiedBy: person(), method, reference,
+        destroyed: after.destroyed, retained: after.residual.map((h) => ({ id: h.holding.id, because: h.mustKeep?.reason ?? null })),
+        obligations: after.obligations.map((o) => ({ id: o.obligation.id, state: o.state })),
+      },
+      artifacts: [card('exit', 'Renew or exit', {}, '/governance/exit')],
     }
   },
 
