@@ -46,6 +46,7 @@ import { MyWorkplace } from './surfaces/workplace/MyWorkplace'
 import { Portfolio } from './surfaces/governance/Portfolio'
 import { Releases } from './surfaces/operate/Releases'
 import { Vendors } from './surfaces/operate/Vendors'
+import { Acceleration } from './surfaces/governance/Acceleration'
 import { DataEstate } from './surfaces/operate/DataEstate'
 import { DataReliability } from './surfaces/operate/DataReliability'
 import { PrivacyRequests } from './surfaces/operate/PrivacyRequests'
@@ -113,6 +114,7 @@ const router = createHashRouter([
       { path: 'governance/inventory', element: <Portfolio /> },
       { path: 'operate/releases', element: <Releases /> },
       { path: 'operate/vendors', element: <Vendors /> },
+      { path: 'governance/acceleration', element: <Acceleration /> },
       { path: 'operate/data', element: <DataEstate /> },
       { path: 'operate/data-reliability', element: <DataReliability /> },
       { path: 'operate/privacy', element: <PrivacyRequests /> },

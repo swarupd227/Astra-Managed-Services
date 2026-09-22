@@ -2,7 +2,9 @@ import { buildBrief, readLastSeen } from '@/domain/brief'
 import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
+import { accelerationSummary } from '@/domain/acceleration'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
+import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, notIngested } from '@/domain/engagement'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
 import { INCIDENTS, holdsOn, privacySummary, readIncident, readRequest, REQUESTS } from '@/domain/privacy'
@@ -267,6 +269,31 @@ export const EXECUTORS: Record<string, Executor> = {
         pastRetention: s.retention.filter((x) => x.state === 'past').map((x) => ({ id: x.item.id, overDays: x.overDays })),
       },
       artifacts: [card('privacyRequests', 'Privacy requests', {}, '/operate/privacy')],
+    }
+  },
+
+  get_acceleration: (input) => {
+    const stage = str(input.stage)
+    if (stage && !STAGES.some((s) => s.id === stage)) throw new ToolError(`No stage is called "${stage}". Stages: ${STAGES.map((s) => s.id).join(', ')}.`)
+    const s = accelerationSummary()
+    const rows = (stage ? s.accelerators.filter((a) => a.stage === stage) : s.accelerators).map((a) => ({
+      id: a.id, stage: a.stage, name: a.name, does: a.does, agents: a.agents, state: a.state,
+      withoutThePlatform: a.baseline, withIt: { value: a.reading.value, basis: a.reading.basis, note: a.reading.note }, page: a.route ?? null,
+    }))
+    return {
+      payload: {
+        engagementRead: { id: ENGAGEMENT.id, client: ENGAGEMENT.client, stage: ENGAGEMENT.stage },
+        engagements: ENGAGEMENTS.map((e) => ({
+          id: e.id, client: e.client, industry: e.industry, stage: e.stage, currency: e.currency,
+          serviceLines: e.serviceLines.map((l) => ({ name: l.name, pack: PACK_BY_ID[l.packId]?.name ?? l.packId })),
+          regime: e.regime.name, notIngested: notIngested(e),
+        })),
+        servicePacks: SERVICE_PACKS.map((p) => ({ id: p.id, name: p.name, covers: p.covers, agents: p.agents, depth: p.depth })),
+        stages: s.stages.map((x) => ({ id: x.stage.id, name: x.stage.name, question: x.stage.question, outcome: x.stage.outcome, live: x.live, partial: x.partial, notBuilt: x.notBuilt })),
+        totals: { live: s.live, partial: s.partial, notBuilt: s.notBuilt, measuredHere: s.measured, stagesWithNothingBuilt: s.stagesUncovered },
+        accelerators: rows,
+      },
+      artifacts: [card('acceleration', stage ? `Acceleration · ${stage}` : 'Engagement and acceleration', stage ? { stage } : {}, '/governance/acceleration')],
     }
   },
 

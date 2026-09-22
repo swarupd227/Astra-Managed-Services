@@ -114,6 +114,7 @@ export const SURFACES: Surface[] = [
     tagline: 'Oversight across the whole lifecycle — posture, decisions, evidence',
     users: 'Client executives, service governance, audit',
     items: [
+      { to: '/governance/acceleration', label: 'Engagement & Acceleration', desc: 'Engagements loaded and their service packs, the six stages each passes through, and what the platform makes faster in every one' },
       { to: '/governance/executive', label: 'Executive Home', desc: 'One page of service truth and the decisions awaiting you' },
       { to: '/governance/objectives', label: 'Objectives', desc: 'What the engagement was bought to achieve, and what the platform can evidence' },
       { to: '/governance/client-effort', label: 'Client Effort', desc: 'What the client declares about their own staff — held and aged, never measured here' },

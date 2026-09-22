@@ -104,6 +104,15 @@
       }
     },
     {
+      "name": "get_acceleration", "agent": "agt_herald", "surfaces": ["governance", "transform", "transition", "run", "platform"],
+      "description": "How the platform shortens each stage of a managed services engagement — bid, transition, run, improve, assure, renew or exit. Returns the engagements loaded and what has been ingested for each, the reusable service packs behind their service lines, the six stages with how many accelerators are live, partial or not built in each, and every accelerator: what the platform does instead of the manual work, which agents do it, how long that work takes without the platform and whose estimate that is, what the platform shows today, and whether that figure is measured here, projected, declared or not measured. Give a stage to read one. Figures are read for the engagement whose estate is ingested.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "stage": { "type": "string", "enum": ["bid", "transition", "run", "improve", "assure", "exit"] } },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_privacy_obligations", "agent": "agt_archivist", "surfaces": ["run", "governance"],
       "description": "incidents: data incidents touching the client's data, each against the 24-hour notice the contract requires to the client (hours left, or when and by whom it was notified and whether late), the client's own 72-hour clock to its regulator for personal data breaches, people involved, categories, and the external parties the data had reached. records: the records of processing, each checked against lineage: recipients the record declares against those lineage says it reaches, undeclared recipients, transfers outside an adequate country without a mechanism, whether a DPIA is required for special-category data and done, and stores without retention; plus external recipients no record declares.",
       "input_schema": {

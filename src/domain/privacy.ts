@@ -1,5 +1,6 @@
 import { NOW } from './workSeed'
 import { AGENT_BY_ID } from './estate'
+import { ENGAGEMENT } from './engagement'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, SPECIAL_CATEGORIES, STORES, carriesSpecial, descendants, type DataCategory, type DataItem } from './dataEstate'
 import type { ISO } from './types'
 
@@ -52,16 +53,13 @@ const DAY = 86_400_000
 
 /* ------------------------------ The regime ---------------------------------- */
 
-/** The statutory clock requests run against. Seed data — another client configures its own. */
-export const REGIME = {
-  name: 'GDPR', responseDays: 30, extensionDays: 60,
-  /** Hours the contract allows to notify the client of an incident touching its data. */
-  clientNoticeHrs: 24,
-  /** Hours the client has to notify its regulator of a personal data breach. The client's clock, shown for reference. */
-  regulatorNoticeHrs: 72,
-  /** Where personal data may go without a transfer mechanism. */
-  adequate: ['EEA', 'UK', 'CH', 'JP', 'KR', 'CA', 'NZ', 'IL'],
-}
+/**
+ * The statutory clock requests run against, and the notice hours the contract
+ * sets. Read from the engagement, not written here: another client brings its
+ * own regime, its own response days and its own notice hours, and the same
+ * code runs against them.
+ */
+export const REGIME = ENGAGEMENT.regime
 
 /* --------------------------------- Holds ------------------------------------ */
 
