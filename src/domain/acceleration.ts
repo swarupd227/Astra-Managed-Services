@@ -11,6 +11,10 @@ import { EVIDENCE, WORK_OBJECTS } from './workSeed'
    Acceleration — what the platform makes faster at each stage of an
    engagement, and what the claim rests on.
 
+   The platform is client-facing, so every row also says whose time it
+   gives back — the client's people, ours, or both. A row belonging to a
+   stage that is ours alone is never shown to the client's roles.
+
    Every row carries two figures and refuses to blur them. The baseline is
    how long the work takes without the platform, and it is always someone's
    statement — a bid team's estimate, a client's own account — never
@@ -41,10 +45,16 @@ export interface Reading {
   note: string
 }
 
+/** Whose effort the accelerator removes. */
+export type Saves = 'client' | 'provider' | 'both'
+
+export const SAVES_LABEL: Record<Saves, string> = { client: 'Client', provider: 'Service', both: 'Both' }
+
 export interface Accelerator {
   id: string
   stage: StageId
   name: string
+  saves: Saves
   /** What the platform does instead of the manual work. */
   does: string
   agents: string[]
@@ -65,7 +75,7 @@ const notBuilt: Reading = { value: '—', basis: 'not_measured', note: 'Not buil
 export const ACCELERATORS: Accelerator[] = [
   /* ----------------------------------- Bid ---------------------------------- */
   {
-    id: 'acc_scope', stage: 'bid', name: 'Scope read into service packs',
+    id: 'acc_scope', saves: 'provider', stage: 'bid', name: 'Scope read into service packs',
     does: 'Reads the scope documents and maps every service function to a pack, naming the agent that would own it and the functions no agent covers',
     agents: ['agt_prospect', 'agt_archivist'],
     baseline: { value: '2–3 weeks', source: 'Bid team estimate' },
@@ -78,7 +88,7 @@ export const ACCELERATORS: Accelerator[] = [
     },
   },
   {
-    id: 'acc_volume', stage: 'bid', name: 'Automatable volume from ticket history',
+    id: 'acc_volume', saves: 'provider', stage: 'bid', name: 'Automatable volume from ticket history',
     does: 'Sorts a ticket extract into classes of work and reports the share agents could take, instead of sampling by hand',
     agents: ['agt_prospect'],
     baseline: { value: '2 weeks of sampling', source: 'Bid team estimate' },
@@ -86,7 +96,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => ({ value: `${autonomyEligible().toFixed(0)}% of volume`, basis: 'measured', note: `Across ${DEMAND_CLASSES.length} demand classes; no ingestion of a raw extract yet` }),
   },
   {
-    id: 'acc_commitment', stage: 'bid', name: 'Cost-reduction commitment with evidence behind it',
+    id: 'acc_commitment', saves: 'provider', stage: 'bid', name: 'Cost-reduction commitment with evidence behind it',
     does: 'Prices the elimination candidates and proposes the reduction curve the bid can commit to',
     agents: ['agt_prospect', 'agt_bursar'],
     baseline: { value: 'Judgement, defended in review', source: 'Bid team estimate' },
@@ -100,7 +110,7 @@ export const ACCELERATORS: Accelerator[] = [
 
   /* -------------------------------- Transition ------------------------------ */
   {
-    id: 'acc_discovery', stage: 'transition', name: 'Estate discovered instead of interviewed',
+    id: 'acc_discovery', saves: 'both', stage: 'transition', name: 'Estate discovered instead of interviewed',
     does: 'Reverse-engineers the estate from the systems themselves and reports what remains dark',
     agents: ['agt_archivist'],
     baseline: { value: '8–12 weeks of SME interviews', source: 'Transition lead estimate' },
@@ -112,7 +122,7 @@ export const ACCELERATORS: Accelerator[] = [
     },
   },
   {
-    id: 'acc_verify', stage: 'transition', name: 'Knowledge verified one claim at a time',
+    id: 'acc_verify', saves: 'client', stage: 'transition', name: 'Knowledge verified one claim at a time',
     does: 'Puts each claim to the person who knows, and records the verdict as a fact agents may cite',
     agents: ['agt_archivist'],
     baseline: { value: 'Workshops and documents of unknown currency', source: 'Transition lead estimate' },
@@ -120,7 +130,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => ({ value: `${pct1(verifiedVolumeCoverage())} of volume`, basis: 'measured', note: `Median ${OPERATIONAL.medianVerificationSec} s per verdict` }),
   },
   {
-    id: 'acc_shadow', stage: 'transition', name: 'Takeover proven before cutover',
+    id: 'acc_shadow', saves: 'provider', stage: 'transition', name: 'Takeover proven before cutover',
     does: 'Runs agents in shadow against the incumbent and grades agreement per action class, so autonomy is earned rather than asserted',
     agents: ['agt_sentinel', 'agt_diagnost', 'agt_remedian'],
     baseline: { value: 'Hypercare and hope', source: 'Transition lead estimate' },
@@ -132,7 +142,7 @@ export const ACCELERATORS: Accelerator[] = [
     },
   },
   {
-    id: 'acc_cutover', stage: 'transition', name: 'Cutover gates checked, not asserted',
+    id: 'acc_cutover', saves: 'both', stage: 'transition', name: 'Cutover gates checked, not asserted',
     does: 'Holds each handover artefact to a machine-checked acceptance test, so a gate cannot be signed on a slide',
     agents: ['agt_herald'],
     baseline: { value: 'Document review and sign-off meetings', source: 'Transition lead estimate' },
@@ -145,7 +155,7 @@ export const ACCELERATORS: Accelerator[] = [
 
   /* ----------------------------------- Run ---------------------------------- */
   {
-    id: 'acc_unaided', stage: 'run', name: 'Work resolved without a person',
+    id: 'acc_unaided', saves: 'provider', stage: 'run', name: 'Work resolved without a person',
     does: 'Agents triage, diagnose and resolve within the autonomy the policy engine allows',
     agents: ['agt_sentinel', 'agt_diagnost', 'agt_remedian'],
     baseline: { value: 'Every ticket touched by a person', source: 'Incumbent operating model' },
@@ -159,7 +169,7 @@ export const ACCELERATORS: Accelerator[] = [
     },
   },
   {
-    id: 'acc_prework', stage: 'run', name: 'Diagnosis done before a resolver opens the ticket',
+    id: 'acc_prework', saves: 'provider', stage: 'run', name: 'Diagnosis done before a resolver opens the ticket',
     does: 'Assembles context, cause and a proposed plan on arrival, so the queue starts at a decision',
     agents: ['agt_diagnost'],
     baseline: { value: 'Resolver starts from the ticket text', source: 'Shadow-period comparison' },
@@ -167,7 +177,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => ({ value: `${OPERATIONAL.preWorkSavingMins} min saved per item`, basis: 'measured', note: `Plan taken unchanged ${OPERATIONAL.planAdoptRate}% of the time` }),
   },
   {
-    id: 'acc_gate', stage: 'run', name: 'Approval in seconds, not days',
+    id: 'acc_gate', saves: 'client', stage: 'run', name: 'Approval in seconds, not days',
     does: 'Brings the decision to the approver with the blast radius, the action class and the evidence already attached',
     agents: ['astra'],
     baseline: { value: 'Change board, weekly', source: 'Client-stated' },
@@ -175,7 +185,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => ({ value: `${OPERATIONAL.medianDecisionSec} s median`, basis: 'measured', note: 'Card opened to decision recorded, 30 days' }),
   },
   {
-    id: 'acc_recover', stage: 'run', name: 'Failures recovered without a person',
+    id: 'acc_recover', saves: 'both', stage: 'run', name: 'Failures recovered without a person',
     does: 'Detects a failed run, decides within policy, reruns or backfills, and proves the data landed inside its window',
     agents: ['agt_custodian'],
     baseline: { value: 'Morning triage after the business notices', source: 'Client-stated' },
@@ -188,7 +198,7 @@ export const ACCELERATORS: Accelerator[] = [
     },
   },
   {
-    id: 'acc_predict', stage: 'run', name: 'Breach seen before it happens',
+    id: 'acc_predict', saves: 'both', stage: 'run', name: 'Breach seen before it happens',
     does: 'Projects each run and each clock against its window and raises the ones that will miss',
     agents: ['agt_custodian', 'agt_sentinel'],
     baseline: { value: 'Breach reported after the fact', source: 'Client-stated' },
@@ -202,7 +212,7 @@ export const ACCELERATORS: Accelerator[] = [
 
   /* --------------------------------- Improve -------------------------------- */
   {
-    id: 'acc_eliminate', stage: 'improve', name: 'Recurring demand removed, not absorbed',
+    id: 'acc_eliminate', saves: 'both', stage: 'improve', name: 'Recurring demand removed, not absorbed',
     does: 'Mines recurrence into classes, costs the fix, and verifies the volume actually went away',
     agents: ['agt_prospect'],
     baseline: { value: 'Improvement promised annually, rarely evidenced', source: 'Client-stated' },
@@ -210,7 +220,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => ({ value: `${pct1(volumeRemoved())} of the book`, basis: 'measured', note: 'Only classes verified as eliminated count' }),
   },
   {
-    id: 'acc_glidepath', stage: 'improve', name: 'Savings banked against the committed curve',
+    id: 'acc_glidepath', saves: 'client', stage: 'improve', name: 'Savings banked against the committed curve',
     does: 'Holds the countersigned baseline, banks verified savings and reports attainment against the contracted reduction',
     agents: ['agt_bursar', 'agt_herald'],
     baseline: { value: 'Benefit claimed in a deck', source: 'Client-stated' },
@@ -221,7 +231,7 @@ export const ACCELERATORS: Accelerator[] = [
     },
   },
   {
-    id: 'acc_debt', stage: 'improve', name: 'Debt priced by the demand it causes',
+    id: 'acc_debt', saves: 'both', stage: 'improve', name: 'Debt priced by the demand it causes',
     does: 'Attributes recurring work to the debt behind it and ranks payback against declared capacity',
     agents: ['agt_prospect', 'agt_archivist'],
     baseline: { value: 'Debt listed, never costed', source: 'Client-stated' },
@@ -234,7 +244,7 @@ export const ACCELERATORS: Accelerator[] = [
 
   /* --------------------------------- Assure --------------------------------- */
   {
-    id: 'acc_evidence', stage: 'assure', name: 'Audit answered from the record',
+    id: 'acc_evidence', saves: 'client', stage: 'assure', name: 'Audit answered from the record',
     does: 'Seals every action, decision and approval into a verifiable chain, so a question is a query rather than a sampling exercise',
     agents: ['agt_herald', 'agt_archivist'],
     baseline: { value: 'Days per audit question, by sampling', source: 'Client-stated' },
@@ -242,7 +252,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => ({ value: `${EVIDENCE.length.toLocaleString('en-GB')} sealed records`, basis: 'measured', note: `Retrieval under ${OPERATIONAL.evidenceRetrievalSec} s` }),
   },
   {
-    id: 'acc_dispute', stage: 'assure', name: 'Service level disputes closed on the clock audit',
+    id: 'acc_dispute', saves: 'both', stage: 'assure', name: 'Service level disputes closed on the clock audit',
     does: 'Replays the clock event by event — start, pauses and stop — so attainment is arithmetic rather than argument',
     agents: ['agt_herald'],
     baseline: { value: 'Weeks of reconciliation per dispute', source: 'Commercial register' },
@@ -250,7 +260,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => declared(`${OPERATIONAL.disputeFirstReviewClosure}% closed at first review`, `${OPERATIONAL.openDisputes} dispute open`),
   },
   {
-    id: 'acc_ai_gov', stage: 'assure', name: 'AI governance evidenced, not described',
+    id: 'acc_ai_gov', saves: 'client', stage: 'assure', name: 'AI governance evidenced, not described',
     does: 'Maps the AI control frameworks to the records the platform already holds, and runs the conformance set on demand',
     agents: ['agt_warden', 'agt_herald'],
     baseline: { value: 'Policy documents and questionnaires', source: 'Client-stated' },
@@ -260,7 +270,7 @@ export const ACCELERATORS: Accelerator[] = [
 
   /* ------------------------------ Renew or exit ----------------------------- */
   {
-    id: 'acc_benchmark', stage: 'exit', name: 'Benchmark answered from the ledger',
+    id: 'acc_benchmark', saves: 'client', stage: 'exit', name: 'Benchmark answered from the ledger',
     does: 'Supplies the benchmarker measured effort, volume and attainment instead of a reconstruction',
     agents: ['agt_herald', 'agt_bursar'],
     baseline: { value: 'Data pack rebuilt by hand per review', source: 'Commercial register' },
@@ -268,7 +278,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => notBuilt,
   },
   {
-    id: 'acc_exit', stage: 'exit', name: 'Data returned and destruction certified',
+    id: 'acc_exit', saves: 'client', stage: 'exit', name: 'Data returned and destruction certified',
     does: 'Holds what the platform itself keeps of the client, returns it and certifies destruction, backups included',
     agents: ['agt_archivist'],
     baseline: { value: 'Manual inventory, contested at exit', source: 'Contract requirement' },
@@ -276,7 +286,7 @@ export const ACCELERATORS: Accelerator[] = [
     read: () => notBuilt,
   },
   {
-    id: 'acc_reverse', stage: 'exit', name: 'Knowledge handed to the next provider',
+    id: 'acc_reverse', saves: 'client', stage: 'exit', name: 'Knowledge handed to the next provider',
     does: 'Exports the verified estate knowledge, runbooks and demand classes as the successor’s starting position',
     agents: ['agt_archivist', 'agt_herald'],
     baseline: { value: 'Reverse transition from scratch', source: 'Contract requirement' },
@@ -303,6 +313,8 @@ export interface StageReading {
 
 export interface AccelerationSummary {
   stages: StageReading[]
+  /** Rows whose time is given back to the client, or to both. */
+  forClient: number
   accelerators: AcceleratorReading[]
   live: number
   partial: number
@@ -312,9 +324,16 @@ export interface AccelerationSummary {
   stagesUncovered: number
 }
 
-export function accelerationSummary(): AccelerationSummary {
-  const rows: AcceleratorReading[] = ACCELERATORS.map((a) => ({ ...a, reading: a.read() }))
-  const stages: StageReading[] = STAGES.map((stage) => {
+/**
+ * Read for one audience. The client's people see the stages of their own
+ * engagement; our own stages are ours to look at.
+ */
+export function accelerationSummary(audience: 'client' | 'all' = 'all'): AccelerationSummary {
+  const visible = STAGES.filter((s) => audience === 'all' || s.audience === 'client')
+  const rows: AcceleratorReading[] = ACCELERATORS
+    .filter((a) => visible.some((s) => s.id === a.stage))
+    .map((a) => ({ ...a, reading: a.read() }))
+  const stages: StageReading[] = visible.map((stage) => {
     const accelerators = rows.filter((r) => r.stage === stage.id)
     return {
       stage,
@@ -328,6 +347,7 @@ export function accelerationSummary(): AccelerationSummary {
   return {
     stages,
     accelerators: rows,
+    forClient: rows.filter((r) => r.saves !== 'provider').length,
     live: rows.filter((r) => r.state === 'live').length,
     partial: rows.filter((r) => r.state === 'partial').length,
     notBuilt: rows.filter((r) => r.state === 'not_built').length,

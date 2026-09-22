@@ -273,11 +273,14 @@ export const EXECUTORS: Record<string, Executor> = {
   },
 
   get_acceleration: (input) => {
+    // The platform is client-facing: the client's own people are never told about our stages.
+    const clientSide = ROLE_BY_ID[useAstra.getState().roleId]?.org !== 'artizent'
+    const visible = STAGES.filter((x) => !clientSide || x.audience === 'client')
     const stage = str(input.stage)
-    if (stage && !STAGES.some((s) => s.id === stage)) throw new ToolError(`No stage is called "${stage}". Stages: ${STAGES.map((s) => s.id).join(', ')}.`)
-    const s = accelerationSummary()
+    if (stage && !visible.some((x) => x.id === stage)) throw new ToolError(`No stage is called "${stage}". Stages: ${visible.map((x) => x.id).join(', ')}.`)
+    const s = accelerationSummary(clientSide ? 'client' : 'all')
     const rows = (stage ? s.accelerators.filter((a) => a.stage === stage) : s.accelerators).map((a) => ({
-      id: a.id, stage: a.stage, name: a.name, does: a.does, agents: a.agents, state: a.state,
+      id: a.id, stage: a.stage, name: a.name, does: a.does, agents: a.agents, state: a.state, givesTimeBackTo: a.saves,
       withoutThePlatform: a.baseline, withIt: { value: a.reading.value, basis: a.reading.basis, note: a.reading.note }, page: a.route ?? null,
     }))
     return {
@@ -290,7 +293,7 @@ export const EXECUTORS: Record<string, Executor> = {
         })),
         servicePacks: SERVICE_PACKS.map((p) => ({ id: p.id, name: p.name, covers: p.covers, agents: p.agents, depth: p.depth })),
         stages: s.stages.map((x) => ({ id: x.stage.id, name: x.stage.name, question: x.stage.question, outcome: x.stage.outcome, live: x.live, partial: x.partial, notBuilt: x.notBuilt })),
-        totals: { live: s.live, partial: s.partial, notBuilt: s.notBuilt, measuredHere: s.measured, stagesWithNothingBuilt: s.stagesUncovered },
+        totals: { live: s.live, partial: s.partial, notBuilt: s.notBuilt, measuredHere: s.measured, givingTheClientTimeBack: s.forClient, stagesWithNothingBuilt: s.stagesUncovered },
         accelerators: rows,
       },
       artifacts: [card('acceleration', stage ? `Acceleration · ${stage}` : 'Engagement and acceleration', stage ? { stage } : {}, '/governance/acceleration')],

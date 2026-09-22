@@ -2,11 +2,13 @@ import React from 'react'
 import { Gauge, Layers, Workflow } from 'lucide-react'
 import { AGENT_BY_ID } from '@/domain/estate'
 import {
-  BASIS_LABEL, BUILD_LABEL, accelerationSummary,
-  type AcceleratorReading, type Basis, type BuildState, type StageReading,
+  BASIS_LABEL, BUILD_LABEL, SAVES_LABEL, accelerationSummary,
+  type AcceleratorReading, type Basis, type BuildState, type Saves, type StageReading,
 } from '@/domain/acceleration'
+import { ROLE_BY_ID } from '@/domain/reference'
+import { useAstra } from '@/domain/store'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGE_BY_ID, notIngested, type Engagement } from '@/domain/engagement'
-import { Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
+import { Card, Chip, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
 import { cn } from '@/lib/format'
 import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
 
@@ -14,31 +16,43 @@ import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
    Engagement and acceleration.
 
    Which engagements the platform holds and what has been loaded for each,
-   then the six stages an engagement passes through, and against each stage
-   what the platform makes faster: how the work is done without it, what it
-   shows today, and whether that figure is measured here or someone's claim.
+   then the stages an engagement passes through, and against each stage what
+   the platform makes faster: whose time it gives back, how the work is done
+   without it, what it shows today, and whether that figure is measured here
+   or someone's claim.
+
+   The platform is client-facing. A client role sees the stages of its own
+   engagement; the supplier's bid stage is ours to look at, and only a
+   supplier role can bring it into view.
    ========================================================================== */
 
 type Tone = 'neutral' | 'ok' | 'warn' | 'crit' | 'info' | 'brand' | 'agent'
 
 const BUILD_TONE: Record<BuildState, Tone> = { live: 'ok', partial: 'warn', not_built: 'neutral' }
+const SAVES_TONE: Record<Saves, Tone> = { client: 'brand', provider: 'neutral', both: 'info' }
 const BASIS_TONE: Record<Basis, Tone> = { measured: 'ok', projected: 'info', declared: 'warn', not_measured: 'neutral' }
 const INGEST_LABEL: Record<string, string> = { contract: 'Contract', inventory: 'Inventory', tickets: 'Tickets', estate: 'Estate', telemetry: 'Telemetry' }
 
 const who = (id: string) => (id === 'astra' ? 'Astra' : AGENT_BY_ID[id]?.name ?? id)
 
-function useSummary() {
-  return React.useMemo(() => accelerationSummary(), [])
+/** True for anyone on the client's side, including a service consumer. */
+function useClientSide() {
+  const roleId = useAstra((s) => s.roleId)
+  return ROLE_BY_ID[roleId]?.org !== 'artizent'
+}
+
+function useSummary(audience: 'client' | 'all') {
+  return React.useMemo(() => accelerationSummary(audience), [audience])
 }
 
 function AccelerationMetrics({ size }: CardProps) {
-  const s = useSummary()
+  const s = useSummary(useClientSide() ? 'client' : 'all')
   const page = size === 'page'
   return (
     <Band size={size} cols={6}>
       <Metric size="sm" label="Engagements" value={ENGAGEMENTS.length} hint={page ? `${ENGAGEMENTS.filter((e) => e.ingested.estate).length} with an estate ingested` : undefined} />
       {page && <Metric size="sm" label="Service packs" value={SERVICE_PACKS.length} hint="reused across clients" />}
-      <Metric size="sm" label="Accelerators live" value={`${s.live}/${s.accelerators.length}`} deltaTone={s.live ? 'ok' : 'warn'} />
+      <Metric size="sm" label="Accelerators live" value={`${s.live}/${s.accelerators.length}`} deltaTone={s.live ? 'ok' : 'warn'} hint={page ? `${s.forClient} give the client time back` : undefined} />
       <Metric size="sm" label="Measured here" value={s.measured} hint={page ? 'the rest declared or projected' : undefined} />
       <Metric size="sm" label="Partial" value={s.partial} deltaTone={s.partial ? 'warn' : 'ok'} />
       <Metric size="sm" label="Not built" value={s.notBuilt} deltaTone={s.notBuilt ? 'crit' : 'ok'} hint={page ? `${s.stagesUncovered} stage${s.stagesUncovered === 1 ? '' : 's'} with nothing built` : undefined} />
@@ -129,7 +143,7 @@ function AcceleratorsTable({ rows, full }: { rows: AcceleratorReading[]; full: b
     <Table>
       <thead>
         <tr>
-          <Th>Stage</Th><Th>What the platform does</Th>{full && <Th>Agents</Th>}
+          <Th>Stage</Th><Th>What the platform does</Th>{full && <Th>Agents</Th>}<Th>Whose time</Th>
           <Th>Without it</Th><Th>With it</Th><Th>Basis</Th><Th>State</Th>
         </tr>
       </thead>
@@ -148,6 +162,7 @@ function AcceleratorsTable({ rows, full }: { rows: AcceleratorReading[]; full: b
                 </div>
               </Td>
             )}
+            <Td><Chip tone={SAVES_TONE[a.saves]}>{SAVES_LABEL[a.saves]}</Chip></Td>
             <Td className="max-w-[170px] text-2xs text-ink-2">
               {a.baseline.value}
               {full && <span className="block text-[10px] text-ink-3">{a.baseline.source}</span>}
@@ -166,7 +181,9 @@ function AcceleratorsTable({ rows, full }: { rows: AcceleratorReading[]; full: b
 }
 
 function AccelerationBody({ props, size }: CardProps) {
-  const s = useSummary()
+  const clientSide = useClientSide()
+  const [audience, setAudience] = React.useState<'client' | 'all'>('client')
+  const s = useSummary(clientSide ? 'client' : audience)
   const full = size !== 'card'
   const stage = String(props.stage ?? '')
   const rows = stage ? s.accelerators.filter((a) => a.stage === stage) : s.accelerators
@@ -187,7 +204,20 @@ function AccelerationBody({ props, size }: CardProps) {
         <StageStrip rows={s.stages} />
       </Card>
 
-      <Card className="mt-4" title="Acceleration" subtitle={`${s.accelerators.length} accelerators · ${s.measured} measured here`} right={<Gauge size={13} className="text-ink-3" />}>
+      <Card
+        className="mt-4"
+        title="Acceleration"
+        subtitle={`${s.accelerators.length} accelerators · ${s.measured} measured here · ${s.forClient} give the client time back`}
+        right={<Gauge size={13} className="text-ink-3" />}
+      >
+        {!clientSide && (
+          <Tabs
+            className="mb-3"
+            tabs={[{ id: 'client', label: 'The client’s engagement' }, { id: 'all', label: 'Including our own stages' }]}
+            value={audience}
+            onChange={setAudience}
+          />
+        )}
         <AcceleratorsTable rows={s.accelerators} full />
       </Card>
     </>
@@ -199,7 +229,7 @@ export const accelerationView: ArtifactView = {
   Metrics: AccelerationMetrics,
   page: {
     title: 'Engagement and acceleration',
-    subtitle: 'Engagements loaded, the stages each passes through, and what the platform makes faster in each',
+    subtitle: 'Engagements loaded, the stages of an engagement, and what the platform makes faster in each',
     agents: ['agt_herald', 'agt_prospect'],
     what: 'reading each stage against the records the platform holds',
   },

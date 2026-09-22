@@ -105,10 +105,10 @@
     },
     {
       "name": "get_acceleration", "agent": "agt_herald", "surfaces": ["governance", "transform", "transition", "run", "platform"],
-      "description": "How the platform shortens each stage of a managed services engagement — bid, transition, run, improve, assure, renew or exit. Returns the engagements loaded and what has been ingested for each, the reusable service packs behind their service lines, the six stages with how many accelerators are live, partial or not built in each, and every accelerator: what the platform does instead of the manual work, which agents do it, how long that work takes without the platform and whose estimate that is, what the platform shows today, and whether that figure is measured here, projected, declared or not measured. Give a stage to read one. Figures are read for the engagement whose estate is ingested.",
+      "description": "How the platform shortens each stage of the engagement — transition, run, improve, assure, renew or exit. Returns the engagements loaded and what has been ingested for each, the reusable service packs behind their service lines, the stages with how many accelerators are live, partial or not built in each, and every accelerator: what the platform does instead of the manual work, which agents do it, whose time it gives back (the client's people, the service, or both), how long that work takes without the platform and whose estimate that is, what the platform shows today, and whether that figure is measured here, projected, declared or not measured. Give a stage to read one. Figures are read for the engagement whose estate is ingested. A client role is shown only its own engagement's stages; the supplier's own bid stage is visible to supplier roles.",
       "input_schema": {
         "type": "object",
-        "properties": { "stage": { "type": "string", "enum": ["bid", "transition", "run", "improve", "assure", "exit"] } },
+        "properties": { "stage": { "type": "string", "enum": ["transition", "run", "improve", "assure", "exit", "bid"] } },
         "additionalProperties": false
       }
     },

@@ -27,15 +27,21 @@ export interface Stage {
   question: string
   /** What leaving the stage produces. */
   outcome: string
+  /**
+   * Who the stage is for. The platform is client-facing: a stage marked
+   * `provider` is our own work and is never shown to the client's people.
+   */
+  audience: 'client' | 'provider'
 }
 
 export const STAGES: Stage[] = [
-  { id: 'bid', name: 'Bid', question: 'What is in scope, what can agents take on, and what can we commit to?', outcome: 'A priced proposal with a cost-reduction commitment' },
-  { id: 'transition', name: 'Transition', question: 'What exists, who knows it, and can we take it over safely?', outcome: 'A countersigned cutover' },
-  { id: 'run', name: 'Run', question: 'What is broken or at risk now, and what needs a decision?', outcome: 'Service levels met, demand resolved' },
-  { id: 'improve', name: 'Improve', question: 'What keeps recurring, and is the price coming down?', outcome: 'Demand removed and savings banked' },
-  { id: 'assure', name: 'Assure', question: 'Can you show what was done, by whom, under what authority?', outcome: 'Evidence an auditor accepts' },
-  { id: 'exit', name: 'Renew or exit', question: 'Is the price still market, and can we hand back cleanly?', outcome: 'Benchmark evidence, data returned and certified' },
+  { id: 'transition', name: 'Transition', question: 'What exists, who knows it, and can we take it over safely?', outcome: 'A countersigned cutover', audience: 'client' },
+  { id: 'run', name: 'Run', question: 'What is broken or at risk now, and what needs a decision?', outcome: 'Service levels met, demand resolved', audience: 'client' },
+  { id: 'improve', name: 'Improve', question: 'What keeps recurring, and is the price coming down?', outcome: 'Demand removed and savings banked', audience: 'client' },
+  { id: 'assure', name: 'Assure', question: 'Can you show what was done, by whom, under what authority?', outcome: 'Evidence an auditor accepts', audience: 'client' },
+  { id: 'exit', name: 'Renew or exit', question: 'Is the price still market, and can we hand back cleanly?', outcome: 'Benchmark evidence, data returned and certified', audience: 'client' },
+  // Ours, not the client's: the work of winning the engagement.
+  { id: 'bid', name: 'Bid', question: 'What is in scope, what can agents take on, and what can we commit to?', outcome: 'A priced proposal with a cost-reduction commitment', audience: 'provider' },
 ]
 
 export const STAGE_BY_ID = Object.fromEntries(STAGES.map((s) => [s.id, s])) as Record<StageId, Stage>
