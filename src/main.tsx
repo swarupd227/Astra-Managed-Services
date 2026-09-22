@@ -47,6 +47,9 @@ import { Portfolio } from './surfaces/governance/Portfolio'
 import { Releases } from './surfaces/operate/Releases'
 import { Vendors } from './surfaces/operate/Vendors'
 import { Acceleration } from './surfaces/governance/Acceleration'
+import {
+  DataGroup, EvaluationGroup, FleetGroup, OperationsGroup, OutcomesGroup, ProofGroup, SavingsGroup, SystemsGroup, TransitionGroup,
+} from './app/groups'
 import { DataEstate } from './surfaces/operate/DataEstate'
 import { DataReliability } from './surfaces/operate/DataReliability'
 import { PrivacyRequests } from './surfaces/operate/PrivacyRequests'
@@ -115,19 +118,24 @@ const router = createHashRouter([
       { path: 'operate/releases', element: <Releases /> },
       { path: 'operate/vendors', element: <Vendors /> },
       { path: 'governance/acceleration', element: <Acceleration /> },
-      { path: 'operate/data', element: <DataEstate /> },
+      { path: 'transition', element: <TransitionGroup /> },
+      { path: 'operate/operations', element: <OperationsGroup /> },
+      { path: 'governance/savings', element: <SavingsGroup /> },
+      { path: 'governance/outcomes', element: <OutcomesGroup /> },
+      { path: 'governance/proof', element: <ProofGroup /> },
+      { path: 'operate/data', element: <DataGroup /> },
       { path: 'operate/data-reliability', element: <DataReliability /> },
       { path: 'operate/privacy', element: <PrivacyRequests /> },
       { path: 'transform/debt', element: <TechDebt /> },
       { path: 'transform/work-orders', element: <WorkOrders /> },
       { path: 'atlas/coverage', element: <Coverage /> },
 
-      { path: 'atlas/fleet', element: <FleetView /> },
+      { path: 'atlas/fleet', element: <FleetGroup /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },
-      { path: 'atlas/evaluation', element: <EvaluationCenter /> },
+      { path: 'atlas/evaluation', element: <EvaluationGroup /> },
       { path: 'atlas/policy', element: <PolicyStudio /> },
       { path: 'atlas/tokenops', element: <TokenOpsStudio /> },
-      { path: 'atlas/systems', element: <AiSystems /> },
+      { path: 'atlas/systems', element: <SystemsGroup /> },
       { path: 'atlas/change-log', element: <ChangeLog /> },
       { path: 'atlas/model-cards', element: <ModelCards /> },
 

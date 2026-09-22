@@ -17,13 +17,8 @@ export interface Surface {
   items: NavItem[]
 }
 
-/** Pinned above the groups — the agentic entry point to the platform. */
+/** Pinned above the groups — the agent workforce itself, whatever stage the engagement is in. */
 export const PINNED: NavItem[] = [
-  {
-    to: '/copilot',
-    label: 'Astra Copilot',
-    desc: 'State an intent; watch an agent retrieve, reason, plan and meet the policy engine',
-  },
   {
     to: '/workforce',
     label: 'Agent Workforce',
@@ -37,11 +32,76 @@ export const PINNED: NavItem[] = [
 ]
 
 /**
- * Navigation follows the engagement lifecycle — Transition, then Run, then
- * Transform — with Governance and the agent platform sitting across all three
- * because they are not phases.
+ * Navigation follows the stages of the client's engagement — Transition,
+ * Run, Improve, Assure — with My Workplace for the people the service is for
+ * and the Agent Platform for the team that builds the workforce. Winning the
+ * engagement is our own stage and has no entry here.
+ *
+ * One entry per question someone actually has. Where several screens answer
+ * the same question they sit behind one entry as tabs (`src/app/groups.tsx`);
+ * every screen keeps its own route.
  */
 export const SURFACES: Surface[] = [
+  {
+    id: 'transition',
+    name: 'Transition',
+    short: 'Transition',
+    tagline: 'What exists, who knows it, and can we take it over safely?',
+    users: 'Transition leads, incumbent SMEs, client teams',
+    items: [
+      { to: '/transition', label: 'Transition', desc: 'Estate coverage, knowledge verification, shadow agreement and cutover gates', badge: 'verify' },
+    ],
+  },
+  {
+    id: 'run',
+    name: 'Run',
+    short: 'Run',
+    tagline: 'What is broken or at risk now, and what needs a decision?',
+    users: 'Service delivery teams, SDMs, resolvers',
+    items: [
+      { to: '/operate/operations', label: 'Operations', desc: 'Who is working on what, the priority lanes and SLA burn-down, and the shift handover' },
+      { to: '/operate/approvals', label: 'Approvals', desc: 'Gated runs ordered by urgency × blast radius', badge: 'approvals' },
+      { to: '/operate/resolver', label: 'Resolver Workspace', desc: 'A queue where agents have already done the pre-work' },
+      { to: '/operate/mim', label: 'Major Incident', desc: 'Incident room with auto-scribed timeline and brake status', badge: 'mi' },
+      { to: '/governance/sla', label: 'Service Levels', desc: 'Attainment, jeopardy, clock audits, computed credits' },
+      { to: '/operate/data', label: 'Data', desc: 'The data estate and its lineage, and the reliability of the data services built on it' },
+      { to: '/operate/privacy', label: 'Privacy & Obligations', desc: 'Requests against the statutory clock, incidents against their notice clocks, holds, retention and records of processing' },
+      { to: '/operate/releases', label: 'Releases', desc: 'Vendor and internal releases, regression gates and change freezes' },
+      { to: '/operate/vendors', label: 'Vendors', desc: 'Suppliers, contracts, response commitments and held work' },
+      { to: '/operate/graph', label: 'Service Graph', desc: 'The estate as a typed graph with confidence on every edge' },
+    ],
+  },
+  {
+    id: 'transform',
+    name: 'Improve',
+    short: 'Improve',
+    tagline: 'What keeps recurring, and is the price coming down?',
+    users: 'Service governance, commercial owners, improvement leads',
+    items: [
+      { to: '/governance/savings', label: 'Savings', desc: 'Recurrence mined into costed eliminations, the glidepath against the countersigned baseline, and innovation from idea to verified value' },
+      { to: '/transform/work-orders', label: 'Work Orders', desc: 'Separately authorised development — estimate, burn and authorisation' },
+      { to: '/transform/debt', label: 'Technical Debt', desc: 'Debt register, measured interest and the quarterly remediation recommendation' },
+    ],
+  },
+  {
+    id: 'governance',
+    name: 'Assure',
+    short: 'Assure',
+    tagline: 'Can you show what was done, by whom, under what authority?',
+    users: 'Client executives, service governance, audit',
+    items: [
+      { to: '/governance/executive', label: 'Executive Home', desc: 'One page of service truth and the decisions awaiting you' },
+      { to: '/governance/outcomes', label: 'Outcomes', desc: 'What the engagement was bought to achieve, the programmes burning down, the client’s own declared effort, and whether the service absorbs growth' },
+      { to: '/governance/acceleration', label: 'Engagement & Acceleration', desc: 'Engagements loaded and their service packs, the stages of an engagement, and what the platform makes faster in every one' },
+      { to: '/governance/proof', label: 'Proof', desc: 'Search any action and verify the hash chain, run the conformance set and the red team yourself, and read the AI control frameworks against stored records' },
+      { to: '/governance/ai-incidents', label: 'AI Incidents', desc: 'Fabrication, injection, oversight and cohort findings — with notification and RCA clocks' },
+      { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
+      { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },
+      { to: '/governance/portfolio', label: 'Application Portfolio', desc: 'Kind, vendor, configuration baseline and record reconciliation per application' },
+      { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
+      { to: '/governance/reports', label: 'Reports', desc: 'Governed semantic layer, signed extracts, natural-language queries' },
+    ],
+  },
   {
     /**
      * The only surface facing the person the service is for rather than the
@@ -59,93 +119,15 @@ export const SURFACES: Surface[] = [
     ],
   },
   {
-    id: 'transition',
-    name: 'Transition',
-    short: 'Transition',
-    tagline: 'Acquiring and verifying estate knowledge through to a countersigned cutover',
-    users: 'Transition leads, incumbent SMEs, client teams',
-    items: [
-      { to: '/transition/coverage', label: 'Estate Coverage', desc: 'What is mapped, what is dark, graph quality SLOs' },
-      { to: '/transition/verify', label: 'Knowledge Verification', desc: 'One assertion at a time — approve, correct or reject', badge: 'verify' },
-      { to: '/transition/shadow', label: 'Shadow Scoreboard', desc: 'Agreement per action class with disagreement drill-downs' },
-      { to: '/transition/cutover', label: 'Cutover Readiness', desc: 'Handover artefacts as machine-checked acceptance gates' },
-    ],
-  },
-  {
-    id: 'run',
-    name: 'Run',
-    short: 'Run',
-    tagline: 'Resolving demand through governed agents under a live service level',
-    users: 'Service delivery teams, SDMs, resolvers',
-    items: [
-      { to: '/operate/room', label: 'Operations Room', desc: 'Who is working, on what, and what is needed from you' },
-      { to: '/operate/board', label: 'Tower Board', desc: 'Priority lanes and SLA burn-down — the reference view' },
-      { to: '/operate/approvals', label: 'Approval Inbox', desc: 'Gated runs ordered by urgency × blast radius', badge: 'approvals' },
-      { to: '/operate/resolver', label: 'Resolver Workspace', desc: 'A queue where agents have already done the pre-work' },
-      { to: '/operate/shift', label: 'Shift & Handover', desc: 'Queue health, load split, generated handover pack' },
-      { to: '/operate/mim', label: 'Major Incident', desc: 'Incident room with auto-scribed timeline and brake status', badge: 'mi' },
-      { to: '/governance/sla', label: 'SLA & XLA', desc: 'Attainment, jeopardy, clock audits, computed credits' },
-      { to: '/operate/graph', label: 'Service Graph', desc: 'The estate as a typed graph with confidence on every edge' },
-      { to: '/operate/data', label: 'Data Estate', desc: 'Sources, pipelines, datasets, models and reports — contracts, lineage, freshness and quality' },
-      { to: '/operate/data-reliability', label: 'Data Reliability', desc: 'Data service availability and error budgets, tonight’s runs against their windows, capacity, and who recovered each failure' },
-      { to: '/operate/privacy', label: 'Privacy Requests', desc: 'Access, erasure and retrieval requests, holds and retention — against the statutory clock' },
-      { to: '/operate/releases', label: 'Releases', desc: 'Vendor and internal releases, regression gates and change freezes' },
-      { to: '/operate/vendors', label: 'Vendors', desc: 'Suppliers, contracts, response commitments and held work' },
-    ],
-  },
-  {
-    id: 'transform',
-    name: 'Transform',
-    short: 'Transform',
-    tagline: 'Converting banked savings into capacity credits and a simpler estate',
-    users: 'Service governance, commercial owners, improvement leads',
-    items: [
-      { to: '/governance/elimination', label: 'Demand Elimination', desc: 'Recurrence mining and the costed elimination backlog' },
-      { to: '/governance/glidepath', label: 'Glidepath & Credits', desc: 'Baseline vs. actual, banked savings, Transform Ledger' },
-      { to: '/governance/innovation', label: 'Innovation Register', desc: 'Idea to verified value, with the failures left visible' },
-      { to: '/transform/work-orders', label: 'Work Orders', desc: 'Separately authorised development — estimate, burn and authorisation' },
-      { to: '/transform/debt', label: 'Technical Debt', desc: 'Debt register, measured interest and the quarterly remediation recommendation' },
-    ],
-  },
-  {
-    id: 'governance',
-    name: 'Governance',
-    short: 'Governance',
-    tagline: 'Oversight across the whole lifecycle — posture, decisions, evidence',
-    users: 'Client executives, service governance, audit',
-    items: [
-      { to: '/governance/acceleration', label: 'Engagement & Acceleration', desc: 'Engagements loaded and their service packs, the six stages each passes through, and what the platform makes faster in every one' },
-      { to: '/governance/executive', label: 'Executive Home', desc: 'One page of service truth and the decisions awaiting you' },
-      { to: '/governance/objectives', label: 'Objectives', desc: 'What the engagement was bought to achieve, and what the platform can evidence' },
-      { to: '/governance/client-effort', label: 'Client Effort', desc: 'What the client declares about their own staff — held and aged, never measured here' },
-      { to: '/governance/programmes', label: 'Programmes', desc: 'Target end states and burn-down — what is evidenced gone, not what was declared done' },
-      { to: '/governance/headroom', label: 'Growth Headroom', desc: 'Whether the service absorbs growth — and whether it has yet been asked to' },
-      { to: '/governance/portfolio', label: 'Application Portfolio', desc: 'Kind, vendor, configuration baseline and record reconciliation per application' },
-      { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
-      { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
-      { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },
-      { to: '/governance/evidence', label: 'Evidence Explorer', desc: 'Search any action; verify the hash chain; export' },
-      { to: '/governance/ai-incidents', label: 'AI Incidents', desc: 'Fabrication, injection, oversight and cohort findings — with notification and RCA clocks' },
-      { to: '/governance/assurance', label: 'Assurance Sandbox', desc: 'Run the conformance set, the red team, the bias suite and the chain check yourself' },
-      { to: '/governance/ai-pack', label: 'AI Governance Pack', desc: 'NIST AI RMF and ISO/IEC 42001 mapped to the records the platform holds' },
-      { to: '/governance/reports', label: 'Reports', desc: 'Governed semantic layer, signed extracts, natural-language queries' },
-    ],
-  },
-  {
     id: 'platform',
     name: 'Agent Platform',
     short: 'Agent Platform',
     tagline: 'The agent workforce — employment records, evaluation, policy, economics',
     users: 'AI engineering, platform team',
     items: [
-      { to: '/atlas/fleet', label: 'Agent Fleet', desc: 'Every agent, ours and the client’s, under one governance regime' },
-      { to: '/atlas/systems', label: 'AI Systems', desc: 'The approved model registry the gateway enforces — exhibit, purposes, revision history' },
-      { to: '/atlas/change-log', label: 'Change Log', desc: 'Every version-linked change to what the AI does, and vendor model changes with their notice clocks' },
-      { to: '/atlas/model-cards', label: 'Model Cards', desc: 'Generated per agent and per AI system from stored records' },
-      { to: '/atlas/evaluation', label: 'Evaluation & Promotion', desc: 'Suites, regression diffs, the promotion pipeline' },
-      { to: '/atlas/policy', label: 'Policy & Simulator', desc: 'Author policy-as-code and ask the engine what it would decide' },
-      { to: '/atlas/tokenops', label: 'Model Economics', desc: 'Unit economics, routing frontiers, distillation candidates' },
-      { to: '/atlas/coverage', label: 'Capability Coverage', desc: 'Service functions per bundle and the agents that own or assist each' },
+      { to: '/atlas/fleet', label: 'Agent Fleet', desc: 'Every agent under one governance regime, the service functions each covers, and the model card generated from its records' },
+      { to: '/atlas/systems', label: 'AI Systems', desc: 'The approved model registry the gateway enforces, and every version-linked change to what the AI does' },
+      { to: '/atlas/evaluation', label: 'Evaluation & Policy', desc: 'Suites and the promotion pipeline, policy-as-code with a simulator, and the unit economics of every model' },
     ],
   },
 ]
