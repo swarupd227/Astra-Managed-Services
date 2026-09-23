@@ -126,7 +126,7 @@ export const SURFACES: Surface[] = [
     tagline: 'The agent workforce — employment records, evaluation, policy, economics',
     users: 'AI engineering, platform team',
     items: [
-      { to: '/atlas/fleet', label: 'Agent Fleet', desc: 'Every agent under one governance regime, the service functions each covers, and the model card generated from its records' },
+      { to: '/atlas/fleet', label: 'Agent Fleet', desc: 'Every agent under one governance regime, what it takes to build, prove, operate and watch each one, the service functions it covers, and the model card generated from its records' },
       { to: '/atlas/systems', label: 'AI Systems', desc: 'The approved model registry the gateway enforces, and every version-linked change to what the AI does' },
       { to: '/atlas/evaluation', label: 'Evaluation & Policy', desc: 'Suites and the promotion pipeline, policy-as-code with a simulator, and the unit economics of every model' },
     ],

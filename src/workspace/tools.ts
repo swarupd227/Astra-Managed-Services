@@ -3,6 +3,7 @@ import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { accelerationSummary } from '@/domain/acceleration'
+import { PHASE_LABEL, fleetLifecycle, readAgent } from '@/domain/agentLifecycle'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, notIngested } from '@/domain/engagement'
 import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
@@ -298,6 +299,45 @@ export const EXECUTORS: Record<string, Executor> = {
         accelerators: rows,
       },
       artifacts: [card('acceleration', stage ? `Acceleration · ${stage}` : 'Engagement and acceleration', stage ? { stage } : {}, '/governance/acceleration')],
+    }
+  },
+
+  get_agent_readiness: (input) => {
+    const who = str(input.agent)
+    const agents = Object.values(useAstra.getState().agents)
+    const f = fleetLifecycle(undefined, agents)
+    const view = (r: ReturnType<typeof readAgent>) => ({
+      id: r.agent.id, name: r.agent.name, owner: r.agent.ownerHuman, origin: r.agent.origin, stage: r.stage,
+      checksPassed: r.passed, checksTotal: r.checks.length, nextStage: r.next,
+      blockedBy: r.blockers.map((b) => ({ check: b.name, phase: PHASE_LABEL[b.phase], detail: b.detail, readFrom: b.source })),
+      couldNotBeChecked: r.unverified.map((b) => ({ check: b.name, phase: PHASE_LABEL[b.phase], detail: b.detail, readFrom: b.source })),
+      budgetPct: r.budgetPct,
+      setUp: r.ops ? {
+        identity: r.agent.nhi, identityScope: r.ops.identityScope, model: r.ops.servedModel, budgetUsd30d: r.ops.budgetUsd30d,
+        maxSteps: r.ops.maxSteps, escalatesTo: r.ops.escalateTo, stopTestedAt: r.ops.killSwitchTestedAt ?? null,
+        changeRecord: r.ops.changeRef ?? null, contextSources: r.ops.contextSources,
+      } : null,
+    })
+    if (who) {
+      const one = f.agents.find((r) => r.agent.id.toLowerCase() === who.toLowerCase() || r.agent.name.toLowerCase() === who.toLowerCase())
+      if (!one) throw new ToolError(`No agent has the id or name "${who}". Agents: ${f.agents.map((r) => r.agent.id).join(', ')}.`)
+      return {
+        payload: {
+          ...view(one),
+          checks: one.checks.map((c) => ({ check: c.name, phase: PHASE_LABEL[c.phase], state: c.state, detail: c.detail, readFrom: c.source, requiredFrom: c.requiredFrom })),
+        },
+        artifacts: [card('agentLifecycle', `${one.agent.name} · readiness`, { agent: one.agent.id }, '/atlas/lifecycle')],
+      }
+    }
+    return {
+      payload: {
+        byStage: f.byStage,
+        readyToPromote: f.readyToPromote.map((r) => ({ id: r.agent.id, name: r.agent.name, to: r.next })),
+        overBudget: f.overBudget.map((r) => ({ id: r.agent.id, name: r.agent.name, budgetPct: r.budgetPct })),
+        fleetGaps: f.commonGaps.map((g) => ({ check: g.check, phase: PHASE_LABEL[g.phase], agentsFailing: g.agents })),
+        agents: f.agents.map(view),
+      },
+      artifacts: [card('agentLifecycle', 'Agent lifecycle and readiness', {}, '/atlas/lifecycle')],
     }
   },
 

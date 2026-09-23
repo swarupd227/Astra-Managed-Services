@@ -179,6 +179,7 @@ function openers(def: ThreadDef, roleId: string): string[] {
   if (has('get_estate_overview')) out.push('How is the service running overall?')
   if (has('get_acceleration')) out.push('Where does the platform save time in this engagement?')
   if (has('get_exit_readiness')) out.push('What would we have to hand back at exit?')
+  if (has('get_agent_readiness')) out.push('What is stopping our agents from being promoted?')
   return out.slice(0, 4)
 }
 

@@ -4,6 +4,7 @@ import type { ArtifactView } from './frame'
 import { FiguresCard } from './figures'
 import { AgentRunCard, ApprovalsCard, BriefCard, EstateOverviewCard, SlaCard, WorkItemCard, WorkQueueCard } from './operate'
 import { accelerationView } from './acceleration'
+import { agentLifecycleView } from './agentLifecycle'
 import { coverageView } from './coverage'
 import { dataEstateView, dataItemView } from './dataEstate'
 import { dataReliabilityView } from './dataReliability'
@@ -38,6 +39,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   coverage: coverageView,
   acceleration: accelerationView,
   exit: exitView,
+  agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },
   figures: { Body: FiguresCard },
 }

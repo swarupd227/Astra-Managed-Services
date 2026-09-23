@@ -47,6 +47,7 @@ import { Portfolio } from './surfaces/governance/Portfolio'
 import { Releases } from './surfaces/operate/Releases'
 import { Vendors } from './surfaces/operate/Vendors'
 import { Acceleration } from './surfaces/governance/Acceleration'
+import { AgentLifecycle } from './surfaces/atlas/AgentLifecycle'
 import { ExitReadiness } from './surfaces/governance/ExitReadiness'
 import {
   DataGroup, EvaluationGroup, FleetGroup, OperationsGroup, OutcomesGroup, ProofGroup, SavingsGroup, SystemsGroup, TransitionGroup,
@@ -133,6 +134,7 @@ const router = createHashRouter([
       { path: 'atlas/coverage', element: <Coverage /> },
 
       { path: 'atlas/fleet', element: <FleetGroup /> },
+      { path: 'atlas/lifecycle', element: <AgentLifecycle /> },
       { path: 'atlas/agent/:id', element: <AgentRecord /> },
       { path: 'atlas/evaluation', element: <EvaluationGroup /> },
       { path: 'atlas/policy', element: <PolicyStudio /> },

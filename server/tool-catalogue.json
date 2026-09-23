@@ -113,6 +113,15 @@
       }
     },
     {
+      "name": "get_agent_readiness", "agent": "agt_herald", "surfaces": ["platform", "governance", "run"],
+      "description": "What it takes to put an agent into service and whether each one is there yet. Per agent: the lifecycle stage it has reached (draft, evaluated, shadow, supervised, autonomous, or suspended), how many readiness checks pass, the next stage and exactly which checks stand in the way, the budget it has consumed, and its set-up — identity and least-privilege scope, model, monthly budget, step limit per run, who it escalates to when context is missing, when the stop was last exercised, the change record its configuration was released under, and what it retrieves to know this client. Checks are grouped as build it, prove it, make it operational and watch it, and each names the record it was read from. Give an agent to read its full checklist; otherwise the fleet, with the checks failing across it.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "agent": { "type": "string", "description": "Agent id (e.g. agt_custodian) or name" } },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_exit_readiness", "agent": "agt_archivist", "surfaces": ["governance", "transform", "run"],
       "description": "Renew or exit: the months left on the term, the exit obligations with the clause behind each, its owner, whether it is ready and why, and what the platform itself holds of the client store by store — what each contains, where it is processed, how many records where they can be counted, whether it can be returned, whether it has been returned or destroyed, and what is retained with the reason and the date it falls away. Also the benchmark pack the ledger can evidence (quarters of contracted against actual reduction, baseline hours, service level attainment, banked hours) and the successor pack (verified assertions, demand classes, estate items, applications, runbook artefacts, evidence records).",
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }

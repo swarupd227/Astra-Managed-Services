@@ -22,6 +22,7 @@ import { AiSystems } from '@/surfaces/atlas/AiSystems'
 import { ChangeLog } from '@/surfaces/atlas/ChangeLog'
 import { Coverage } from '@/surfaces/atlas/Coverage'
 import { EvaluationCenter } from '@/surfaces/atlas/EvaluationCenter'
+import { AgentLifecycle } from '@/surfaces/atlas/AgentLifecycle'
 import { FleetView } from '@/surfaces/atlas/FleetView'
 import { ModelCards } from '@/surfaces/atlas/ModelCards'
 import { PolicyStudio } from '@/surfaces/atlas/PolicyStudio'
@@ -84,6 +85,7 @@ export const ProofGroup = () => (
 export const FleetGroup = () => (
   <Grouped tabs={[
     { id: 'fleet', label: 'Agent fleet', element: <FleetView /> },
+    { id: 'lifecycle', label: 'Lifecycle & readiness', element: <AgentLifecycle /> },
     { id: 'coverage', label: 'Capability coverage', element: <Coverage /> },
     { id: 'cards', label: 'Model cards', element: <ModelCards /> },
   ]} />
