@@ -302,10 +302,17 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
-  get_agent_readiness: (input) => {
+  get_agent_readiness: async (input, ctx) => {
     const who = str(input.agent)
     const agents = Object.values(useAstra.getState().agents)
-    const f = fleetLifecycle(undefined, agents)
+    // The model check reads the registry the gateway enforces. Unreachable is
+    // reported as not known, which is the honest answer, but it must be tried.
+    const approved = await fetch('/api/agent/registry', { signal: ctx.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { systems?: { status: string; model: string }[] } | null) =>
+        j?.systems ? j.systems.filter((x) => x.status === 'approved').map((x) => x.model) : undefined)
+      .catch(() => undefined)
+    const f = fleetLifecycle(approved, agents)
     const view = (r: ReturnType<typeof readAgent>) => ({
       id: r.agent.id, name: r.agent.name, owner: r.agent.ownerHuman, origin: r.agent.origin, stage: r.stage,
       checksPassed: r.passed, checksTotal: r.checks.length, nextStage: r.next,
