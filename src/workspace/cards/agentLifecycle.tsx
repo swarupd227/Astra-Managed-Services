@@ -1,10 +1,12 @@
 import React from 'react'
-import { Bot, ClipboardCheck, Wrench } from 'lucide-react'
+import { Bot, ClipboardCheck, Hand, Wrench } from 'lucide-react'
 import {
   AGENT_OPS, PHASE_LABEL, STAGES, STAGE_LABEL, fleetLifecycle, readAgent,
   type AgentReading, type Check, type CheckState, type Phase, type Stage,
 } from '@/domain/agentLifecycle'
+import { REASON_LABEL, escalationSummary } from '@/domain/escalations'
 import { MODE_LABEL } from '@/domain/reference'
+import { approvedModels, approvedModelsNow } from '@/domain/registry'
 import { useAstra } from '@/domain/store'
 import { Bar, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
 import { cn, dateShort, num } from '@/lib/format'
@@ -28,18 +30,12 @@ const STAGE_TONE: Record<Stage, Tone> = {
 }
 const PHASES: Phase[] = ['build', 'prove', 'operate', 'watch']
 
-/** The approved models the gateway enforces. Without them the model check says so. */
+/** The approved models the gateway enforces, from the one reader the tool uses too. */
 function useApprovedModels(): string[] | undefined {
-  const [models, setModels] = React.useState<string[] | undefined>(undefined)
+  const [models, setModels] = React.useState<string[] | undefined>(approvedModelsNow)
   React.useEffect(() => {
     let live = true
-    fetch('/api/agent/registry')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!live || !j?.systems) return
-        setModels(j.systems.filter((s: { status: string }) => s.status === 'approved').map((s: { model: string }) => s.model))
-      })
-      .catch(() => {})
+    approvedModels().then((m) => { if (live) setModels(m) })
     return () => { live = false }
   }, [])
   return models
@@ -54,6 +50,8 @@ function useFleet() {
 function LifecycleMetrics({ size }: CardProps) {
   const f = useFleet()
   const page = size === 'page'
+  const e = React.useMemo(() => escalationSummary(), [])
+  const esc = { total: e.total, waiting: e.waiting, ofRunsPctLabel: `${e.ratePct}%` }
   const live = f.byStage.supervised + f.byStage.autonomous
   return (
     <Band size={size} cols={6}>
@@ -63,6 +61,7 @@ function LifecycleMetrics({ size }: CardProps) {
       <Metric size="sm" label="Ready to promote" value={f.readyToPromote.length} deltaTone={f.readyToPromote.length ? 'ok' : undefined} />
       <Metric size="sm" label="Blocked" value={f.blocked.length} deltaTone={f.blocked.length ? 'warn' : 'ok'} hint={page ? f.commonGaps[0]?.check : undefined} />
       <Metric size="sm" label="Over budget" value={f.overBudget.length} deltaTone={f.overBudget.length ? 'crit' : 'ok'} />
+      {page && <Metric size="sm" label="Escalated to people" value={num(esc.total)} hint={`${esc.ofRunsPctLabel} of runs · ${esc.waiting} waiting`} />}
     </Band>
   )
 }
@@ -165,6 +164,31 @@ function Checklist({ r }: { r: AgentReading }) {
   )
 }
 
+function Escalations({ r }: { r: AgentReading }) {
+  const e = r.escalations
+  if (!e.runs) return <p className="text-2xs text-ink-3">Has not run in the window.</p>
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-3">
+        <Metric size="sm" label="Escalated" value={num(e.count)} hint={e.ratePct === null ? undefined : `${e.ratePct}% of ${num(e.runs)} runs`} />
+        <Metric size="sm" label="Median pick-up" value={e.medianPickupMins === null ? '—' : `${e.medianPickupMins}m`} />
+        <Metric size="sm" label="Waiting" value={e.waiting} deltaTone={e.waiting ? 'warn' : 'ok'} hint={e.oldestWaitingMins ? `oldest ${e.oldestWaitingMins}m` : undefined} />
+      </div>
+      <Table className="mt-3">
+        <thead><tr><Th>Why it escalated</Th><Th align="right">Times</Th></tr></thead>
+        <tbody>
+          {e.byReason.map((x) => (
+            <Tr key={x.reason}>
+              <Td className="text-2xs text-ink">{REASON_LABEL[x.reason]}</Td>
+              <Td align="right" className="tnum text-2xs text-ink-2">{num(x.count)}</Td>
+            </Tr>
+          ))}
+        </tbody>
+      </Table>
+    </>
+  )
+}
+
 function Setup({ r }: { r: AgentReading }) {
   const o = r.ops
   if (!o) return <p className="text-2xs text-ink-3">Nothing set up for this agent yet.</p>
@@ -190,6 +214,7 @@ function Setup({ r }: { r: AgentReading }) {
 
 function LifecycleBody({ props, size }: CardProps) {
   const f = useFleet()
+  const fleetEsc = React.useMemo(() => escalationSummary(), [])
   const full = size !== 'card'
   const wanted = String(props.agent ?? '')
   const [picked, setPicked] = React.useState(() => wanted || f.agents.find((a) => a.blockers.length)?.agent.id || f.agents[0]?.agent.id || '')
@@ -203,6 +228,11 @@ function LifecycleBody({ props, size }: CardProps) {
             <Chip tone={STAGE_TONE[sel.stage]}>{STAGE_LABEL[sel.stage]}</Chip>
             <Chip tone={sel.blockers.length ? 'warn' : 'ok'}>{sel.passed}/{sel.checks.length} checks</Chip>
             {sel.next && <Chip>Next: {STAGE_LABEL[sel.next]}</Chip>}
+            {sel.escalations.runs > 0 && (
+              <Chip tone={sel.escalations.waiting ? 'warn' : 'neutral'}>
+                {num(sel.escalations.count)} escalated · {sel.escalations.ratePct}% of runs
+              </Chip>
+            )}
           </div>
           <Checklist r={sel} />
         </>
@@ -227,11 +257,32 @@ function LifecycleBody({ props, size }: CardProps) {
           <Card title={sel.agent.name} subtitle={`${sel.passed} of ${sel.checks.length} checks · ${STAGE_LABEL[sel.stage]}${sel.next ? ` → ${STAGE_LABEL[sel.next]}` : ''}`}>
             <Checklist r={sel} />
           </Card>
-          <Card title="Set-up" subtitle="What the platform team configured" right={<Wrench size={13} className="text-ink-3" />}>
-            <Setup r={sel} />
-          </Card>
+          <div className="space-y-4">
+            <Card title="Escalations" subtitle="What it handed back, and why" right={<Hand size={13} className="text-ink-3" />}>
+              <Escalations r={sel} />
+            </Card>
+            <Card title="Set-up" subtitle="What the platform team configured" right={<Wrench size={13} className="text-ink-3" />}>
+              <Setup r={sel} />
+            </Card>
+          </div>
         </div>
       )}
+
+      <Card className="mt-4" title="Why agents escalate" subtitle={`${num(fleetEsc.total)} escalations · ${fleetEsc.ratePct}% of ${num(fleetEsc.runs)} runs · median pick-up ${fleetEsc.medianPickupMins ?? '—'} min`} right={<Hand size={13} className="text-ink-3" />}>
+        <Table>
+          <thead><tr><Th>Reason</Th><Th align="right">Times</Th><Th align="right">Agents</Th><Th>What would fix it</Th></tr></thead>
+          <tbody>
+            {fleetEsc.byReason.map((x) => (
+              <Tr key={x.reason}>
+                <Td className="text-2xs text-ink">{REASON_LABEL[x.reason]}</Td>
+                <Td align="right" className="tnum text-2xs text-ink-2">{num(x.count)}</Td>
+                <Td align="right" className="tnum text-2xs text-ink-2">{x.agents}</Td>
+                <Td className="max-w-[320px] text-2xs text-ink-2">{x.fix}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
 
       {f.commonGaps.length > 0 && (
         <Card className="mt-4" title="Where the fleet is short" subtitle={`${f.commonGaps.length} checks failing somewhere`}>

@@ -4,6 +4,8 @@ import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { accelerationSummary } from '@/domain/acceleration'
 import { PHASE_LABEL, fleetLifecycle, readAgent } from '@/domain/agentLifecycle'
+import { REASON_LABEL, escalationSummary } from '@/domain/escalations'
+import { approvedModels } from '@/domain/registry'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, notIngested } from '@/domain/engagement'
 import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
@@ -305,20 +307,19 @@ export const EXECUTORS: Record<string, Executor> = {
   get_agent_readiness: async (input, ctx) => {
     const who = str(input.agent)
     const agents = Object.values(useAstra.getState().agents)
-    // The model check reads the registry the gateway enforces. Unreachable is
-    // reported as not known, which is the honest answer, but it must be tried.
-    const approved = await fetch('/api/agent/registry', { signal: ctx.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { systems?: { status: string; model: string }[] } | null) =>
-        j?.systems ? j.systems.filter((x) => x.status === 'approved').map((x) => x.model) : undefined)
-      .catch(() => undefined)
-    const f = fleetLifecycle(approved, agents)
+    // The same reader the page uses, so the two cannot answer differently.
+    const f = fleetLifecycle(await approvedModels(ctx.signal), agents)
     const view = (r: ReturnType<typeof readAgent>) => ({
       id: r.agent.id, name: r.agent.name, owner: r.agent.ownerHuman, origin: r.agent.origin, stage: r.stage,
       checksPassed: r.passed, checksTotal: r.checks.length, nextStage: r.next,
       blockedBy: r.blockers.map((b) => ({ check: b.name, phase: PHASE_LABEL[b.phase], detail: b.detail, readFrom: b.source })),
       couldNotBeChecked: r.unverified.map((b) => ({ check: b.name, phase: PHASE_LABEL[b.phase], detail: b.detail, readFrom: b.source })),
       budgetPct: r.budgetPct,
+      escalations: {
+        count: r.escalations.count, ofRunsPct: r.escalations.ratePct, waiting: r.escalations.waiting,
+        medianPickupMins: r.escalations.medianPickupMins,
+        why: r.escalations.byReason.map((x) => ({ reason: REASON_LABEL[x.reason], count: x.count })),
+      },
       setUp: r.ops ? {
         identity: r.agent.nhi, identityScope: r.ops.identityScope, model: r.ops.servedModel, budgetUsd30d: r.ops.budgetUsd30d,
         maxSteps: r.ops.maxSteps, escalatesTo: r.ops.escalateTo, stopTestedAt: r.ops.killSwitchTestedAt ?? null,
@@ -342,6 +343,13 @@ export const EXECUTORS: Record<string, Executor> = {
         readyToPromote: f.readyToPromote.map((r) => ({ id: r.agent.id, name: r.agent.name, to: r.next })),
         overBudget: f.overBudget.map((r) => ({ id: r.agent.id, name: r.agent.name, budgetPct: r.budgetPct })),
         fleetGaps: f.commonGaps.map((g) => ({ check: g.check, phase: PHASE_LABEL[g.phase], agentsFailing: g.agents })),
+        escalations: (() => {
+          const e = escalationSummary()
+          return {
+            total: e.total, ofRunsPct: e.ratePct, waiting: e.waiting, medianPickupMins: e.medianPickupMins,
+            why: e.byReason.map((x) => ({ reason: REASON_LABEL[x.reason], count: x.count, agents: x.agents, whatFixesIt: x.fix })),
+          }
+        })(),
         agents: f.agents.map(view),
       },
       artifacts: [card('agentLifecycle', 'Agent lifecycle and readiness', {}, '/atlas/lifecycle')],

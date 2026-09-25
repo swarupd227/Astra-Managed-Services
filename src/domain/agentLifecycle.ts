@@ -1,3 +1,4 @@
+import { readEscalations, type EscalationReading } from './escalations'
 import { AGENTS, SKILL_BY_ID } from './estate'
 import { SHADOW } from './knowledge'
 import { AC, MODE_TO_LEVEL } from './reference'
@@ -125,6 +126,8 @@ const EVAL_SCORE_BAR = 0.9
 const EVAL_REPLAY_BAR = 200
 const EVAL_STALE_DAYS = 45
 const KILL_SWITCH_DAYS = 90
+/** How long an escalation may sit before the escalation path is not really staffed. */
+const PICKUP_TARGET_MINS = 120
 
 const daysSince = (iso?: string) => (iso ? Math.round((NOW.getTime() - Date.parse(iso)) / 86_400_000) : null)
 
@@ -149,6 +152,7 @@ export function checksFor(a: Agent, approvedModels?: string[]): Check[] {
   const evalAge = daysSince(a.evaluation.lastRun)
   const killAge = daysSince(ops?.killSwitchTestedAt)
   const openIncidents = a.incidents.filter((i) => i.demotedDays > 0)
+  const esc = readEscalations(a.id)
   const budgetUsed = ops ? (a.economics.costUsd30d / ops.budgetUsd30d) * 100 : null
 
   const check = (id: string, phase: Phase, name: string, requiredFrom: Stage, state: CheckState, detail: string, source: string): Check =>
@@ -225,6 +229,12 @@ export function checksFor(a: Agent, approvedModels?: string[]): Check[] {
     check('incidents', 'watch', 'No incident holding it down', 'supervised',
       openIncidents.length ? 'fail' : 'pass',
       openIncidents.length ? `${openIncidents.length} demoting incident` : `${a.incidents.length} historical`, 'Agent incidents'),
+    check('pickup', 'watch', 'Escalations picked up, not left waiting', 'shadow',
+      esc.runs === 0 ? 'unknown' : esc.medianPickupMins === null ? 'unknown' : esc.medianPickupMins <= PICKUP_TARGET_MINS ? 'pass' : 'fail',
+      esc.runs === 0
+        ? 'Has not run'
+        : `${esc.count} escalations · ${esc.ratePct}% of runs · median pick-up ${esc.medianPickupMins ?? '—'} min${esc.waiting ? ` · ${esc.waiting} waiting` : ''}`,
+      'Escalation log'),
     check('worth', 'watch', 'Costs less than the effort it displaces', 'supervised',
       a.economics.humanMinsDisplaced30d > 0 ? 'pass' : 'unknown',
       a.economics.humanMinsDisplaced30d > 0
@@ -251,6 +261,8 @@ export interface AgentReading {
   unverified: Check[]
   /** Model spend against its budget, as a percentage. */
   budgetPct: number | null
+  /** What it handed back to people, and why. */
+  escalations: EscalationReading
 }
 
 const stageIndex = (s: Stage) => STAGES.indexOf(s)
@@ -272,6 +284,7 @@ export function readAgent(a: Agent, approvedModels?: string[]): AgentReading {
     failed: checks.filter((c) => c.state === 'fail'),
     unknown: checks.filter((c) => c.state === 'unknown'),
     next, blockers, unverified,
+    escalations: readEscalations(a.id),
     budgetPct: ops ? Math.round((a.economics.costUsd30d / ops.budgetUsd30d) * 100) : null,
   }
 }
