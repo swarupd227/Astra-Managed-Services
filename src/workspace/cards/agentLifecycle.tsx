@@ -1,13 +1,12 @@
 import React from 'react'
 import { Bot, ClipboardCheck, Hand, Wrench } from 'lucide-react'
 import {
-  AGENT_OPS, PHASE_LABEL, STAGES, STAGE_LABEL, fleetLifecycle, readAgent,
-  type AgentReading, type Check, type CheckState, type Phase, type Stage,
+  PHASE_LABEL, STAGES, STAGE_LABEL,
+  type AgentReading, type Check, type CheckState, type FleetLifecycle, type Phase, type Stage,
 } from '@/domain/agentLifecycle'
-import { REASON_LABEL, escalationSummary } from '@/domain/escalations'
+import { REASON_LABEL } from '@/domain/escalations'
 import { MODE_LABEL } from '@/domain/reference'
-import { approvedModels, approvedModelsNow } from '@/domain/registry'
-import { useAstra } from '@/domain/store'
+import { useFleetEscalations, useReadiness } from '../readiness'
 import { Bar, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
 import { cn, dateShort, num } from '@/lib/format'
 import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
@@ -30,27 +29,10 @@ const STAGE_TONE: Record<Stage, Tone> = {
 }
 const PHASES: Phase[] = ['build', 'prove', 'operate', 'watch']
 
-/** The approved models the gateway enforces, from the one reader the tool uses too. */
-function useApprovedModels(): string[] | undefined {
-  const [models, setModels] = React.useState<string[] | undefined>(approvedModelsNow)
-  React.useEffect(() => {
-    let live = true
-    approvedModels().then((m) => { if (live) setModels(m) })
-    return () => { live = false }
-  }, [])
-  return models
-}
-
-function useFleet() {
-  const models = useApprovedModels()
-  const agents = useAstra((s) => s.agents)
-  return React.useMemo(() => fleetLifecycle(models, Object.values(agents)), [models, agents])
-}
-
 function LifecycleMetrics({ size }: CardProps) {
-  const f = useFleet()
+  const f = useReadiness()
   const page = size === 'page'
-  const e = React.useMemo(() => escalationSummary(), [])
+  const e = useFleetEscalations()
   const esc = { total: e.total, waiting: e.waiting, ofRunsPctLabel: `${e.ratePct}%` }
   const live = f.byStage.supervised + f.byStage.autonomous
   return (
@@ -66,7 +48,7 @@ function LifecycleMetrics({ size }: CardProps) {
   )
 }
 
-function StageStrip({ f }: { f: ReturnType<typeof fleetLifecycle> }) {
+function StageStrip({ f }: { f: FleetLifecycle }) {
   return (
     <div className="overflow-x-auto">
       <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${STAGES.length}, minmax(130px, 1fr))` }}>
@@ -213,8 +195,8 @@ function Setup({ r }: { r: AgentReading }) {
 }
 
 function LifecycleBody({ props, size }: CardProps) {
-  const f = useFleet()
-  const fleetEsc = React.useMemo(() => escalationSummary(), [])
+  const f = useReadiness()
+  const fleetEsc = useFleetEscalations()
   const full = size !== 'card'
   const wanted = String(props.agent ?? '')
   const [picked, setPicked] = React.useState(() => wanted || f.agents.find((a) => a.blockers.length)?.agent.id || f.agents[0]?.agent.id || '')
@@ -315,4 +297,3 @@ export const agentLifecycleView: ArtifactView = {
   },
 }
 
-export { readAgent, AGENT_OPS }
