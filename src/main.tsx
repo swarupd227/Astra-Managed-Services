@@ -47,6 +47,7 @@ import { Portfolio } from './surfaces/governance/Portfolio'
 import { Releases } from './surfaces/operate/Releases'
 import { Vendors } from './surfaces/operate/Vendors'
 import { Acceleration } from './surfaces/governance/Acceleration'
+import { Commitments } from './surfaces/governance/Commitments'
 import { AgentLifecycle } from './surfaces/atlas/AgentLifecycle'
 import { ExitReadiness } from './surfaces/governance/ExitReadiness'
 import {
@@ -120,6 +121,7 @@ const router = createHashRouter([
       { path: 'operate/releases', element: <Releases /> },
       { path: 'operate/vendors', element: <Vendors /> },
       { path: 'governance/acceleration', element: <Acceleration /> },
+      { path: 'governance/commitments', element: <Commitments /> },
       { path: 'governance/exit', element: <ExitReadiness /> },
       { path: 'transition', element: <TransitionGroup /> },
       { path: 'operate/operations', element: <OperationsGroup /> },

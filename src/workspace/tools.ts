@@ -3,8 +3,10 @@ import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { accelerationSummary } from '@/domain/acceleration'
+import { commitmentLedger } from '@/domain/commitments'
+import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
-import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, notIngested } from '@/domain/engagement'
+import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
 import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
@@ -299,6 +301,61 @@ export const EXECUTORS: Record<string, Executor> = {
         accelerators: rows,
       },
       artifacts: [card('acceleration', stage ? `Acceleration · ${stage}` : 'Engagement and acceleration', stage ? { stage } : {}, '/governance/acceleration')],
+    }
+  },
+
+  get_commitments: async (input, ctx) => {
+    const engagementId = str(input.engagement) || ENGAGEMENT.id
+    if (!ENGAGEMENTS.some((e) => e.id === engagementId)) {
+      throw new ToolError(`No engagement has the id "${engagementId}". Engagements: ${ENGAGEMENTS.map((e) => e.id).join(', ')}.`)
+    }
+    const clientSide = ROLE_BY_ID[useAstra.getState().roleId]?.org !== 'artizent'
+    // Readiness comes through the shared reader: one commitment is read from it,
+    // and the ledger must not be able to answer differently from the fleet page.
+    const l = commitmentLedger({ engagementId, audience: clientSide ? 'client' : 'all', fleet: await readReadiness(ctx.signal) })
+    const status = str(input.status)
+    const rows = (status ? l.rows.filter((r) => r.status === status) : l.rows).map((r) => ({
+      id: r.commitment.id,
+      commitment: r.commitment.name,
+      promise: r.commitment.promise,
+      stage: STAGE_BY_ID[r.commitment.stage].name,
+      target: `${r.commitment.target.direction === 'at_most' ? 'at most' : 'at least'} ${r.commitment.target.value}${r.measure.unit === 'pct' ? '%' : ''}`,
+      dueAt: r.commitment.dueAt,
+      daysLeft: r.daysLeft,
+      startedFrom: r.commitment.baseline.display,
+      baselineSource: r.commitment.baseline.source,
+      today: r.reading.display,
+      readFrom: r.reading.note,
+      basis: r.reading.basis,
+      measure: r.measure.name,
+      status: r.status,
+      gapToTarget: r.gap,
+      ifMissed: r.commitment.consequence.note,
+      cannotBeMeasured: r.blocked,
+    }))
+    const h = l.history
+    return {
+      payload: {
+        engagement: { id: l.engagement.id, client: l.engagement.client, stage: l.engagement.stage, notIngested: notIngested(l.engagement) },
+        // The total is stated rather than left to be added up from the states.
+        totals: { commitments: l.rows.length, ...l.byStatus, chargeAtRiskPct: l.chargeAtRiskPct, baselinedOnClientRecords: l.fromHistory },
+        nextDue: l.nextDue ? { commitment: l.nextDue.commitment.name, dueAt: l.nextDue.commitment.dueAt, daysLeft: l.nextDue.daysLeft, status: l.nextDue.status } : null,
+        commitments: rows,
+        ticketHistory: h && h.period.months
+          ? {
+            source: h.source,
+            period: h.period,
+            volumes: h.volumes,
+            scope: h.scope,
+            themes: h.themes.map((t) => ({ name: t.name, incidents: t.incidents, pctOfInScope: t.pctOfInScope, classesAgainstIt: t.classIds.length })),
+            repeating: recurring(h).map((c) => ({ example: c.example, application: c.subCategory, incidents: c.incidents, months: c.months, costedCause: Boolean(c.classId) })),
+            shape: h.shape,
+            problems: h.problems,
+            willNotSupport: h.cannot.map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })),
+          }
+          : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
+      },
+      artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
     }
   },
 

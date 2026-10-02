@@ -78,6 +78,7 @@ export const SURFACES: Surface[] = [
     tagline: 'What keeps recurring, and is the price coming down?',
     users: 'Service governance, commercial owners, improvement leads',
     items: [
+      { to: '/governance/commitments', label: 'Commitments', desc: 'Every promise the engagement is held to, the figure read against it today, and the client’s own records each baseline came from' },
       { to: '/governance/savings', label: 'Savings', desc: 'Recurrence mined into costed eliminations, the glidepath against the countersigned baseline, and innovation from idea to verified value' },
       { to: '/transform/work-orders', label: 'Work Orders', desc: 'Separately authorised development — estimate, burn and authorisation' },
       { to: '/transform/debt', label: 'Technical Debt', desc: 'Debt register, measured interest and the quarterly remediation recommendation' },

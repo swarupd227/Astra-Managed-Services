@@ -113,6 +113,18 @@
       }
     },
     {
+      "name": "get_commitments", "agent": "agt_herald", "surfaces": ["governance", "transform", "transition", "run"],
+      "description": "What the engagement has committed to and what the platform reads against each promise today. Per commitment: the promise, the stage it belongs to, the target and its date, where the engagement started from and whether that baseline was read from the client's own ticket history or declared by someone, the figure measured today with what it was read from, whether it is met, on track, behind, missed or not measurable, how far it is from the target, and what happens if it is missed. Also the extract the baselines came from — volumes, the scope rule, the themes of demand, every phrasing seen ten times or more, and what that extract will not support, so a promise the records cannot measure is refused rather than scored. Give an engagement id to read another client's commitments; an engagement with nothing ingested returns its promises and no figures.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "engagement": { "type": "string", "description": "Engagement id, e.g. eng_kearney" },
+          "status": { "type": "string", "enum": ["met", "on_track", "behind", "missed", "not_measurable"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_agent_readiness", "agent": "agt_herald", "surfaces": ["platform", "governance", "run"],
       "description": "What it takes to put an agent into service and whether each one is there yet. Per agent: the lifecycle stage it has reached (draft, evaluated, shadow, supervised, autonomous, or suspended), how many readiness checks pass, the next stage and exactly which checks stand in the way, the budget it has consumed, what it escalated to people over the last 30 days with the reason mix, the share of its runs that represents, how many are still waiting and the median pick-up time, and its set-up — identity and least-privilege scope, model, monthly budget, step limit per run, who it escalates to when context is missing, when the stop was last exercised, the change record its configuration was released under, and what it retrieves to know this client. Checks are grouped as build it, prove it, make it operational and watch it, and each names the record it was read from. Give an agent to read its full checklist; otherwise the fleet, with the checks failing across it and why agents escalate, each reason carrying what would fix it.",
       "input_schema": {
