@@ -125,6 +125,15 @@
       }
     },
     {
+      "name": "get_provenance", "agent": "agt_archivist", "surfaces": ["governance", "transform", "transition", "run", "platform", "workplace"],
+      "description": "Where the figures come from. Every dataset the platform reads with its origin — a file the client supplied, a record the platform itself wrote as it ran, a deterministic demonstration seed, or somebody's declaration — the source named precisely enough to be checked, when it was taken, the screens it feeds, what a reader must not use it for, and whether the capability behind it is live, partial or not built. Give a screen's path to read only what feeds that screen. Use this whenever anyone asks whether a figure is real, measured, this client's own, or demonstration data: answer from this register rather than from impression.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "path": { "type": "string", "description": "Screen path, e.g. /operate/data-reliability" } },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "record_commitment_remedy", "agent": "agt_herald", "surfaces": ["governance", "transform"], "mutating": true, "approval": true,
       "description": "Record what has been decided about a commitment that is not being met: a recovery accepted with the date it lands, the contractual consequence applied, a re-baselining, or a waiver. Sealed to the evidence chain. Refused for a commitment that is met or on track, for a consequence the commitment does not carry, for a recovery dated in the past, and for a decision already recorded in the same terms. A commitment that is behind with nothing recorded counts as unanswered until one of these is.",
       "describe": "Record against {commitment_id}: {kind} — {detail} (reference {reference}).",

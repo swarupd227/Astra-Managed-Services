@@ -4,6 +4,7 @@ import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { accelerationSummary } from '@/domain/acceleration'
 import { COMMITMENTS, REMEDY_LABEL, commitmentLedger, readCommitment, type RemedyKind } from '@/domain/commitments'
+import { ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
@@ -368,6 +369,32 @@ export const EXECUTORS: Record<string, Executor> = {
           : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
       },
       artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
+    }
+  },
+
+  get_provenance: (input) => {
+    const path = str(input.path)
+    const s = provenanceSummary()
+    const scoped = path ? provenanceFor(path) : null
+    const describe = (d: DataSet) => ({
+      id: d.id,
+      about: d.name,
+      origin: ORIGIN_LABEL[d.origin],
+      whatThatMeans: ORIGIN_MEANING[d.origin],
+      source: d.source,
+      asOf: d.asOf ?? null,
+      screens: d.routes,
+      doNotUseItFor: d.caution ?? null,
+      state: d.maturity,
+    })
+    return {
+      payload: scoped
+        ? { screen: scoped.path, headline: scoped.headline ? ORIGIN_LABEL[scoped.headline] : null, datasets: scoped.datasets.map(describe) }
+        : {
+          totals: { datasets: s.datasets.length, screens: s.routes, carryingACaution: s.withCaution, byOrigin: s.byOrigin },
+          datasets: s.datasets.map(describe),
+        },
+      artifacts: [card('provenance', path ? `Where the figures come from · ${path}` : 'Where the figures come from', path ? { path } : {}, '/governance/provenance')],
     }
   },
 

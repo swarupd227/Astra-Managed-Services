@@ -1,9 +1,10 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Bot, ShieldCheck, User, Link2 } from 'lucide-react'
 import { Chip, Dot, Hint } from './primitives'
 import { cn, clock, initials, pct } from '@/lib/format'
 import { AGENT_BY_ID } from '@/domain/estate'
+import { ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, type Origin } from '@/domain/provenance'
 import { MODE_TO_LEVEL } from '@/domain/reference'
 import type { ExecutionMode, Grade, Priority, WorkState } from '@/domain/types'
 
@@ -189,6 +190,35 @@ export function SealBadge({ sealed }: { sealed: boolean }) {
   )
 }
 
+/* -------------------------------- Provenance -------------------------------- */
+
+const ORIGIN_TONE: Record<Origin, 'ok' | 'info' | 'warn' | 'neutral'> = {
+  client_extract: 'ok',
+  platform_record: 'info',
+  declared: 'warn',
+  seeded: 'warn',
+  not_built: 'neutral',
+}
+
+/**
+ * Where this screen's figures come from, computed from the route rather than
+ * remembered. A screen reading a demonstration seed says so in its own
+ * header, so nothing here can be mistaken for measurement of a real estate.
+ */
+export function ProvenanceChip({ path }: { path?: string }) {
+  const { pathname } = useLocation()
+  const p = provenanceFor(path ?? pathname)
+  if (!p.headline) return null
+  const sets = p.datasets.map((d) => `${d.name} — ${d.source}${d.caution ? `. ${d.caution}` : ''}`).join('\n\n')
+  return (
+    <Hint text={`${ORIGIN_MEANING[p.headline]}\n\n${sets}`}>
+      <Link to="/governance/provenance">
+        <Chip tone={ORIGIN_TONE[p.headline]}>{ORIGIN_LABEL[p.headline]}</Chip>
+      </Link>
+    </Hint>
+  )
+}
+
 /* ------------------------------ Section header ----------------------------- */
 
 export function PageHeader({
@@ -206,6 +236,7 @@ export function PageHeader({
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <h1 className="truncate font-display text-[15px] font-semibold leading-tight tracking-tight text-ink">{title}</h1>
           {meta}
+          <ProvenanceChip />
         </div>
         {subtitle && <p className="mt-1 max-w-3xl text-2xs leading-relaxed text-ink-3">{subtitle}</p>}
       </div>

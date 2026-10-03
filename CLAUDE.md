@@ -21,6 +21,12 @@ non-negotiables:
    marked `provider` (the bid) is ours: never shown to a role whose `org` is not `artizent`, in a screen
    or a tool result. What the platform makes faster at each stage, whose time it gives back, and whether
    the figure is measured, projected, declared or not measured, lives in `src/domain/acceleration.ts`.
+8. **Nothing on screen may be mistaken for measurement.** Every dataset the application reads is
+   registered in `src/domain/provenance.ts` with its origin — a client file, a record the platform
+   wrote, a demonstration seed, or somebody's declaration — the screens it feeds and what it must not
+   be used for. The marker in `PageHeader` is computed from that register, so a new screen or a new
+   dataset is registered there in the same change that adds it. A promise the records cannot measure
+   is refused, not scored: see `cannot` in `src/domain/ticketHistory.ts`.
 
 ## Azure deployment
 

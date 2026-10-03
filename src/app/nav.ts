@@ -102,6 +102,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },
       { to: '/governance/exit', label: 'Renew & Exit', desc: 'Exit obligations against their clauses, what the platform holds of the client and what has been returned or destroyed, the benchmark pack and the successor pack' },
       { to: '/governance/reports', label: 'Reports', desc: 'Governed semantic layer, signed extracts, natural-language queries' },
+      { to: '/governance/provenance', label: 'Where the Figures Come From', desc: 'Every dataset the platform reads, its origin, the screens it feeds and what it must not be used for' },
     ],
   },
   {
