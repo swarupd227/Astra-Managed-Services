@@ -125,6 +125,22 @@
       }
     },
     {
+      "name": "get_successor_pack", "agent": "agt_archivist", "surfaces": ["governance", "transform", "run"],
+      "description": "The pack a successor provider would start from, and whether it has ever been produced. Per part: what it is, what the successor can do with it on day one, the format, how many records it holds, whether it is the client's own knowledge coming home or the supplier's grant on exit, and the records it is built from. Also what the pack deliberately withholds and why, and every production of it with its manifest — part by part, the record count, the size and the digest sealed to the evidence chain. Use this when anyone asks what the client keeps if the supplier leaves, or how expensive leaving would be.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "produce_successor_pack", "agent": "agt_archivist", "surfaces": ["governance", "transform"], "mutating": true, "approval": true,
+      "description": "Build the successor pack now: emits the content of every part, computes a digest over each and over the pack as a whole, and seals the manifest to the evidence chain. This is the difference between a pack that is counted and a pack that exists — a production can be run on any ordinary day, and the commitment that it is produced annually reads these records. The parts can then be downloaded from the pack page.",
+      "describe": "Produce the successor pack now and seal its manifest ({reason}).",
+      "input_schema": {
+        "type": "object",
+        "properties": { "reason": { "type": "string", "description": "Why it is being produced: the annual proof, a benchmark review, or a real exit" } },
+        "required": ["reason"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_client_control", "agent": "agt_herald", "surfaces": ["governance", "run", "platform"],
       "description": "What the client controls over the agent workforce. The rights the client holds — lowering what an agent may do, stopping one outright, withdrawing an action class across the workforce, and lifting any of those again — with the roles that hold each right, how much notice the supplier may require (none), who may lift it (the client, never the supplier) and what exercising it does not change. Then per agent: the ceiling the supplier granted, the ceiling the client has imposed, whether it is stopped, and what it may therefore actually do. Also the directives in force with who set each one and why, and when the right was last exercised.",
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }

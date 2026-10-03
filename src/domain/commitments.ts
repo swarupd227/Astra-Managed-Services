@@ -9,6 +9,8 @@ import { glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './me
 import { privacySummary } from './privacy'
 import { clustersWithCause, historyFor, recurring, refusal, themeOf, type Derivable, type TicketHistory } from './ticketHistory'
 import type { FleetLifecycle } from './agentLifecycle'
+// Type only: the pack reads the commitment register, and this must not become a cycle.
+import type { PackExport } from './successorPack'
 import { NOW, WORK_OBJECTS } from './workSeed'
 
 /* ==========================================================================
@@ -48,6 +50,8 @@ export interface MeasureCtx {
   fleet?: FleetLifecycle
   /** What has been recorded this session against commitments. */
   remedies?: Remedy[]
+  /** Successor packs produced, for the commitment that the pack is produced rather than promised. */
+  packExports?: PackExport[]
 }
 
 export interface MeasureReading {
@@ -267,6 +271,24 @@ export const MEASURES: Record<string, Measure> = {
     needs: ['tickets'], needsDerivable: ['handling_time'],
     read: () => unreadable('Nothing to compare against'),
   },
+  successor_pack_produced: {
+    id: 'successor_pack_produced', name: 'Successor packs produced in the last year', unit: 'count',
+    needs: ['contract'], route: '/governance/successor-pack',
+    read: ({ nowMs, packExports }) => {
+      // Produced, not promised: only a pack that was actually built counts, and
+      // only while it is less than a year old.
+      const within = (packExports ?? []).filter((e) => nowMs - Date.parse(e.at) <= 365 * 86_400_000)
+      const last = [...(packExports ?? [])].sort((a, b) => b.at.localeCompare(a.at))[0]
+      return {
+        value: within.length,
+        display: String(within.length),
+        note: last
+          ? `Last produced ${last.at.slice(0, 10)} by ${last.by}: ${last.manifest.parts.length} parts, ${last.manifest.rows.toLocaleString('en-GB')} records`
+          : 'Never produced: the pack has only ever been counted',
+        basis: 'measured',
+      }
+    },
+  },
 }
 
 /* ------------------------------- What would fix it --------------------------- */
@@ -341,6 +363,9 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
   },
   handling_time_delta: () => [
     { what: 'Measure resolution time from our own clocks from cutover, then offer the commitment', owner: 'sdm' },
+  ],
+  successor_pack_produced: () => [
+    { what: 'Produce the successor pack and hand it over — every part builds today', owner: 'serviceowner', route: '/governance/successor-pack' },
   ],
 }
 
@@ -520,6 +545,14 @@ export const COMMITMENTS: Commitment[] = [
     consequence: { kind: 'make_good', note: 'Exit pack produced at our cost' },
   },
   {
+    id: 'cm_successor', engagementId: 'eng_kearney', stage: 'exit', audience: 'client',
+    name: 'The successor pack is produced, not promised',
+    promise: 'The pack a successor would start from is produced and handed over every year of the term, so leaving is never a project',
+    measureId: 'successor_pack_produced', target: { value: 1, direction: 'at_least' }, dueAt: '2027-03-31',
+    baseline: { value: 0, display: 'Reverse transition from scratch', source: 'Declared · contract requirement' },
+    consequence: { kind: 'fee_at_risk', pctOfCharge: 2, note: '2% of the monthly charge at risk' },
+  },
+  {
     id: 'cm_mttr', engagementId: 'eng_kearney', stage: 'run', audience: 'client',
     name: 'Resolution time against the incumbent',
     promise: 'Not offered: the extract carries no close timestamp, so the platform has nothing to measure a reduction against',
@@ -660,11 +693,14 @@ const ORDER: Record<Status, number> = { missed: 0, behind: 1, not_measurable: 2,
  * our own stages, in a screen or in a tool result.
  */
 export function commitmentLedger(
-  opts: { engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle; remedies?: Remedy[]; nowMs?: number } = {},
+  opts: {
+    engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle
+    remedies?: Remedy[]; packExports?: PackExport[]; nowMs?: number
+  } = {},
 ): Ledger {
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
   const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
-  const ctx: MeasureCtx = { nowMs: opts.nowMs ?? NOW.getTime(), fleet: opts.fleet, remedies: opts.remedies }
+  const ctx: MeasureCtx = { nowMs: opts.nowMs ?? NOW.getTime(), fleet: opts.fleet, remedies: opts.remedies, packExports: opts.packExports }
   const rows = COMMITMENTS
     .filter((c) => c.engagementId === engagementId)
     .filter((c) => (opts.audience ?? 'all') === 'all' || c.audience === 'client')

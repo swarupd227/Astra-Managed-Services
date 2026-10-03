@@ -45,8 +45,12 @@ function useClientSide() {
 function useLedger(engagementId: string): Ledger {
   const fleet = useReadiness()
   const remedies = useAstra((s) => s.commitmentLog)
+  const packExports = useAstra((s) => s.packExports)
   const audience = useClientSide() ? 'client' : 'all'
-  return React.useMemo(() => commitmentLedger({ engagementId, audience, fleet, remedies }), [engagementId, audience, fleet, remedies])
+  return React.useMemo(
+    () => commitmentLedger({ engagementId, audience, fleet, remedies, packExports }),
+    [engagementId, audience, fleet, remedies, packExports],
+  )
 }
 
 function CommitmentMetrics({ props, size }: CardProps) {

@@ -9,6 +9,7 @@ import {
 } from '@/domain/clientControl'
 import { COMMITMENTS, REMEDY_LABEL, commitmentLedger, readCommitment, type RemedyKind } from '@/domain/commitments'
 import { ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
+import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
@@ -322,6 +323,7 @@ export const EXECUTORS: Record<string, Executor> = {
       audience: clientSide ? 'client' : 'all',
       fleet: await readReadiness(ctx.signal),
       remedies: useAstra.getState().commitmentLog,
+      packExports: useAstra.getState().packExports,
     })
     const status = str(input.status)
     const rows = (status ? l.rows.filter((r) => r.status === status) : l.rows).map((r) => ({
@@ -373,6 +375,51 @@ export const EXECUTORS: Record<string, Executor> = {
           : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
       },
       artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
+    }
+  },
+
+  get_successor_pack: () => {
+    const log = useAstra.getState().packExports
+    const last = [...log].sort((a, b) => b.at.localeCompare(a.at))[0] ?? null
+    return {
+      payload: {
+        parts: PACK_PARTS.map((p) => ({
+          id: p.id, part: p.name, purpose: p.purpose, format: p.format,
+          whose: OWNERSHIP_LABEL[p.ownership], records: p.rows(), readFrom: p.readFrom,
+        })),
+        withheld: WITHHELD,
+        everProduced: log.length > 0,
+        productions: log.map((e) => ({
+          id: e.id, at: e.at, by: e.by, reason: e.reason,
+          parts: e.manifest.parts.length, records: e.manifest.rows, bytes: e.manifest.bytes,
+          digest: e.manifest.digest, sealedAs: e.evidenceId ?? null,
+        })),
+        lastProduced: last ? { at: last.at, by: last.by, records: last.manifest.rows } : null,
+      },
+      artifacts: [card('successorPack', 'Successor pack', {}, '/governance/successor-pack')],
+    }
+  },
+
+  produce_successor_pack: (input) => {
+    const reason = str(input.reason)
+    if (!reason) throw new ToolError('A production carries the reason it was run: the annual proof, a benchmark review, or a real exit.')
+    const row = useAstra.getState().produceSuccessorPack(person(), reason)
+    const empty = row.manifest.parts.filter((p) => p.rows === 0)
+    return {
+      payload: {
+        produced: row.id,
+        at: row.at,
+        by: row.by,
+        reason,
+        parts: row.manifest.parts,
+        records: row.manifest.rows,
+        bytes: row.manifest.bytes,
+        packDigest: row.manifest.digest,
+        sealedAs: row.evidenceId ?? null,
+        partsWithNoRecords: empty.map((p) => p.name),
+        withheld: row.manifest.withheld,
+      },
+      artifacts: [card('successorPack', 'Successor pack produced', {}, '/governance/successor-pack')],
     }
   },
 

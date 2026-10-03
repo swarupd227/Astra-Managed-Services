@@ -205,6 +205,13 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
+    id: 'ds_successor_pack', name: 'The successor pack and its productions', origin: 'platform_record',
+    source: 'Each part is emitted from the registers it names in src/domain/successorPack.ts; every production digests what it emitted and seals the manifest to the evidence chain',
+    routes: ['/governance/successor-pack'],
+    caution: 'The content inherits the origin of the register behind each part — knowledge, demand and lineage parts carry demonstration records; the build, the digests and the manifest are real',
+    maturity: 'live',
+  },
+  {
     id: 'ds_provenance', name: 'This register', origin: 'platform_record',
     source: 'src/domain/provenance.ts — one row per dataset the application reads',
     routes: ['/governance/provenance'],

@@ -1,6 +1,7 @@
 import type { IncidentNotice, LoggedAction } from './privacy'
 import { describeDirective, type Directive } from './clientControl'
 import { REMEDY_LABEL, type Remedy } from './commitments'
+import { buildPack, manifestOf, type PackExport } from './successorPack'
 import type { Settlement } from './exit'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
@@ -78,6 +79,8 @@ interface State {
   commitmentLog: Remedy[]
   /** The client's own directives over the workforce: what it has capped or stopped. */
   clientDirectives: Directive[]
+  /** Successor packs produced this session, each with its manifest. */
+  packExports: PackExport[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -184,6 +187,9 @@ interface State {
   /** The client caps, stops or restores an agent. Theirs to set and theirs to lift. */
   setClientAutonomy: (directive: Omit<Directive, 'id' | 'at' | 'evidenceId'>) => Directive
 
+  /** Builds the successor pack and seals its manifest. Returns the production record. */
+  produceSuccessorPack: (by: string, reason: string) => PackExport
+
   /** A person records that an external recipient was told of an erasure. The platform does not tell them itself. */
   recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
   /** A person records the notice given to the client of a data incident, which stops the contractual clock. */
@@ -289,6 +295,7 @@ export const useAstra = create<State>((set, get) => ({
   exitLog: [],
   commitmentLog: [],
   clientDirectives: [],
+  packExports: [],
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1429,6 +1436,23 @@ export const useAstra = create<State>((set, get) => ({
     const at = nowIso(s.clockOffsetMins)
     get().logEvidence('approval', by, `Destruction certified — ${holdingId}`, { holdingId, reference, method })
     set({ exitLog: [...get().exitLog, { holdingId, action: 'destroyed', at, by, reference, method }] })
+  },
+
+  produceSuccessorPack: (by, reason) => {
+    const at = nowIso(get().clockOffsetMins)
+    // The content is built here, so the manifest covers what was actually
+    // emitted rather than what the register says it would emit.
+    const manifest = manifestOf(buildPack(), at, by)
+    const id = `pex_${digest(manifest.digest).slice(0, 8)}`
+    const evidenceId = get().logEvidence(
+      'knowledge',
+      by,
+      `Successor pack produced — ${manifest.parts.length} parts, ${manifest.rows} records`,
+      { reason, digest: manifest.digest, bytes: manifest.bytes, parts: manifest.parts.map((p) => ({ id: p.id, rows: p.rows, digest: p.digest })) },
+    )
+    const row: PackExport = { id, at, by, reason, manifest, evidenceId }
+    set({ packExports: [...get().packExports, row] })
+    return row
   },
 
   setClientAutonomy: (directive) => {
