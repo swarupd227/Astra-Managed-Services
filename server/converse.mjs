@@ -24,12 +24,22 @@ export function roleOf(catalogue, roleId) {
   return catalogue.roles[roleId] ?? null
 }
 
-/** A tool is held when the role holds one of its surfaces, may change things if it changes things, and may approve if it approves. */
+/**
+ * A tool is held when the role holds one of its surfaces, may change things if
+ * it changes things, and may approve if it approves.
+ *
+ * A tool marked `clientRight` is the client's own authority over the agent
+ * workforce — lowering what an agent may do, or stopping it. Only a role the
+ * catalogue marks as holding those rights may call it, which is what keeps the
+ * supplier out of the path: we cannot exercise it for them, and we cannot lift
+ * what they set.
+ */
 export function holds(role, tool) {
   if (!role) return false
   if (!tool.surfaces.some((s) => role.surfaces.includes(s))) return false
   if (tool.mutating && role.readOnly) return false
   if (tool.approval && !role.canApprove) return false
+  if (tool.clientRight && !role.holdsClientRights) return false
   return true
 }
 

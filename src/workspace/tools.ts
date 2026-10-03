@@ -3,17 +3,21 @@ import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { accelerationSummary } from '@/domain/acceleration'
+import {
+  RIGHT_HOLDERS, SCOPE_LABEL, describeDirective, holdsRights, modeLabel, readControl,
+  type Cap, type DirectiveKind, type Scope,
+} from '@/domain/clientControl'
 import { COMMITMENTS, REMEDY_LABEL, commitmentLedger, readCommitment, type RemedyKind } from '@/domain/commitments'
 import { ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
 import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
-import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
+import { AGENTS, AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
 import { INCIDENTS, holdsOn, privacySummary, readIncident, readRequest, REQUESTS } from '@/domain/privacy'
 import { NOW } from '@/domain/workSeed'
-import { ROLE_BY_ID } from '@/domain/reference'
+import { ACTION_CLASSES, MODE_TO_LEVEL, ROLE_BY_ID } from '@/domain/reference'
 import { releaseSummary } from '@/domain/releases'
 import { useAstra } from '@/domain/store'
 import { debtSummary } from '@/domain/techDebt'
@@ -369,6 +373,102 @@ export const EXECUTORS: Record<string, Executor> = {
           : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
       },
       artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
+    }
+  },
+
+  get_client_control: () => {
+    const c = readControl(useAstra.getState().clientDirectives)
+    return {
+      payload: {
+        rights: c.rights.map((r) => ({
+          right: r.name,
+          heldBy: r.heldBy.map((id) => ROLE_BY_ID[id]?.title ?? id),
+          effect: r.effect,
+          noticeToSupplierHrs: r.noticeHrs,
+          liftedBy: r.liftedBy,
+          doesNotChange: r.doesNotChange,
+        })),
+        totals: { agents: c.agents.length, capped: c.capped, stopped: c.stopped, asGranted: c.untouched },
+        lastExercised: c.lastExercised,
+        exercisedBy: c.exercisedBy,
+        directivesInForce: c.directives.map((d) => ({
+          id: d.id, what: describeDirective(d), scope: SCOPE_LABEL[d.scope], by: d.by,
+          role: ROLE_BY_ID[d.role]?.title ?? d.role, at: d.at, reason: d.reason,
+        })),
+        agents: c.agents.map((a) => ({
+          id: a.agent.id, name: a.agent.name,
+          supplierGranted: modeLabel(a.granted),
+          clientCeiling: a.clientCap ? modeLabel(a.clientCap) : null,
+          stopped: a.stopped,
+          mayActuallyDo: a.stopped ? 'Nothing' : modeLabel(a.effective),
+        })),
+      },
+      artifacts: [card('clientControl', 'What the client controls', {}, '/governance/client-control')],
+    }
+  },
+
+  set_client_autonomy: (input) => {
+    const kind = str(input.kind) as DirectiveKind
+    const scope = str(input.scope) as Scope
+    const reason = str(input.reason)
+    const cap = str(input.cap) as Cap
+    const target = str(input.target)
+    const st = useAstra.getState()
+    const roleId = st.roleId
+    const role = ROLE_BY_ID[roleId]
+
+    // The right is the client's. A supplier role cannot exercise it for them —
+    // the gateway refuses the call, and so does this, so the refusal is legible
+    // wherever it is tried.
+    if (!holdsRights(roleId)) {
+      throw new ToolError(`The ${role?.title ?? roleId} role does not hold this right. It belongs to the client: ${RIGHT_HOLDERS.map((id) => ROLE_BY_ID[id]?.title ?? id).join(' or ')}.`)
+    }
+    if (!reason) throw new ToolError('A directive carries the client’s reason for it.')
+    if (!['cap', 'stop', 'restore'].includes(kind)) throw new ToolError(`"${kind}" is not a directive this right covers.`)
+    if (!['agent', 'action_class', 'all'].includes(scope)) throw new ToolError(`"${scope}" is not a scope this right covers.`)
+
+    let targetId = ''
+    if (scope === 'agent') {
+      const agent = AGENTS.find((a) => a.id.toLowerCase() === target.toLowerCase() || a.name.toLowerCase() === target.toLowerCase())
+      if (!agent) throw new ToolError(`No agent has the id or name "${target}".`)
+      targetId = agent.id
+      if (kind === 'cap') {
+        if (!cap) throw new ToolError('A ceiling needs the mode to cap at.')
+        if (MODE_TO_LEVEL[cap] >= MODE_TO_LEVEL[agent.ceiling]) {
+          throw new ToolError(`${agent.name} is granted ${modeLabel(agent.ceiling)}. Capping at ${modeLabel(cap)} would raise it, not restrict it — this right only lowers.`)
+        }
+      }
+    } else if (scope === 'action_class') {
+      const cls = ACTION_CLASSES.find((c) => c.id.toLowerCase() === target.toLowerCase())
+      if (!cls) throw new ToolError(`No action class has the id "${target}".`)
+      targetId = cls.id
+      if (kind === 'cap' && !cap) throw new ToolError('A ceiling needs the mode to cap at.')
+    } else if (kind === 'cap' && !cap) {
+      throw new ToolError('A ceiling needs the mode to cap at.')
+    }
+
+    const before = readControl(st.clientDirectives)
+    if (kind === 'restore' && !before.directives.some((d) => d.scope === scope && d.targetId === targetId)) {
+      throw new ToolError('There is no directive in force on that to lift.')
+    }
+
+    st.setClientAutonomy({ scope, targetId, kind, ...(kind === 'cap' ? { cap } : {}), by: person(), role: roleId, reason })
+    const after = readControl(useAstra.getState().clientDirectives)
+    const row = scope === 'agent' ? after.agents.find((a) => a.agent.id === targetId) : null
+    return {
+      payload: {
+        recorded: describeDirective({ scope, targetId, kind, cap }),
+        by: person(),
+        role: role?.title ?? roleId,
+        reason,
+        effective: 'immediately',
+        supplierApprovalRequired: false,
+        liftedOnlyBy: 'the client',
+        serviceLevelsUnchanged: true,
+        agent: row ? { name: row.agent.name, supplierGranted: modeLabel(row.granted), mayActuallyDo: row.stopped ? 'Nothing' : modeLabel(row.effective) } : null,
+        totals: { capped: after.capped, stopped: after.stopped, asGranted: after.untouched },
+      },
+      artifacts: [card('clientControl', 'What the client controls', {}, '/governance/client-control')],
     }
   },
 

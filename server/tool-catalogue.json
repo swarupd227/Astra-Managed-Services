@@ -7,8 +7,8 @@
     "transition": { "surfaces": ["transition", "run", "governance"], "canApprove": true },
     "sme": { "surfaces": ["transition"], "canApprove": false },
     "aieng": { "surfaces": ["platform", "run", "governance"], "canApprove": true },
-    "exec": { "surfaces": ["governance", "transform"], "canApprove": true },
-    "serviceowner": { "surfaces": ["governance", "run", "transform"], "canApprove": true },
+    "exec": { "surfaces": ["governance", "transform"], "canApprove": true, "holdsClientRights": true },
+    "serviceowner": { "surfaces": ["governance", "run", "transform"], "canApprove": true, "holdsClientRights": true },
     "commercial": { "surfaces": ["governance", "transform"], "canApprove": false },
     "auditor": { "surfaces": ["governance"], "canApprove": false, "readOnly": true },
     "clientteam": { "surfaces": ["run", "transition"], "canApprove": false },
@@ -121,6 +121,28 @@
           "engagement": { "type": "string", "description": "Engagement id, e.g. eng_kearney" },
           "status": { "type": "string", "enum": ["met", "on_track", "behind", "missed", "not_measurable"] }
         },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_client_control", "agent": "agt_herald", "surfaces": ["governance", "run", "platform"],
+      "description": "What the client controls over the agent workforce. The rights the client holds — lowering what an agent may do, stopping one outright, withdrawing an action class across the workforce, and lifting any of those again — with the roles that hold each right, how much notice the supplier may require (none), who may lift it (the client, never the supplier) and what exercising it does not change. Then per agent: the ceiling the supplier granted, the ceiling the client has imposed, whether it is stopped, and what it may therefore actually do. Also the directives in force with who set each one and why, and when the right was last exercised.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "set_client_autonomy", "agent": "astra", "surfaces": ["governance", "run"], "mutating": true, "approval": true, "clientRight": true,
+      "description": "The client lowers what an agent may do, stops it outright, withdraws an action class across the workforce, or lifts a directive it set earlier. Takes effect immediately, with no notice to the supplier and no supplier approval in the path, and is sealed to the evidence chain. Held only by the client's own roles: a supplier role cannot call it, cannot exercise it on the client's behalf, and cannot lift what the client set. Service levels, charges and the glidepath commitment are unchanged by it — stopping an agent does not release the supplier from the work. Refused for a cap above what the supplier granted, which would be a grant rather than a restriction.",
+      "describe": "{kind} — {target} ({reason}). Takes effect immediately; service levels unchanged.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["cap", "stop", "restore"], "description": "Lower the ceiling, stop it outright, or lift a directive" },
+          "scope": { "type": "string", "enum": ["agent", "action_class", "all"], "description": "One agent, one action class across every agent, or every agent" },
+          "target": { "type": "string", "description": "Agent id or name, or an action class id such as AC-37. Omit for scope \"all\"." },
+          "cap": { "type": "string", "enum": ["manual", "advise", "approve_first", "supervised"], "description": "The ceiling to impose, for kind \"cap\"" },
+          "reason": { "type": "string", "description": "Why, in the client's own words" }
+        },
+        "required": ["kind", "scope", "reason"],
         "additionalProperties": false
       }
     },

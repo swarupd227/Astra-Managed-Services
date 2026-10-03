@@ -5,6 +5,7 @@ import { FiguresCard } from './figures'
 import { AgentRunCard, ApprovalsCard, BriefCard, EstateOverviewCard, SlaCard, WorkItemCard, WorkQueueCard } from './operate'
 import { accelerationView } from './acceleration'
 import { agentLifecycleView } from './agentLifecycle'
+import { clientControlView } from './clientControl'
 import { commitmentsView } from './commitments'
 import { coverageView } from './coverage'
 import { dataEstateView, dataItemView } from './dataEstate'
@@ -42,6 +43,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   acceleration: accelerationView,
   commitments: commitmentsView,
   provenance: provenanceView,
+  clientControl: clientControlView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },

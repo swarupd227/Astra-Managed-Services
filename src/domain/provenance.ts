@@ -198,6 +198,13 @@ export const DATASETS: DataSet[] = [
     maturity: 'partial',
   },
   {
+    id: 'ds_client_control', name: 'The client’s rights over the workforce, and the directives in force', origin: 'platform_record',
+    source: 'The rights are registered in src/domain/clientControl.ts and the holders in server/tool-catalogue.json, which the gateway enforces; every directive is written as the client sets it and sealed to the evidence chain',
+    routes: ['/governance/client-control'],
+    caution: 'The agents the directives apply to are a demonstration set; the right, the refusals and the sealing are real',
+    maturity: 'live',
+  },
+  {
     id: 'ds_provenance', name: 'This register', origin: 'platform_record',
     source: 'src/domain/provenance.ts — one row per dataset the application reads',
     routes: ['/governance/provenance'],

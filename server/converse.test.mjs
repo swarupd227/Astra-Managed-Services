@@ -23,6 +23,31 @@ test('a consumer holds no estate tool', () => {
   assert.ok(!names.includes('get_approvals'))
 })
 
+test('the client’s right over the workforce is held by the client alone', () => {
+  // Capping or stopping an agent is the client's authority. A supplier role
+  // must not be able to exercise it on their behalf, however senior.
+  const clientRight = CATALOGUE.tools.filter((t) => t.clientRight).map((t) => t.name)
+  assert.ok(clientRight.length > 0)
+  for (const roleId of ['exec', 'serviceowner']) {
+    const held = toolsForRole(CATALOGUE, roleId).map((t) => t.name)
+    for (const n of clientRight) assert.ok(held.includes(n), `${roleId} should hold ${n}`)
+  }
+  for (const roleId of ['sdm', 'aieng', 'shiftlead', 'mim', 'transition', 'resolver', 'auditor', 'clientteam', 'commercial', 'consumer']) {
+    const held = toolsForRole(CATALOGUE, roleId).map((t) => t.name)
+    for (const n of clientRight) assert.ok(!held.includes(n), `${roleId} must not hold ${n}`)
+  }
+})
+
+test('a supplier role calling the client’s right is refused', () => {
+  const r = checkTranscript(CATALOGUE, 'sdm', [
+    { role: 'user', content: 'stop the agent for them' },
+    call('t1', 'set_client_autonomy', { kind: 'stop', scope: 'agent', target: 'agt_remedian', reason: 'noise' }),
+    result('t1'),
+  ])
+  assert.equal(r.ok, false)
+  assert.match(r.reason, /does not hold/)
+})
+
 test('an unknown role is refused', () => {
   assert.equal(checkTranscript(CATALOGUE, 'nobody', [{ role: 'user', content: 'hi' }]).ok, false)
 })

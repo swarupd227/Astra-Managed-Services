@@ -1,4 +1,5 @@
 import type { IncidentNotice, LoggedAction } from './privacy'
+import { describeDirective, type Directive } from './clientControl'
 import { REMEDY_LABEL, type Remedy } from './commitments'
 import type { Settlement } from './exit'
 import { create } from 'zustand'
@@ -75,6 +76,8 @@ interface State {
   exitLog: Settlement[]
   /** What has been decided about commitments that are not being met. */
   commitmentLog: Remedy[]
+  /** The client's own directives over the workforce: what it has capped or stopped. */
+  clientDirectives: Directive[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -177,6 +180,9 @@ interface State {
 
   /** Records what was decided about a commitment that is not being met. */
   recordCommitmentRemedy: (remedy: Omit<Remedy, 'at' | 'evidenceId'>) => void
+
+  /** The client caps, stops or restores an agent. Theirs to set and theirs to lift. */
+  setClientAutonomy: (directive: Omit<Directive, 'id' | 'at' | 'evidenceId'>) => Directive
 
   /** A person records that an external recipient was told of an erasure. The platform does not tell them itself. */
   recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
@@ -282,6 +288,7 @@ export const useAstra = create<State>((set, get) => ({
   incidentNotices: [],
   exitLog: [],
   commitmentLog: [],
+  clientDirectives: [],
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1422,6 +1429,22 @@ export const useAstra = create<State>((set, get) => ({
     const at = nowIso(s.clockOffsetMins)
     get().logEvidence('approval', by, `Destruction certified — ${holdingId}`, { holdingId, reference, method })
     set({ exitLog: [...get().exitLog, { holdingId, action: 'destroyed', at, by, reference, method }] })
+  },
+
+  setClientAutonomy: (directive) => {
+    const at = nowIso(get().clockOffsetMins)
+    const id = `cd_${digest(`${directive.scope}${directive.targetId}${directive.kind}${at}`).slice(0, 8)}`
+    // Sealed as the client's decision, with the role they hold: the supplier is
+    // not in the path and the record has to show that.
+    const evidenceId = get().logEvidence(
+      'decision',
+      directive.by,
+      `${describeDirective(directive)} — by the client`,
+      { scope: directive.scope, target: directive.targetId, kind: directive.kind, cap: directive.cap, reason: directive.reason, role: directive.role },
+    )
+    const row: Directive = { ...directive, id, at, evidenceId }
+    set({ clientDirectives: [...get().clientDirectives, row] })
+    return row
   },
 
   recordCommitmentRemedy: (remedy) => {

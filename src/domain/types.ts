@@ -452,6 +452,8 @@ export interface Role {
   description: string
   canApprove: boolean
   readOnly?: boolean
+  /** Holds the client's own rights over the agent workforce: capping and stopping. */
+  holdsClientRights?: boolean
 }
 
 /** A contract bundle: the unit a client buys a group of towers under. */

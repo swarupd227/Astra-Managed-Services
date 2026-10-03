@@ -149,7 +149,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
  * What a role may see and do is held once, in the tool catalogue the gateway
  * enforces, so the screens and the gateway cannot disagree about a role.
  */
-export const ROLES: Role[] = ROLE_RECORDS.map((r) => ({ ...r, ...(CATALOGUE.roles as Record<string, Pick<Role, 'surfaces' | 'canApprove' | 'readOnly'>>)[r.id] }))
+export const ROLES: Role[] = ROLE_RECORDS.map((r) => ({ ...r, ...(CATALOGUE.roles as Record<string, Pick<Role, 'surfaces' | 'canApprove' | 'readOnly' | 'holdsClientRights'>>)[r.id] }))
 
 export const ROLE_BY_ID = Object.fromEntries(ROLES.map((r) => [r.id, r])) as Record<string, Role>
 
