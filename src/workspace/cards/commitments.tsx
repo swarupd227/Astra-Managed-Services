@@ -1,8 +1,8 @@
 import React from 'react'
-import { Database, FileSignature, ListTree } from 'lucide-react'
+import { ClipboardList, Database, FileSignature, ListTree } from 'lucide-react'
 import { BASIS_LABEL, type Basis } from '@/domain/acceleration'
 import {
-  STATUS_LABEL, commitmentLedger,
+  REMEDY_LABEL, STATUS_LABEL, commitmentLedger,
   type CommitmentReading, type Ledger, type Status,
 } from '@/domain/commitments'
 import { ENGAGEMENTS, STAGE_BY_ID } from '@/domain/engagement'
@@ -44,8 +44,9 @@ function useClientSide() {
 /** The ledger, read through the same readiness reader the lifecycle page uses. */
 function useLedger(engagementId: string): Ledger {
   const fleet = useReadiness()
+  const remedies = useAstra((s) => s.commitmentLog)
   const audience = useClientSide() ? 'client' : 'all'
-  return React.useMemo(() => commitmentLedger({ engagementId, audience, fleet }), [engagementId, audience, fleet])
+  return React.useMemo(() => commitmentLedger({ engagementId, audience, fleet, remedies }), [engagementId, audience, fleet, remedies])
 }
 
 function CommitmentMetrics({ props, size }: CardProps) {
@@ -53,11 +54,12 @@ function CommitmentMetrics({ props, size }: CardProps) {
   const l = useLedger(engagementId)
   const off = l.byStatus.behind + l.byStatus.missed
   return (
-    <Band size={size} cols={6}>
+    <Band size={size} cols={7}>
       <Metric size="sm" label="Commitments" value={l.rows.length} hint={`${l.fromHistory} baselined on the client’s own records`} />
       <Metric size="sm" label="Met" value={l.byStatus.met} deltaTone={l.byStatus.met ? 'ok' : 'warn'} />
       <Metric size="sm" label="On track" value={l.byStatus.on_track} />
       <Metric size="sm" label="Behind" value={l.byStatus.behind} deltaTone={l.byStatus.behind ? 'warn' : 'ok'} hint={l.byStatus.missed ? `${l.byStatus.missed} past its date` : undefined} />
+      <Metric size="sm" label="Unanswered" value={l.unanswered} deltaTone={l.unanswered ? 'crit' : 'ok'} hint={`${l.recoverySteps} steps named`} />
       <Metric size="sm" label="Not measurable" value={l.byStatus.not_measurable} hint="refused, not estimated" />
       <Metric size="sm" label="Charge at risk" value={`${l.chargeAtRiskPct}%`} deltaTone={off ? 'crit' : 'ok'} hint={off ? `across ${off} commitments` : 'none at risk'} />
     </Band>
@@ -116,6 +118,55 @@ function CommitmentsTable({ rows, full }: { rows: CommitmentReading[]; full: boo
               </Td>
             )}
             <Td><Chip tone={STATUS_TONE[r.status]} className="whitespace-nowrap">{STATUS_LABEL[r.status]}</Chip></Td>
+          </Tr>
+        ))}
+      </tbody>
+    </Table>
+  )
+}
+
+function OwedTable({ rows }: { rows: CommitmentReading[] }) {
+  return (
+    <Table>
+      <thead>
+        <tr><Th>Commitment</Th><Th>Status</Th><Th>What would move it</Th><Th>Owner</Th><Th>Recorded</Th></tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <Tr key={r.commitment.id}>
+            <Td className="max-w-[230px] text-2xs text-ink">
+              {r.commitment.name}
+              <span className="tnum block text-[10px] text-ink-3">{r.reading.display} against {targetOf(r)} · {day(r.commitment.dueAt)}</span>
+            </Td>
+            <Td>
+              <Chip tone={STATUS_TONE[r.status]} className="whitespace-nowrap">{STATUS_LABEL[r.status]}</Chip>
+              {r.unanswered && <Chip tone="crit" className="ml-1">Unanswered</Chip>}
+            </Td>
+            <Td className="max-w-[340px] text-2xs text-ink-2">
+              {r.recovery.length
+                ? <ul className="space-y-0.5">{r.recovery.slice(0, 4).map((s, i) => <li key={i} className="leading-snug">{s.what}</li>)}</ul>
+                : <span className="text-ink-3">—</span>}
+              {r.recovery.length > 4 && <span className="mt-0.5 block text-[10px] text-ink-3">+{r.recovery.length - 4} more</span>}
+            </Td>
+            <Td>
+              <div className="flex max-w-[150px] flex-wrap gap-1">
+                {[...new Set(r.recovery.map((s) => s.owner))].map((id) => (
+                  <Chip key={id} tone={ROLE_BY_ID[id]?.org === 'artizent' ? 'neutral' : 'brand'}>{ROLE_BY_ID[id]?.title ?? id}</Chip>
+                ))}
+              </div>
+            </Td>
+            <Td className="max-w-[230px] text-2xs text-ink-2">
+              {r.remedies.length
+                ? r.remedies.map((m, i) => (
+                  <span key={i} className="mb-0.5 block leading-snug">
+                    <Chip tone={m.kind === 'waive' ? 'warn' : 'info'}>{REMEDY_LABEL[m.kind]}</Chip>
+                    <span className="block text-[10px] text-ink-3">
+                      {m.detail} · {m.by} · {m.reference}{m.dueAt ? ` · lands ${day(m.dueAt)}` : ''}
+                    </span>
+                  </span>
+                ))
+                : <span className="text-ink-3">Nothing recorded</span>}
+            </Td>
           </Tr>
         ))}
       </tbody>
@@ -210,6 +261,7 @@ function CommitmentsBody({ props, size }: CardProps) {
   const l = useLedger(engagementId)
   const status = String(props.status ?? '')
   const rows = status ? l.rows.filter((r) => r.status === status) : l.rows
+  const owed = l.rows.filter((r) => r.status === 'behind' || r.status === 'missed' || r.status === 'not_measurable')
 
   if (size !== 'page') {
     const shown = limit(rows, size, 6)
@@ -233,6 +285,17 @@ function CommitmentsBody({ props, size }: CardProps) {
         )}
         <CommitmentsTable rows={l.rows} full />
       </Card>
+
+      {owed.length > 0 && (
+        <Card
+          className="mt-4"
+          title="What is owed"
+          subtitle={`${l.unanswered} unanswered · ${l.recoverySteps} steps named · ${l.chargeAtRiskPct}% of the charge at risk`}
+          right={<ClipboardList size={13} className="text-ink-3" />}
+        >
+          <OwedTable rows={owed} />
+        </Card>
+      )}
 
       <Card
         className="mt-4"

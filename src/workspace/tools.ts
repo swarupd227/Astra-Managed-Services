@@ -3,7 +3,7 @@ import { runConformance } from '@/domain/conformance'
 import { COVERED_BUNDLES, bundleCoverage } from '@/domain/coverage'
 import { DATA_ITEMS, DATA_ITEM_BY_ID, DATA_LIFECYCLE, ancestors, dataSummary, descendants, impact, isBreach } from '@/domain/dataEstate'
 import { accelerationSummary } from '@/domain/acceleration'
-import { commitmentLedger } from '@/domain/commitments'
+import { COMMITMENTS, REMEDY_LABEL, commitmentLedger, readCommitment, type RemedyKind } from '@/domain/commitments'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
 import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
@@ -312,7 +312,12 @@ export const EXECUTORS: Record<string, Executor> = {
     const clientSide = ROLE_BY_ID[useAstra.getState().roleId]?.org !== 'artizent'
     // Readiness comes through the shared reader: one commitment is read from it,
     // and the ledger must not be able to answer differently from the fleet page.
-    const l = commitmentLedger({ engagementId, audience: clientSide ? 'client' : 'all', fleet: await readReadiness(ctx.signal) })
+    const l = commitmentLedger({
+      engagementId,
+      audience: clientSide ? 'client' : 'all',
+      fleet: await readReadiness(ctx.signal),
+      remedies: useAstra.getState().commitmentLog,
+    })
     const status = str(input.status)
     const rows = (status ? l.rows.filter((r) => r.status === status) : l.rows).map((r) => ({
       id: r.commitment.id,
@@ -332,13 +337,20 @@ export const EXECUTORS: Record<string, Executor> = {
       gapToTarget: r.gap,
       ifMissed: r.commitment.consequence.note,
       cannotBeMeasured: r.blocked,
+      whatWouldMoveIt: r.recovery.map((s) => ({ step: s.what, owner: ROLE_BY_ID[s.owner]?.title ?? s.owner })),
+      recorded: r.remedies.map((m) => ({ what: REMEDY_LABEL[m.kind], detail: m.detail, by: m.by, at: m.at, reference: m.reference, landsOn: m.dueAt ?? null })),
+      unanswered: r.unanswered,
     }))
     const h = l.history
     return {
       payload: {
         engagement: { id: l.engagement.id, client: l.engagement.client, stage: l.engagement.stage, notIngested: notIngested(l.engagement) },
         // The total is stated rather than left to be added up from the states.
-        totals: { commitments: l.rows.length, ...l.byStatus, chargeAtRiskPct: l.chargeAtRiskPct, baselinedOnClientRecords: l.fromHistory },
+        totals: {
+          commitments: l.rows.length, ...l.byStatus,
+          chargeAtRiskPct: l.chargeAtRiskPct, baselinedOnClientRecords: l.fromHistory,
+          unanswered: l.unanswered, recoveryStepsNamed: l.recoverySteps,
+        },
         nextDue: l.nextDue ? { commitment: l.nextDue.commitment.name, dueAt: l.nextDue.commitment.dueAt, daysLeft: l.nextDue.daysLeft, status: l.nextDue.status } : null,
         commitments: rows,
         ticketHistory: h && h.period.months
@@ -356,6 +368,51 @@ export const EXECUTORS: Record<string, Executor> = {
           : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
       },
       artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
+    }
+  },
+
+  record_commitment_remedy: async (input, ctx) => {
+    const id = str(input.commitment_id)
+    const kind = str(input.kind) as RemedyKind
+    const detail = str(input.detail), reference = str(input.reference), due = str(input.due)
+    const c = COMMITMENTS.find((x) => x.id.toLowerCase() === id.toLowerCase())
+    if (!c) throw new ToolError(`No commitment has the id "${id}".`)
+    if (!REMEDY_LABEL[kind]) throw new ToolError(`"${kind}" is not something that can be recorded against a commitment.`)
+    if (!detail || !reference) throw new ToolError('A decision needs what was decided and the reference it was recorded under.')
+
+    const st = useAstra.getState()
+    const before = readCommitment(c, { nowMs: NOW.getTime(), fleet: await readReadiness(ctx.signal), remedies: st.commitmentLog })
+    if (before.status === 'met' || before.status === 'on_track') {
+      throw new ToolError(`${c.id} is ${before.status === 'met' ? 'met' : 'on track'} at ${before.reading.display} against ${c.target.value}. Nothing is owed on it.`)
+    }
+    if (kind === 'apply_consequence' && c.consequence.kind === 'none') {
+      throw new ToolError(`${c.id} carries no consequence: ${c.consequence.note}.`)
+    }
+    if (kind === 'accept_recovery') {
+      if (!due) throw new ToolError('An accepted recovery needs the date it lands.')
+      if (Date.parse(due) < NOW.getTime()) throw new ToolError(`A recovery cannot land in the past (${due}).`)
+    }
+    if (before.remedies.some((m) => m.kind === kind && m.detail === detail)) {
+      throw new ToolError(`That decision is already on the record against ${c.id}.`)
+    }
+
+    st.recordCommitmentRemedy({ commitmentId: c.id, kind, detail, reference, by: person(), ...(due ? { dueAt: due } : {}) })
+    const after = readCommitment(c, { nowMs: NOW.getTime(), fleet: await readReadiness(ctx.signal), remedies: useAstra.getState().commitmentLog })
+    return {
+      payload: {
+        commitment: c.id,
+        recorded: REMEDY_LABEL[kind],
+        detail,
+        reference,
+        by: person(),
+        landsOn: due || null,
+        status: after.status,
+        today: after.reading.display,
+        target: c.target.value,
+        stillUnanswered: after.unanswered,
+        consequence: c.consequence.note,
+      },
+      artifacts: [card('commitments', `${c.name} · recorded`, { engagement: c.engagementId }, '/governance/commitments')],
     }
   },
 

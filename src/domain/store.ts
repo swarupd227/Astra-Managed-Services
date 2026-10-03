@@ -1,4 +1,5 @@
 import type { IncidentNotice, LoggedAction } from './privacy'
+import { REMEDY_LABEL, type Remedy } from './commitments'
 import type { Settlement } from './exit'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
@@ -72,6 +73,8 @@ interface State {
   incidentNotices: IncidentNotice[]
   /** Returns and destructions of what the platform holds, recorded this session. */
   exitLog: Settlement[]
+  /** What has been decided about commitments that are not being met. */
+  commitmentLog: Remedy[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -171,6 +174,9 @@ interface State {
   recordDataReturn: (holdingId: string, by: string, reference: string) => void
   /** Certifies the destruction of one holding: the method, the person, and the seal. */
   certifyHoldingDestruction: (holdingId: string, by: string, reference: string, method: string) => void
+
+  /** Records what was decided about a commitment that is not being met. */
+  recordCommitmentRemedy: (remedy: Omit<Remedy, 'at' | 'evidenceId'>) => void
 
   /** A person records that an external recipient was told of an erasure. The platform does not tell them itself. */
   recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
@@ -275,6 +281,7 @@ export const useAstra = create<State>((set, get) => ({
   privacyLog: [],
   incidentNotices: [],
   exitLog: [],
+  commitmentLog: [],
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1415,6 +1422,17 @@ export const useAstra = create<State>((set, get) => ({
     const at = nowIso(s.clockOffsetMins)
     get().logEvidence('approval', by, `Destruction certified — ${holdingId}`, { holdingId, reference, method })
     set({ exitLog: [...get().exitLog, { holdingId, action: 'destroyed', at, by, reference, method }] })
+  },
+
+  recordCommitmentRemedy: (remedy) => {
+    const at = nowIso(get().clockOffsetMins)
+    const evidenceId = get().logEvidence(
+      remedy.kind === 'apply_consequence' ? 'approval' : 'decision',
+      remedy.by,
+      `${REMEDY_LABEL[remedy.kind]} — ${remedy.commitmentId}`,
+      { commitmentId: remedy.commitmentId, kind: remedy.kind, detail: remedy.detail, reference: remedy.reference, dueAt: remedy.dueAt },
+    )
+    set({ commitmentLog: [...get().commitmentLog, { ...remedy, at, evidenceId }] })
   },
 
   recordRecipientNotice: (requestId, recipientId, by, reference) => {

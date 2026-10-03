@@ -46,6 +46,8 @@ export interface MeasureCtx {
    * the ledger cannot answer differently from the readiness page.
    */
   fleet?: FleetLifecycle
+  /** What has been recorded this session against commitments. */
+  remedies?: Remedy[]
 }
 
 export interface MeasureReading {
@@ -267,6 +269,122 @@ export const MEASURES: Record<string, Measure> = {
   },
 }
 
+/* ------------------------------- What would fix it --------------------------- */
+
+/**
+ * A named step that would move a measure, with the role that owns it. Derived
+ * from the same records the measure was read from, so a commitment behind its
+ * curve produces a work list rather than a colour.
+ */
+export interface RecoveryStep {
+  what: string
+  /** Role id, from the reference roles. */
+  owner: string
+  route?: string
+}
+
+/** Per measure, what would move it. Empty where nothing nameable is outstanding. */
+export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
+  access_removed: () => themeRecovery('th_access'),
+  pipeline_removed: () => themeRecovery('th_pipeline'),
+  demand_removed: () => themeRecovery('th_access'),
+  cluster_cause_coverage: () => {
+    const h = historyFor(ENGAGEMENT.id)
+    if (!h) return []
+    const owned = new Set(clustersWithCause(h).map((c) => c.id))
+    return recurring(h)
+      .filter((c) => !owned.has(c.id))
+      .map((c) => ({ what: `Raise a problem record for “${c.example}” — ${c.incidents} incidents across ${c.months} months`, owner: 'sdm', route: '/governance/elimination' }))
+  },
+  unaided_resolution: () => [
+    { what: 'Promote the action classes already at shadow agreement, or say which the client will not grant', owner: 'aieng', route: '/governance/autonomy' },
+  ],
+  change_share: () => [
+    { what: 'Allocate the quarter’s banked credits to change rather than carrying them', owner: 'exec', route: '/governance/savings' },
+  ],
+  cost_reduction: () => [
+    { what: 'Bank the verified removals against the countersigned baseline, or re-cost the curve', owner: 'commercial', route: '/governance/glidepath' },
+  ],
+  escalation_rate: () => {
+    const e = escalationSummary()
+    return e.byReason.map((r) => ({ what: `${r.fix} — ${r.count} escalations`, owner: 'aieng', route: '/atlas/lifecycle' }))
+  },
+  autonomy_unproven: ({ fleet }) =>
+    (fleet?.agents ?? [])
+      .filter((a) => a.stage === 'autonomous' && a.blockers.length)
+      .map((a) => ({ what: `${a.agent.name}: clear ${a.blockers.map((b) => b.name).join(', ')} or demote it`, owner: 'aieng', route: '/atlas/lifecycle' })),
+  data_services_meeting: () => {
+    const s = reliabilitySummary()
+    return s.services
+      .filter((x) => x.measured && !x.meetsTarget)
+      .map((x) => ({ what: `${x.service.name}: availability below target`, owner: 'sdm', route: '/operate/data-reliability' }))
+  },
+  notice_on_time: ({ nowMs }) =>
+    privacySummary(nowMs).incidents
+      .filter((i) => !i.notice)
+      .map((i) => ({ what: `Notify the client of ${i.incident.id} — ${i.hoursLeft !== null && i.hoursLeft < 0 ? `${Math.abs(i.hoursLeft)} h past the clock` : `${i.hoursLeft} h left`}`, owner: 'sdm', route: '/operate/privacy' })),
+  inventory_reconciled: () => {
+    const s = inventorySummary()
+    const steps: RecoveryStep[] = []
+    if (s.byReconciliation.unrecorded) steps.push({ what: `Add ${s.byReconciliation.unrecorded} found application${s.byReconciliation.unrecorded === 1 ? '' : 's'} to the client’s own list, or stop supporting them`, owner: 'transition', route: '/governance/portfolio' })
+    if (s.byReconciliation.ghost) steps.push({ what: `Decide ${s.byReconciliation.ghost} application${s.byReconciliation.ghost === 1 ? '' : 's'} listed as retired but still live`, owner: 'serviceowner', route: '/governance/portfolio' })
+    return steps
+  },
+  knowledge_verified: () => [
+    { what: 'Put the remaining claims to the people who know them, highest volume first', owner: 'sme', route: '/transition/verify' },
+  ],
+  exit_path_proven: () => {
+    const r = readExit()
+    return r.holdings
+      .filter((h) => !h.returnable && !h.mustKeep)
+      .map((h) => ({ what: `${h.holding.name}: make it returnable in a usable form, or state the reason it stays`, owner: 'serviceowner', route: '/governance/exit' }))
+  },
+  handling_time_delta: () => [
+    { what: 'Measure resolution time from our own clocks from cutover, then offer the commitment', owner: 'sdm' },
+  ],
+}
+
+/** The classes behind a theme that have not yet earned their removal. */
+function themeRecovery(themeId: string): RecoveryStep[] {
+  const h = historyFor(ENGAGEMENT.id)
+  const theme = h ? themeOf(h, themeId) : null
+  if (!theme) return []
+  if (!theme.classIds.length) return [{ what: `Cost a demand class against “${theme.name}” — ${theme.incidents} incidents a year with none`, owner: 'sdm', route: '/governance/elimination' }]
+  return DEMAND_CLASSES
+    .filter((d) => theme.classIds.includes(d.id) && d.eliminationState !== 'eliminated')
+    .map((d) => ({
+      what: `${d.name}: ${d.eliminationState === 'verifying' ? 'finish the verification window' : d.eliminationState === 'approved' ? 'deliver the approved fix' : 'get the candidate approved'}`,
+      owner: d.eliminationState === 'candidate' ? 'exec' : 'sdm',
+      route: '/governance/elimination',
+    }))
+}
+
+/* --------------------------------- Remedies ---------------------------------- */
+
+/** What can be recorded against a commitment that is not being met. */
+export type RemedyKind = 'accept_recovery' | 'apply_consequence' | 'rebaseline' | 'waive'
+
+export const REMEDY_LABEL: Record<RemedyKind, string> = {
+  accept_recovery: 'Recovery accepted',
+  apply_consequence: 'Consequence applied',
+  rebaseline: 'Re-baselined',
+  waive: 'Waived',
+}
+
+export interface Remedy {
+  commitmentId: string
+  kind: RemedyKind
+  at: string
+  by: string
+  /** What was decided, in one clause. */
+  detail: string
+  /** When the recovery lands, for an accepted recovery. */
+  dueAt?: string
+  /** Governance reference: minutes, change record, credit note. */
+  reference: string
+  evidenceId?: string
+}
+
 /* ------------------------------ The commitments ------------------------------ */
 
 export type ConsequenceKind = 'fee_at_risk' | 'make_good' | 'none'
@@ -461,6 +579,12 @@ export interface CommitmentReading {
   daysLeft: number
   /** What stops the measure being read, where it cannot be. */
   blocked: string | null
+  /** What would move it, named from the records the measure was read from. */
+  recovery: RecoveryStep[]
+  /** What has been recorded against it, newest first. */
+  remedies: Remedy[]
+  /** Not being met, and nothing recorded about it. The number that matters. */
+  unanswered: boolean
 }
 
 export interface Ledger {
@@ -472,6 +596,10 @@ export interface Ledger {
   chargeAtRiskPct: number
   /** Commitments whose baseline was read from the client's own records. */
   fromHistory: number
+  /** Not being met, with nothing decided about it. */
+  unanswered: number
+  /** Steps named across every commitment that is not being met. */
+  recoverySteps: number
   nextDue: CommitmentReading | null
 }
 
@@ -507,15 +635,21 @@ export function readCommitment(c: Commitment, ctx: MeasureCtx): CommitmentReadin
   const reading = blocked ? unreadable(blocked) : measure.read(ctx)
   const startMs = Date.parse(engagement?.contract.startsAt ?? '')
   const expected = Number.isFinite(startMs) ? expectedAt(c, startMs, ctx.nowMs) : null
+  const status = statusOf(c, reading, expected, ctx.nowMs)
+  const off = status === 'behind' || status === 'missed'
+  const remedies = (ctx.remedies ?? []).filter((r) => r.commitmentId === c.id).sort((a, b) => b.at.localeCompare(a.at))
   return {
     commitment: c,
     measure,
     reading,
-    status: statusOf(c, reading, expected, ctx.nowMs),
+    status,
     expected,
     gap: reading.value === null ? null : Math.round((c.target.direction === 'at_least' ? c.target.value - reading.value : reading.value - c.target.value) * 10) / 10,
     daysLeft: Math.ceil((Date.parse(c.dueAt) - ctx.nowMs) / 86_400_000),
     blocked,
+    recovery: off || status === 'not_measurable' ? RECOVERY[c.measureId]?.(ctx) ?? [] : [],
+    remedies,
+    unanswered: off && remedies.length === 0,
   }
 }
 
@@ -525,10 +659,12 @@ const ORDER: Record<Status, number> = { missed: 0, behind: 1, not_measurable: 2,
  * The ledger for one engagement. A client role never sees a row written for
  * our own stages, in a screen or in a tool result.
  */
-export function commitmentLedger(opts: { engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle; nowMs?: number } = {}): Ledger {
+export function commitmentLedger(
+  opts: { engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle; remedies?: Remedy[]; nowMs?: number } = {},
+): Ledger {
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
   const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
-  const ctx: MeasureCtx = { nowMs: opts.nowMs ?? NOW.getTime(), fleet: opts.fleet }
+  const ctx: MeasureCtx = { nowMs: opts.nowMs ?? NOW.getTime(), fleet: opts.fleet, remedies: opts.remedies }
   const rows = COMMITMENTS
     .filter((c) => c.engagementId === engagementId)
     .filter((c) => (opts.audience ?? 'all') === 'all' || c.audience === 'client')
@@ -548,6 +684,8 @@ export function commitmentLedger(opts: { engagementId?: string; audience?: 'clie
       .filter((r) => r.status === 'behind' || r.status === 'missed')
       .reduce((n, r) => n + (r.commitment.consequence.pctOfCharge ?? 0), 0),
     fromHistory: rows.filter((r) => r.commitment.baseline.source.startsWith('Ingested')).length,
+    unanswered: rows.filter((r) => r.unanswered).length,
+    recoverySteps: rows.reduce((n, r) => n + r.recovery.length, 0),
     nextDue: rows.filter((r) => r.daysLeft >= 0 && r.status !== 'met').sort((a, b) => a.daysLeft - b.daysLeft)[0] ?? null,
   }
 }
