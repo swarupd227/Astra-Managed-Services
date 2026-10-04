@@ -49,10 +49,38 @@ export function toolsForRole(catalogue, roleId) {
 }
 
 /**
- * Checks a transcript before it is sent to a model. Every tool call must be to
- * a tool the role holds, every result must answer a call, and a result for a
- * state-changing tool must have been confirmed or declined by the user. A
- * declined result has its content replaced with the fixed text.
+ * Joins messages the removal left side by side. Dropping a call and its result
+ * can leave two user turns together, which the model's API will not take, so
+ * adjacent turns of the same role are merged into one.
+ */
+function coalesce(messages) {
+  const blocks = (m) => (typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content)
+  const out = []
+  for (const m of messages) {
+    const last = out[out.length - 1]
+    if (last && last.role === m.role) out[out.length - 1] = { role: m.role, content: [...blocks(last), ...blocks(m)] }
+    else out.push(m)
+  }
+  return out
+}
+
+/**
+ * Checks a transcript before it is sent to a model. Every result must answer a
+ * call, and a result for a state-changing tool must have been confirmed or
+ * declined by the user. A declined result has its content replaced with the
+ * fixed text.
+ *
+ * A call to a tool the role does not hold is removed from the transcript
+ * rather than refusing the whole conversation. The protection is the same —
+ * the model never sees that call or its result, so nothing a role may not see
+ * reaches it — but a thread does not become unusable because the person
+ * changed role halfway through it. Refusing the transcript punished the
+ * conversation for its own history: every later message, however innocent,
+ * was rejected for a call that had already happened.
+ *
+ * The removals are reported rather than silent. A client that executes a tool
+ * its role does not hold is either broken or tampered with, and that has to
+ * surface somewhere.
  */
 export function checkTranscript(catalogue, roleId, messages, confirmations = []) {
   const role = roleOf(catalogue, roleId)
@@ -62,25 +90,37 @@ export function checkTranscript(catalogue, roleId, messages, confirmations = [])
   const byName = Object.fromEntries(catalogue.tools.map((t) => [t.name, t]))
   const decided = new Map(confirmations.map((c) => [c.id, c.decision]))
   const calls = new Map()
+  /** Call ids removed because this role does not hold the tool. */
+  const dropped = new Set()
+  const redacted = []
   const out = []
 
   for (const m of messages) {
     if (m.role !== 'user' && m.role !== 'assistant') return { ok: false, reason: `Unexpected message role "${m.role}".` }
     const blocks = typeof m.content === 'string' ? null : m.content
     if (m.role === 'assistant' && blocks) {
+      const content = []
       for (const b of blocks) {
-        if (b.type !== 'tool_use') continue
+        if (b.type !== 'tool_use') { content.push(b); continue }
         const tool = byName[b.name]
-        if (!tool || !holds(role, tool)) return { ok: false, reason: `The ${roleId} role does not hold the tool "${b.name}".` }
+        if (!tool || !holds(role, tool)) {
+          dropped.add(b.id)
+          redacted.push(b.name)
+          continue
+        }
         calls.set(b.id, tool)
+        content.push(b)
       }
-      out.push(m)
+      // A message the removal emptied is dropped rather than stood in for:
+      // nothing is put in the agent's mouth that it did not say.
+      if (content.length) out.push({ role: 'assistant', content })
       continue
     }
     if (m.role === 'user' && blocks) {
       const content = []
       for (const b of blocks) {
         if (b.type !== 'tool_result') { content.push(b); continue }
+        if (dropped.has(b.tool_use_id)) continue
         const tool = calls.get(b.tool_use_id)
         if (!tool) return { ok: false, reason: 'A tool result answers no tool call.' }
         if (tool.mutating) {
@@ -90,12 +130,13 @@ export function checkTranscript(catalogue, roleId, messages, confirmations = [])
         }
         content.push(b)
       }
-      out.push({ role: 'user', content })
+      if (content.length) out.push({ role: 'user', content })
       continue
     }
     out.push(m)
   }
-  return { ok: true, messages: out }
+  if (!out.length) return { ok: false, reason: 'Nothing in this conversation is available to this role.' }
+  return { ok: true, messages: redacted.length ? coalesce(out) : out, redacted }
 }
 
 /** The text a detector should read: the user's words and every tool result, as plain values. */

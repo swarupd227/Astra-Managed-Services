@@ -464,6 +464,16 @@ async function handleAgent(body, res) {
       return
     }
     transcript = checked.messages
+    // Steps this role may not see were left out rather than refused. The model
+    // never gets them; the person is told the conversation is short of them.
+    if (checked.redacted?.length) {
+      const names = [...new Set(checked.redacted)]
+      send({
+        type: 'notice',
+        text: `${names.length === 1 ? 'An earlier step' : `${checked.redacted.length} earlier steps`} in this conversation used ${names.length === 1 ? 'a tool' : 'tools'} the ${String(body.role ?? '')} role does not hold (${names.join(', ')}). Left out of what the agents can see.`,
+        rule: 'Persona — a role acts only through the tools it holds',
+      })
+    }
   }
 
   if (!client) {

@@ -246,6 +246,8 @@ type GatewayEvent =
   | { type: 'usage'; inputTokens: number; outputTokens: number; cacheRead: number; model: string; stopReason: string; system?: string; registered?: string | null; served?: string | null; mismatch?: boolean }
   | { type: 'system'; system: GatewaySystem }
   | { type: 'refuse'; agent: string; text: string; rule: string }
+  /** The turn continues, short of something: steps left out because the role may not see them. */
+  | { type: 'notice'; text: string; rule: string }
   | { type: 'incident'; class: AiIncidentClass; detector: string; summary: string; details: string[]; consequential: boolean }
   /** The objective compiler's proposal. Shaped and validated by objectiveCompiler.ts. */
   | { type: 'objectives'; input: unknown }

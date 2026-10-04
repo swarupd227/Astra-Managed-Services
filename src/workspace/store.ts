@@ -136,6 +136,8 @@ export const useWorkspace = create<WorkspaceState>((set, get) => {
           updateMessage(threadId, messageId, () => ({ text: text.replace(/\n?\s*Next:[^\n]*$/i, '') }))
         } else if (ev.type === 'assistant') assistant = ev.content
         else if (ev.type === 'refuse') updateMessage(threadId, messageId, () => ({ notice: { tone: 'crit', text: ev.text, rule: ev.rule } }))
+        // Not a refusal: the turn continues without the steps this role may not see.
+        else if (ev.type === 'notice') updateMessage(threadId, messageId, () => ({ notice: { tone: 'warn', text: ev.text, rule: ev.rule } }))
         else if (ev.type === 'incident') {
           useAstra.getState().raiseAiIncident({ class: ev.class, detector: ev.detector, summary: ev.summary, details: ev.details, consequential: ev.consequential }, { runRef: `conversation ${threadId}` })
           updateMessage(threadId, messageId, () => ({ notice: { tone: 'crit', text: ev.summary, rule: `AI Incident — ${ev.class.replace(/_/g, ' ')} (${ev.detector})` } }))

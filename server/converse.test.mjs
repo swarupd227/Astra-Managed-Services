@@ -38,24 +38,74 @@ test('the client’s right over the workforce is held by the client alone', () =
   }
 })
 
-test('a supplier role calling the client’s right is refused', () => {
+test('a supplier role’s call on the client’s right never reaches the model', () => {
+  // The client's authority must not be exercisable by us, and a browser that
+  // somehow ran it must not get its result in front of the model either.
   const r = checkTranscript(CATALOGUE, 'sdm', [
     { role: 'user', content: 'stop the agent for them' },
     call('t1', 'set_client_autonomy', { kind: 'stop', scope: 'agent', target: 'agt_remedian', reason: 'noise' }),
-    result('t1'),
+    result('t1', '{"recorded":"Stopped Remedian"}'),
   ])
-  assert.equal(r.ok, false)
-  assert.match(r.reason, /does not hold/)
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.redacted, ['set_client_autonomy'])
+  const flat = JSON.stringify(r.messages)
+  assert.ok(!flat.includes('set_client_autonomy'))
+  assert.ok(!flat.includes('Stopped Remedian'))
+  assert.ok(!toolsForRole(CATALOGUE, 'sdm').some((t) => t.name === 'set_client_autonomy'), 'and it is never offered')
 })
 
 test('an unknown role is refused', () => {
   assert.equal(checkTranscript(CATALOGUE, 'nobody', [{ role: 'user', content: 'hi' }]).ok, false)
 })
 
-test('a call to a tool the role does not hold is refused', () => {
-  const r = checkTranscript(CATALOGUE, 'resolver', [{ role: 'user', content: 'approve it' }, call('t1', 'approve_gate', { work_item_id: 'wo_1' }), result('t1')])
+test('a call to a tool the role does not hold is left out, and the conversation continues', () => {
+  // The person changed role halfway through a thread. The earlier call must not
+  // reach the model, and the thread must not become unusable because of it.
+  const r = checkTranscript(CATALOGUE, 'resolver', [
+    { role: 'user', content: 'approve it' },
+    call('t1', 'approve_gate', { work_item_id: 'wo_1' }),
+    result('t1', '{"approved":true}'),
+    { role: 'user', content: 'what is open on the data platform?' },
+  ])
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.redacted, ['approve_gate'])
+  const flat = JSON.stringify(r.messages)
+  assert.ok(!flat.includes('approve_gate'), 'the call must not reach the model')
+  assert.ok(!flat.includes('"approved":true'), 'nor its result')
+  assert.ok(flat.includes('what is open on the data platform?'), 'the new message survives')
+})
+
+test('a role that holds the tool still sees the call', () => {
+  const r = checkTranscript(CATALOGUE, 'sdm', [
+    { role: 'user', content: 'what is open?' },
+    call('t1', 'get_work_queue', {}),
+    result('t1', '{"items":[]}'),
+  ])
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.redacted, [])
+  assert.ok(JSON.stringify(r.messages).includes('get_work_queue'))
+})
+
+test('removing a call leaves no empty message and no two turns in a row', () => {
+  const r = checkTranscript(CATALOGUE, 'resolver', [
+    { role: 'user', content: 'approve it' },
+    call('t1', 'approve_gate', { work_item_id: 'wo_1' }),
+    result('t1'),
+    { role: 'user', content: 'and now?' },
+  ])
+  assert.equal(r.ok, true)
+  for (const m of r.messages) {
+    if (typeof m.content !== 'string') assert.ok(m.content.length > 0, 'no message may be left with no content')
+  }
+  for (let i = 1; i < r.messages.length; i++) {
+    assert.notEqual(r.messages[i].role, r.messages[i - 1].role, 'roles must still alternate')
+  }
+})
+
+test('a tool result answering a call that never existed is still refused', () => {
+  const r = checkTranscript(CATALOGUE, 'sdm', [{ role: 'user', content: 'hi' }, result('nope')])
   assert.equal(r.ok, false)
-  assert.match(r.reason, /does not hold/)
+  assert.match(r.reason, /answers no tool call/)
 })
 
 test('an unconfirmed state-changing result is refused', () => {
