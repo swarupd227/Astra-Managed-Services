@@ -8,6 +8,10 @@ import {
   type Cap, type DirectiveKind, type Scope,
 } from '@/domain/clientControl'
 import { COMMITMENTS, REMEDY_LABEL, commitmentLedger, readCommitment, type RemedyKind } from '@/domain/commitments'
+import {
+  PROCEDURES, STANDARD_AREAS, STANDARD_BY_ID, proceduresInArea, readProcedure, readProcedures,
+  type ContractArea, type ProcedureReading,
+} from '@/domain/procedures'
 import { ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
@@ -324,6 +328,7 @@ export const EXECUTORS: Record<string, Executor> = {
       fleet: await readReadiness(ctx.signal),
       remedies: useAstra.getState().commitmentLog,
       packExports: useAstra.getState().packExports,
+      procedures: { loads: useAstra.getState().areaLoads, reviews: useAstra.getState().procedureReviews },
     })
     const status = str(input.status)
     const rows = (status ? l.rows.filter((r) => r.status === status) : l.rows).map((r) => ({
@@ -375,6 +380,165 @@ export const EXECUTORS: Record<string, Executor> = {
           : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
       },
       artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
+    }
+  },
+
+  get_procedures: (input) => {
+    const engagementId = str(input.engagement) || ENGAGEMENT.id
+    if (!ENGAGEMENTS.some((e) => e.id === engagementId)) {
+      throw new ToolError(`No engagement has the id "${engagementId}". Engagements: ${ENGAGEMENTS.map((e) => e.id).join(', ')}.`)
+    }
+    const st = useAstra.getState()
+    const r = readProcedures({ engagementId, loads: st.areaLoads, reviews: st.procedureReviews })
+    const describe = (p: ProcedureReading) => ({
+      id: p.procedure.id,
+      procedure: p.procedure.name,
+      version: p.procedure.version,
+      state: p.procedure.state,
+      owner: ROLE_BY_ID[p.procedure.owner]?.title ?? p.procedure.owner,
+      writtenBy: AGENT_BY_ID[p.procedure.author]?.name ?? p.procedure.author,
+      lastReviewed: p.procedure.lastReviewedAt,
+      reviewEveryDays: p.procedure.reviewEveryDays,
+      dueInDays: p.dueInDays,
+      overdue: p.stale,
+      executedBy: p.procedure.agents.map((a) => AGENT_BY_ID[a]?.name ?? a),
+      authorises: p.procedure.actionClasses,
+      provedBy: p.procedure.verificationPack,
+      writtenDownAt: p.procedure.reference,
+      executionsInWindow: p.executions,
+      dormant: p.dormant,
+      reviewsRecorded: p.reviews.length,
+      unknownActionClasses: p.unknownClasses,
+    })
+    const want = str(input.area).toLowerCase()
+    const areas = want ? r.areas.filter((a) => a.area.id.toLowerCase() === want || a.area.name.toLowerCase() === want) : r.areas
+    if (want && !areas.length) {
+      throw new ToolError(`No area in ${r.engagement.client}'s list has the id or name "${str(input.area)}".`)
+    }
+    return {
+      payload: {
+        engagement: { id: r.engagement.id, client: r.engagement.client },
+        areasAdopted: r.load
+          ? { reference: r.load.reference, by: r.load.by, role: ROLE_BY_ID[r.load.role]?.title ?? r.load.role, at: r.load.at, count: r.load.areas.length }
+          : null,
+        notAdopted: r.load
+          ? null
+          : `The client's procedure areas have not been adopted into the register, so coverage is not scored. The contract files ${r.engagement.procedureAreas?.areas.length ?? 0} of them at ${r.engagement.procedureAreas?.reference ?? 'no stated clause'}.`,
+        totals: r.load
+          ? {
+            areas: r.areas.length, covered: r.covered, gaps: r.gaps.length,
+            overdue: r.staleCount, drafts: r.draftCount, dormant: r.dormantCount,
+            areasWeOfferNothingFor: r.unmapped.length, standardAreasTheContractDoesNotName: r.notInContract.length,
+          }
+          : null,
+        areas: areas.map((a) => ({
+          id: a.area.id,
+          area: a.area.name,
+          platformArea: a.standard?.name ?? null,
+          expects: a.standard?.expects ?? null,
+          covered: a.covered,
+          overdue: a.stale,
+          procedures: a.procedures.map(describe),
+        })),
+        gaps: r.gaps.map((a) => a.area.name),
+        nextReview: r.nextReview ? { procedure: r.nextReview.procedure.name, dueInDays: r.nextReview.dueInDays } : null,
+        standardAreasTheContractDoesNotName: r.notInContract.map((s) => s.name),
+        // Procedures the register holds that no adopted area claims, so nothing is hidden by the mapping.
+        unclaimedProcedures: r.load ? r.procedures.filter((p) => !r.areas.some((a) => a.procedures.includes(p))).map(describe) : r.procedures.map(describe),
+      },
+      artifacts: [card('procedures', `${r.engagement.client} · procedures`, { engagement: engagementId, ...(want ? { area: str(input.area) } : {}) }, '/governance/procedures')],
+    }
+  },
+
+  set_procedure_areas: (input) => {
+    const engagementId = str(input.engagement) || ENGAGEMENT.id
+    const engagement = ENGAGEMENTS.find((e) => e.id === engagementId)
+    if (!engagement) throw new ToolError(`No engagement has the id "${engagementId}".`)
+
+    const filed = engagement.procedureAreas
+    const given = Array.isArray(input.areas) ? (input.areas as Record<string, unknown>[]) : null
+    const reference = str(input.reference) || filed?.reference || ''
+    if (!reference) {
+      throw new ToolError('Adopting a list needs the clause it comes from. Without a reference it is an opinion about scope, not the contract.')
+    }
+    const areas: ContractArea[] = given
+      ? given.map((a, i) => {
+        const name = str(a.name)
+        if (!name) throw new ToolError('Every area needs the client’s own name for it.')
+        const mapsTo = str(a.maps_to)
+        if (mapsTo && !STANDARD_BY_ID[mapsTo]) {
+          throw new ToolError(`"${mapsTo}" is not a standard area. The platform offers: ${STANDARD_AREAS.map((s) => s.id).join(', ')}.`)
+        }
+        return { id: `ca_${i + 1}_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 24)}`, name, ...(mapsTo ? { standardId: mapsTo } : {}) }
+      })
+      : (filed?.areas ?? []).map((a) => ({ id: a.id, name: a.name, ...(a.standardId ? { standardId: a.standardId } : {}) }))
+
+    if (!areas.length) {
+      throw new ToolError(`${engagement.client}'s contract files no procedure areas, so there is nothing to adopt. Give the areas to state them.`)
+    }
+
+    const st = useAstra.getState()
+    const before = readProcedures({ engagementId, loads: st.areaLoads, reviews: st.procedureReviews })
+    // A list that drops an area with live procedures would improve coverage by
+    // deleting the inconvenient row. Refused, with what stands in the way.
+    const keeping = new Set(areas.map((a) => a.standardId).filter(Boolean))
+    const orphaned = (before.load?.areas ?? [])
+      .filter((a) => a.standardId && !keeping.has(a.standardId))
+      .map((a) => ({ area: a.name, procedures: proceduresInArea(engagementId, a.standardId).map((p) => p.name) }))
+      .filter((x) => x.procedures.length)
+    if (orphaned.length) {
+      throw new ToolError(
+        `That list drops ${orphaned.length} area${orphaned.length === 1 ? '' : 's'} that current procedures are attached to: ${orphaned.map((o) => `${o.area} (${o.procedures.join(', ')})`).join('; ')}. Retire the procedures first, or keep the area.`,
+      )
+    }
+
+    const had = new Set((before.load?.areas ?? []).map((a) => a.name))
+    const now = new Set(areas.map((a) => a.name))
+    st.loadProcedureAreas({ engagementId, by: person(), role: st.roleId, reference, areas })
+    const after = readProcedures({ engagementId, loads: useAstra.getState().areaLoads, reviews: st.procedureReviews })
+    return {
+      payload: {
+        engagement: engagement.id,
+        reference,
+        by: person(),
+        role: ROLE_BY_ID[st.roleId]?.title ?? st.roleId,
+        adopted: areas.length,
+        source: given ? 'stated in the call' : 'the list the contract files',
+        added: [...now].filter((n) => !had.has(n)),
+        removed: [...had].filter((n) => !now.has(n)),
+        coverage: { covered: after.covered, of: after.areas.length, gaps: after.gaps.map((a) => a.area.name) },
+        overdue: after.staleCount,
+        areasWeOfferNothingFor: after.unmapped.map((a) => a.name),
+      },
+      artifacts: [card('procedures', `${engagement.client} · procedures`, { engagement: engagementId }, '/governance/procedures')],
+    }
+  },
+
+  review_procedure: (input) => {
+    const who = str(input.procedure), version = str(input.version), changed = str(input.changed)
+    const p = PROCEDURES.find((x) => x.id.toLowerCase() === who.toLowerCase() || x.name.toLowerCase() === who.toLowerCase())
+    if (!p) throw new ToolError(`No procedure has the id or name "${who}".`)
+    if (!version) throw new ToolError('A review states the version the procedure now stands at.')
+    if (!changed) throw new ToolError('A review states what changed, or that nothing did. A review that records nothing is not a review.')
+
+    const st = useAstra.getState()
+    const before = readProcedure(p, NOW.getTime(), st.procedureReviews)
+    st.reviewProcedure({ procedureId: p.id, by: person(), role: st.roleId, changed, version })
+    const after = readProcedure(p, NOW.getTime(), useAstra.getState().procedureReviews)
+    const r = readProcedures({ engagementId: p.engagementId, loads: st.areaLoads, reviews: useAstra.getState().procedureReviews })
+    return {
+      payload: {
+        procedure: p.id,
+        name: p.name,
+        version,
+        changed,
+        by: person(),
+        role: ROLE_BY_ID[st.roleId]?.title ?? st.roleId,
+        wasOverdueBy: before.stale ? Math.abs(before.dueInDays) : 0,
+        nextReviewInDays: after.dueInDays,
+        stillOverdueAcrossRegister: r.staleCount,
+      },
+      artifacts: [card('procedures', `${p.name} · reviewed`, { engagement: p.engagementId }, '/governance/procedures')],
     }
   },
 

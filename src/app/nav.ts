@@ -97,6 +97,7 @@ export const SURFACES: Surface[] = [
       { to: '/governance/proof', label: 'Proof', desc: 'Search any action and verify the hash chain, run the conformance set and the red team yourself, and read the AI control frameworks against stored records' },
       { to: '/governance/ai-incidents', label: 'AI Incidents', desc: 'Fabrication, injection, oversight and cohort findings — with notification and RCA clocks' },
       { to: '/governance/proposals', label: 'Proposals', desc: 'What the workforce raised unprompted — claim, evidence, value, ageing' },
+      { to: '/governance/procedures', label: 'Procedures', desc: 'The procedure areas the contract requires, the runbooks behind them, who owns each and when it was last reviewed' },
       { to: '/governance/registers', label: 'Decisions & Obligations', desc: 'Decisions as objects with tracked follow-through' },
       { to: '/governance/portfolio', label: 'Application Portfolio', desc: 'Kind, vendor, configuration baseline and record reconciliation per application' },
       { to: '/governance/autonomy', label: 'Autonomy Posture', desc: 'Tower × action-class matrix, promotions and demotions' },

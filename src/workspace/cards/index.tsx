@@ -12,6 +12,7 @@ import { dataEstateView, dataItemView } from './dataEstate'
 import { dataReliabilityView } from './dataReliability'
 import { exitView } from './exit'
 import { privacyObligationsView, privacyRequestView, privacyRequestsView } from './privacy'
+import { proceduresView } from './procedures'
 import { provenanceView } from './provenance'
 import { successorPackView } from './successorPack'
 import { releasesView } from './releases'
@@ -46,6 +47,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   provenance: provenanceView,
   clientControl: clientControlView,
   successorPack: successorPackView,
+  procedures: proceduresView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },

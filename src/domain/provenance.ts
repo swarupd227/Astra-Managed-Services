@@ -198,6 +198,21 @@ export const DATASETS: DataSet[] = [
     maturity: 'partial',
   },
   {
+    id: 'ds_procedure_areas', name: 'The procedure areas the contract requires', origin: 'client_extract',
+    source: 'Attachment B.3 — Application Management, item 1: the eleven areas in the client’s own words and order',
+    asOf: '2026-08-31',
+    routes: ['/governance/procedures'],
+    caution: 'Coverage is reported against this list only once somebody adopts it against the clause; until then nothing is scored',
+    maturity: 'live',
+  },
+  {
+    id: 'ds_procedures', name: 'The procedures themselves, and their reviews', origin: 'seeded',
+    source: 'Demonstration register of twelve procedures with owners, versions, review periods and the action classes each authorises; execution counts are read from the work the platform did',
+    routes: ['/governance/procedures'],
+    caution: 'The procedures and review dates are seeded; the areas they answer are the client’s, and the execution counts are read from live work records',
+    maturity: 'live',
+  },
+  {
     id: 'ds_client_control', name: 'The client’s rights over the workforce, and the directives in force', origin: 'platform_record',
     source: 'The rights are registered in src/domain/clientControl.ts and the holders in server/tool-catalogue.json, which the gateway enforces; every directive is written as the client sets it and sealed to the evidence chain',
     routes: ['/governance/client-control'],

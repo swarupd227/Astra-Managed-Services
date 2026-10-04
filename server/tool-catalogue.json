@@ -125,6 +125,59 @@
       }
     },
     {
+      "name": "get_procedures", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition", "transform"],
+      "description": "The maintenance procedures and runbooks the contract requires, and whether each is current. Returns the client's own procedure areas as its contract names them — and whether anyone has adopted that list against a clause yet, because coverage is not scored against a list nobody filed. Per area: whether a current procedure exists, and which. Per procedure: its version and state, the role answerable for it, who wrote it, when it was last reviewed and when the next review is due, whether it is overdue, the agents that execute it, the action classes it authorises, the verification pack that proves a run worked, where it is written down, and how many times the platform actually executed it in the window. Also the gaps (areas with nothing current), the drafts, the overdue ones, the dormant ones (current, authorised to act, and never executed — dead or being bypassed), the areas the contract names that the platform offers nothing for, and the standard areas the contract does not name.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "engagement": { "type": "string", "description": "Engagement id, e.g. eng_kearney" },
+          "area": { "type": "string", "description": "Area id or name, to read one" }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "set_procedure_areas", "agent": "agt_archivist", "surfaces": ["transition", "platform"], "mutating": true, "approval": true,
+      "description": "Adopt the client's procedure areas into the register, against the clause they come from. Give nothing but the engagement to adopt the list its contract already files, in the client's own words and order; give areas to state a different list. Sealed to the evidence chain with the adopter's name, because this sets what coverage is measured against. Refused without a clause reference, and refused where it would drop an area that current procedures are attached to — coverage must not improve by deleting the inconvenient row. The diff is shown before it is written.",
+      "describe": "Adopt {count} procedure areas for {engagement} from {reference}.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "engagement": { "type": "string", "description": "Engagement id. Defaults to the engagement in view." },
+          "reference": { "type": "string", "description": "The clause or attachment the list comes from. Defaults to the one the contract files." },
+          "areas": {
+            "type": "array",
+            "description": "The client's areas, in its own words. Omit to adopt the list the contract files.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "description": "The client's own words for the area" },
+                "maps_to": { "type": "string", "description": "Standard area id the platform offers for it, e.g. sa_triage. Omit where nothing fits." }
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "review_procedure", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition"], "mutating": true, "approval": true,
+      "description": "Record a review of one procedure: what changed or that nothing did, and the version it now stands at. Resets its review clock and seals the review to the evidence chain. Refused for a procedure that does not exist, and refused without stating what changed — a review that records nothing is not a review.",
+      "describe": "Record a review of {procedure} at version {version}: {changed}.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "procedure": { "type": "string", "description": "Procedure id or name, e.g. pr_handoff" },
+          "version": { "type": "string", "description": "The version it now stands at, e.g. 2.3" },
+          "changed": { "type": "string", "description": "What changed, or that nothing did" }
+        },
+        "required": ["procedure", "version", "changed"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_successor_pack", "agent": "agt_archivist", "surfaces": ["governance", "transform", "run"],
       "description": "The pack a successor provider would start from, and whether it has ever been produced. Per part: what it is, what the successor can do with it on day one, the format, how many records it holds, whether it is the client's own knowledge coming home or the supplier's grant on exit, and the records it is built from. Also what the pack deliberately withholds and why, and every production of it with its manifest — part by part, the record count, the size and the digest sealed to the evidence chain. Use this when anyone asks what the client keeps if the supplier leaves, or how expensive leaving would be.",
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }

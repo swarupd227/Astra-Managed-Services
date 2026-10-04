@@ -1,6 +1,7 @@
 import type { IncidentNotice, LoggedAction } from './privacy'
 import { describeDirective, type Directive } from './clientControl'
 import { REMEDY_LABEL, type Remedy } from './commitments'
+import type { AreaLoad, Review } from './procedures'
 import { buildPack, manifestOf, type PackExport } from './successorPack'
 import type { Settlement } from './exit'
 import { create } from 'zustand'
@@ -81,6 +82,10 @@ interface State {
   clientDirectives: Directive[]
   /** Successor packs produced this session, each with its manifest. */
   packExports: PackExport[]
+  /** The client's procedure areas as adopted into the register, newest last. */
+  areaLoads: AreaLoad[]
+  /** Procedure reviews recorded this session. */
+  procedureReviews: Review[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -190,6 +195,11 @@ interface State {
   /** Builds the successor pack and seals its manifest. Returns the production record. */
   produceSuccessorPack: (by: string, reason: string) => PackExport
 
+  /** Adopts the client's procedure areas into the register, against a clause. */
+  loadProcedureAreas: (load: Omit<AreaLoad, 'at' | 'evidenceId'>) => AreaLoad
+  /** Records a review of one procedure: who, what changed, and the version it leaves it at. */
+  reviewProcedure: (review: Omit<Review, 'at' | 'evidenceId'>) => Review
+
   /** A person records that an external recipient was told of an erasure. The platform does not tell them itself. */
   recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
   /** A person records the notice given to the client of a data incident, which stops the contractual clock. */
@@ -296,6 +306,8 @@ export const useAstra = create<State>((set, get) => ({
   commitmentLog: [],
   clientDirectives: [],
   packExports: [],
+  areaLoads: [],
+  procedureReviews: [],
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1436,6 +1448,32 @@ export const useAstra = create<State>((set, get) => ({
     const at = nowIso(s.clockOffsetMins)
     get().logEvidence('approval', by, `Destruction certified — ${holdingId}`, { holdingId, reference, method })
     set({ exitLog: [...get().exitLog, { holdingId, action: 'destroyed', at, by, reference, method }] })
+  },
+
+  loadProcedureAreas: (load) => {
+    const at = nowIso(get().clockOffsetMins)
+    const evidenceId = get().logEvidence(
+      'knowledge',
+      load.by,
+      `Procedure areas adopted — ${load.areas.length} from ${load.reference}`,
+      { engagementId: load.engagementId, reference: load.reference, role: load.role, areas: load.areas.map((a) => a.name) },
+    )
+    const row: AreaLoad = { ...load, at, evidenceId }
+    set({ areaLoads: [...get().areaLoads, row] })
+    return row
+  },
+
+  reviewProcedure: (review) => {
+    const at = nowIso(get().clockOffsetMins)
+    const evidenceId = get().logEvidence(
+      'verification',
+      review.by,
+      `Procedure reviewed — ${review.procedureId} at ${review.version}`,
+      { procedureId: review.procedureId, version: review.version, changed: review.changed, role: review.role },
+    )
+    const row: Review = { ...review, at, evidenceId }
+    set({ procedureReviews: [...get().procedureReviews, row] })
+    return row
   },
 
   produceSuccessorPack: (by, reason) => {

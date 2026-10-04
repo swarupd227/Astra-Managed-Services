@@ -98,6 +98,19 @@ export interface Ingested {
   telemetry: boolean
 }
 
+/**
+ * A procedure area as the client's own contract names it, filed but not yet
+ * adopted. Filed is a document; adopting it into the register is somebody
+ * putting their name to a clause — see `src/domain/procedures.ts`.
+ */
+export interface FiledArea {
+  id: string
+  /** The client's words, in the contract's order. */
+  name: string
+  /** The platform's standard area it maps onto, where one fits. */
+  standardId?: string
+}
+
 export interface Engagement {
   id: string
   client: string
@@ -109,6 +122,8 @@ export interface Engagement {
   regime: Regime
   stage: StageId
   contract: { termMonths: number; startsAt: string; baselineHrsPerYear: number | null; costReductionPct: number | null }
+  /** The maintenance procedure areas the contract requires, and where they are stated. */
+  procedureAreas?: { reference: string; areas: FiledArea[] }
   ingested: Ingested
   /** Why the engagement is where it is, in one clause. */
   note: string
@@ -129,6 +144,24 @@ export const ENGAGEMENTS: Engagement[] = [
     regime: { name: 'GDPR', responseDays: 30, extensionDays: 60, clientNoticeHrs: 24, regulatorNoticeHrs: 72, adequate: ['EEA', 'UK', 'CH', 'JP', 'KR', 'CA', 'NZ', 'IL'] },
     stage: 'run',
     contract: { termMonths: 60, startsAt: '2026-04-01', baselineHrsPerYear: 214_000, costReductionPct: 12 },
+    // Attachment B.3, Application Management, item 1 — the client's own words
+    // and order. The eleven it names; nothing added, nothing renamed.
+    procedureAreas: {
+      reference: 'Attachment B.3 — Application Management, item 1',
+      areas: [
+        { id: 'ka_triage', name: 'Incident triage', standardId: 'sa_triage' },
+        { id: 'ka_escalation', name: 'Escalation', standardId: 'sa_escalation' },
+        { id: 'ka_corrective', name: 'Corrective maintenance', standardId: 'sa_corrective' },
+        { id: 'ka_problem', name: 'Problem management', standardId: 'sa_problem' },
+        { id: 'ka_release', name: 'Release support', standardId: 'sa_release' },
+        { id: 'ka_regression', name: 'Regression testing', standardId: 'sa_regression' },
+        { id: 'ka_patching', name: 'Patching', standardId: 'sa_patching' },
+        { id: 'ka_saas', name: 'SaaS coordination', standardId: 'sa_saas' },
+        { id: 'ka_config', name: 'Configuration changes', standardId: 'sa_config' },
+        { id: 'ka_knowledge', name: 'Knowledge capture', standardId: 'sa_knowledge' },
+        { id: 'ka_handoff', name: 'Service handoffs', standardId: 'sa_handoff' },
+      ],
+    },
     ingested: { contract: true, inventory: true, tickets: true, estate: true, telemetry: true },
     note: 'Towers in Run; two still in transition',
   },

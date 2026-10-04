@@ -9,6 +9,7 @@ import { glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './me
 import { privacySummary } from './privacy'
 import { clustersWithCause, historyFor, recurring, refusal, themeOf, type Derivable, type TicketHistory } from './ticketHistory'
 import type { FleetLifecycle } from './agentLifecycle'
+import { readProcedures, type AreaLoad, type Review } from './procedures'
 // Type only: the pack reads the commitment register, and this must not become a cycle.
 import type { PackExport } from './successorPack'
 import { NOW, WORK_OBJECTS } from './workSeed'
@@ -52,6 +53,8 @@ export interface MeasureCtx {
   remedies?: Remedy[]
   /** Successor packs produced, for the commitment that the pack is produced rather than promised. */
   packExports?: PackExport[]
+  /** What the procedure register needs: the client's adopted areas, and the reviews recorded. */
+  procedures?: { loads: AreaLoad[]; reviews: Review[] }
 }
 
 export interface MeasureReading {
@@ -271,6 +274,24 @@ export const MEASURES: Record<string, Measure> = {
     needs: ['tickets'], needsDerivable: ['handling_time'],
     read: () => unreadable('Nothing to compare against'),
   },
+  procedures_current: {
+    id: 'procedures_current', name: 'Contract procedure areas with a current, in-date procedure', unit: 'pct',
+    needs: ['contract'], route: '/governance/procedures',
+    read: ({ nowMs, procedures }) => {
+      const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [], nowMs })
+      // Nothing is scored against a list nobody has adopted: a coverage figure
+      // over zero areas would read as perfect.
+      if (!r.load) return unreadable(`The client's procedure areas have not been adopted into the register; ${r.engagement.procedureAreas?.areas.length ?? 0} are filed at ${r.engagement.procedureAreas?.reference ?? 'no stated clause'}`)
+      const good = r.areas.filter((a) => a.covered && !a.stale).length
+      const value = r.areas.length ? (100 * good) / r.areas.length : 0
+      return {
+        value,
+        display: `${good}/${r.areas.length}`,
+        note: `${r.gaps.length} area${r.gaps.length === 1 ? '' : 's'} with nothing current, ${r.staleCount} review${r.staleCount === 1 ? '' : 's'} overdue, ${r.draftCount} in draft`,
+        basis: 'measured',
+      }
+    },
+  },
   successor_pack_produced: {
     id: 'successor_pack_produced', name: 'Successor packs produced in the last year', unit: 'count',
     needs: ['contract'], route: '/governance/successor-pack',
@@ -367,6 +388,15 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
   successor_pack_produced: () => [
     { what: 'Produce the successor pack and hand it over — every part builds today', owner: 'serviceowner', route: '/governance/successor-pack' },
   ],
+  procedures_current: ({ procedures }) => {
+    const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [] })
+    if (!r.load) return [{ what: `Adopt the ${r.engagement.procedureAreas?.areas.length ?? 0} procedure areas the contract files, against its clause`, owner: 'transition', route: '/governance/procedures' }]
+    return [
+      ...r.gaps.map((a) => ({ what: `Write a procedure for “${a.area.name}” — the area has nothing current`, owner: 'sdm', route: '/governance/procedures' })),
+      ...r.procedures.filter((p) => p.stale).map((p) => ({ what: `Review ${p.procedure.name} — ${Math.abs(p.dueInDays)} days overdue`, owner: p.procedure.owner, route: '/governance/procedures' })),
+      ...r.procedures.filter((p) => p.dormant).map((p) => ({ what: `${p.procedure.name} is current and has not run once: retire it or find out what is being done instead`, owner: p.procedure.owner, route: '/governance/procedures' })),
+    ]
+  },
 }
 
 /** The classes behind a theme that have not yet earned their removal. */
@@ -545,6 +575,14 @@ export const COMMITMENTS: Commitment[] = [
     consequence: { kind: 'make_good', note: 'Exit pack produced at our cost' },
   },
   {
+    id: 'cm_procedures', engagementId: 'eng_kearney', stage: 'assure', audience: 'client',
+    name: 'Every required procedure is written, owned and in date',
+    promise: 'Each procedure area the contract names has a current runbook with a named owner, reviewed inside its period',
+    measureId: 'procedures_current', target: { value: 100, direction: 'at_least' }, dueAt: '2027-06-30',
+    baseline: { value: 0, display: '11 areas named, none evidenced', source: 'Ingested contract · Attachment B.3, Application Management, item 1' },
+    consequence: { kind: 'fee_at_risk', pctOfCharge: 3, note: '3% of the monthly charge at risk' },
+  },
+  {
     id: 'cm_successor', engagementId: 'eng_kearney', stage: 'exit', audience: 'client',
     name: 'The successor pack is produced, not promised',
     promise: 'The pack a successor would start from is produced and handed over every year of the term, so leaving is never a project',
@@ -695,12 +733,16 @@ const ORDER: Record<Status, number> = { missed: 0, behind: 1, not_measurable: 2,
 export function commitmentLedger(
   opts: {
     engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle
-    remedies?: Remedy[]; packExports?: PackExport[]; nowMs?: number
+    remedies?: Remedy[]; packExports?: PackExport[]
+    procedures?: { loads: AreaLoad[]; reviews: Review[] }; nowMs?: number
   } = {},
 ): Ledger {
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
   const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
-  const ctx: MeasureCtx = { nowMs: opts.nowMs ?? NOW.getTime(), fleet: opts.fleet, remedies: opts.remedies, packExports: opts.packExports }
+  const ctx: MeasureCtx = {
+    nowMs: opts.nowMs ?? NOW.getTime(),
+    fleet: opts.fleet, remedies: opts.remedies, packExports: opts.packExports, procedures: opts.procedures,
+  }
   const rows = COMMITMENTS
     .filter((c) => c.engagementId === engagementId)
     .filter((c) => (opts.audience ?? 'all') === 'all' || c.audience === 'client')
