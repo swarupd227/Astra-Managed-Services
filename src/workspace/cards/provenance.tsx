@@ -1,5 +1,5 @@
 import { FileSearch } from 'lucide-react'
-import { ALL_NAV } from '@/app/nav'
+import { PAGES } from '@/app/nav'
 import {
   MATURITY_LABEL, ORIGIN_LABEL, ORIGIN_MEANING, ORIGIN_ORDER,
   provenanceFor, provenanceSummary,
@@ -32,7 +32,7 @@ const MATURITY_TONE: Record<Maturity, Tone> = { live: 'ok', partial: 'warn', not
 const WORKSPACE: Record<string, string> = { '/': 'Workspace', '/w/': 'Workspace thread', '/brief': 'Brief' }
 
 const screenName = (route: string) =>
-  ALL_NAV.find((n) => n.to === route)?.label
+  PAGES.find((n) => n.to === route)?.label
   ?? WORKSPACE[route]
   ?? route.split('/').filter(Boolean).pop()!.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase())
 

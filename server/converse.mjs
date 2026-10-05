@@ -164,7 +164,8 @@ ${ctx.person ?? 'An operator'} · ${ctx.roleTitle ?? 'role unknown'}. The tools 
 
 THIS CONVERSATION
 ${ctx.thread ?? 'Ask Astra — the whole service'}${ctx.scope ? `\nScope: ${ctx.scope}` : ''}
-Estate time: ${ctx.now ?? 'unknown'}
+Estate time: ${ctx.now ?? 'unknown'}${ctx.prefer ? `
+The user invoked /${ctx.prefer.slug} rather than typing a question, which names ${ctx.prefer.tool} as the tool to call. Call it first, with whatever their words supply as its input. If their words ask for something it cannot answer, call it anyway and then say what it does not cover.` : ''}
 
 THE AGENTS
 ${roster}

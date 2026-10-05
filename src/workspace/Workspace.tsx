@@ -9,6 +9,7 @@ import { Button, Chip, Dot } from '@/ui/primitives'
 import { cn } from '@/lib/format'
 import { ArtifactBody } from './cards/view'
 import { TOOL_BY_NAME, agentName, roleHolds } from './catalogue'
+import { matches, parse, typing, utteranceFor, type Command } from './commands'
 import { useWorkspace } from './store'
 import { threadDefs, type ThreadDef } from './threads'
 import type { Artifact, Confirmation, ThreadMessage } from './types'
@@ -283,11 +284,26 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages.length, thread?.working, messages[messages.length - 1]?.text])
 
+  const roleId = useAstra((s) => s.roleId)
+  const fragment = typing(input)
+  const options = React.useMemo(() => (fragment === null ? [] : matches(roleId, fragment)), [roleId, fragment])
+  const [sel, setSel] = React.useState(0)
+  React.useEffect(() => setSel(0), [fragment])
+
   const submit = (text: string) => {
     const t = text.trim()
     if (!t || running || pending) return
-    send(threadId, t)
+    // A slash command is the same turn as a typed question: it names the tool
+    // and keeps whatever words follow it as the input.
+    const invoked = parse(roleId, t)
+    if (invoked) send(threadId, utteranceFor(invoked.command, invoked.rest), { slug: invoked.command.slug, tool: invoked.command.tool.name })
+    else send(threadId, t)
     setInput('')
+  }
+
+  const pick = (c: Command) => {
+    const rest = input.slice(input.split(/\s/, 1)[0].length).trim()
+    setInput(`/${c.slug}${rest ? ` ${rest}` : ' '}`)
   }
 
   const lastAgent = [...messages].reverse().find((m) => m.author === 'agent')
@@ -324,13 +340,42 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
 
         <div className="shrink-0 border-t border-line bg-surface px-4 py-3">
           <form onSubmit={(e) => { e.preventDefault(); submit(input) }} className="relative mx-auto max-w-3xl">
+            {options.length > 0 && (
+              <ul
+                data-testid="slash-menu"
+                className="absolute bottom-full z-20 mb-1.5 max-h-72 w-full overflow-y-auto rounded-md border border-line-strong bg-raised py-1 shadow-xl"
+              >
+                {options.map((c, i) => (
+                  <li key={c.tool.name}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setSel(i)}
+                      onClick={() => pick(c)}
+                      className={cn('flex w-full items-start gap-2 px-2.5 py-1.5 text-left', i === sel && 'bg-brand/10')}
+                    >
+                      <span className="mt-[1px] w-40 shrink-0 truncate font-mono text-2xs text-ink">/{c.slug}</span>
+                      <span className="min-w-0 flex-1 truncate text-2xs text-ink-3">{c.summary}</span>
+                      <Chip tone={c.changes ? 'warn' : 'neutral'}>{c.changes ? 'changes things' : c.agent}</Chip>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(input) } }}
+              onKeyDown={(e) => {
+                if (options.length) {
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setSel((n) => (n + 1) % options.length); return }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); setSel((n) => (n - 1 + options.length) % options.length); return }
+                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pick(options[sel]); return }
+                  if (e.key === 'Escape') { e.preventDefault(); setInput(''); return }
+                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(input) }
+              }}
               rows={2}
               disabled={pending}
-              placeholder={pending ? 'Confirm or decline above' : `Message ${def.group === 'astra' ? 'Astra' : def.title}`}
+              placeholder={pending ? 'Confirm or decline above' : `Message ${def.group === 'astra' ? 'Astra' : def.title} — or / for a tool`}
               data-testid="workspace-composer"
               className="w-full resize-none rounded-md border border-line-strong bg-sunken px-3 py-2 pr-11 text-xs leading-relaxed text-ink placeholder:text-ink-3 focus:border-brand focus:outline-none disabled:opacity-60"
             />

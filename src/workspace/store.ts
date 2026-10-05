@@ -35,7 +35,8 @@ const emptyThread = (id: string): Thread => ({
 
 interface WorkspaceState {
   threads: Record<string, Thread>
-  send: (threadId: string, text: string) => void
+  /** `prefer` names the tool a slash command invoked, for this turn's first call. */
+  send: (threadId: string, text: string, prefer?: { slug: string; tool: string }) => void
   decide: (threadId: string, messageId: string, toolUseId: string, decision: 'confirmed' | 'declined') => void
   stop: (threadId: string) => void
   openPane: (threadId: string, artifactId: string | null) => void
@@ -58,6 +59,8 @@ function load(): Record<string, Thread> {
 }
 
 const controllers = new Map<string, AbortController>()
+/** The tool a slash command named, for the turn it was typed in. Not persisted: it steers one call. */
+const prefers = new Map<string, { slug: string; tool: string }>()
 
 export const useWorkspace = create<WorkspaceState>((set, get) => {
   const thread = (id: string) => get().threads[id] ?? emptyThread(id)
@@ -66,11 +69,12 @@ export const useWorkspace = create<WorkspaceState>((set, get) => {
   const updateMessage = (id: string, messageId: string, f: (m: ThreadMessage) => Partial<ThreadMessage>) =>
     update(id, (t) => ({ messages: t.messages.map((m) => (m.id === messageId ? { ...m, ...f(m) } : m)) }))
 
-  const context = (threadId: string) => {
+  const context = (threadId: string, prefer?: { slug: string; tool: string }) => {
     const s = useAstra.getState()
     const role = ROLE_BY_ID[s.roleId]
     const def = [...threadDefs(Object.values(s.missions), s.mi), ...Object.values(VIEW_THREADS)].find((d) => d.id === threadId)
     return {
+      ...(prefer ? { prefer } : {}),
       client: CLIENT.name,
       person: role.person,
       roleTitle: role.title,
@@ -125,8 +129,13 @@ export const useWorkspace = create<WorkspaceState>((set, get) => {
     let text = ''
     let assistant: Record<string, unknown>[] | null = null
 
+    // A slash command names the tool for the first call of the turn only; the
+    // steps after it follow wherever the answer leads.
+    const prefer = depth === 0 ? prefers.get(threadId) : undefined
+    prefers.delete(threadId)
+
     try {
-      for await (const ev of streamGateway({ phase: 'converse', role: s.roleId, context: context(threadId), messages: thread(threadId).transcript, confirmations: thread(threadId).confirmations }, controller.signal)) {
+      for await (const ev of streamGateway({ phase: 'converse', role: s.roleId, context: context(threadId, prefer), messages: thread(threadId).transcript, confirmations: thread(threadId).confirmations }, controller.signal)) {
         if (ev.type === 'thinking') update(threadId, () => ({ working: 'Astra is thinking' }))
         else if (ev.type === 'tool_start') {
           const tool = ev.name ? TOOL_BY_NAME[ev.name] : undefined
@@ -247,9 +256,10 @@ export const useWorkspace = create<WorkspaceState>((set, get) => {
   return {
     threads: load(),
 
-    send: (threadId, text) => {
+    send: (threadId, text, prefer) => {
       const t = thread(threadId)
       if (t.running || t.pending) return
+      if (prefer) prefers.set(threadId, prefer)
       const s = useAstra.getState()
       const person = ROLE_BY_ID[s.roleId]?.person ?? 'You'
       controllers.set(threadId, new AbortController())

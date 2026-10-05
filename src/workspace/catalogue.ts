@@ -14,6 +14,8 @@ export interface ToolSpec {
   surfaces: string[]
   mutating?: boolean
   approval?: boolean
+  /** The client's own authority over the workforce: held by client roles alone. */
+  clientRight?: boolean
   description: string
   describe?: string
   input_schema: Record<string, unknown>
@@ -29,6 +31,7 @@ export function roleHolds(roleId: string, tool: ToolSpec): boolean {
   if (!tool.surfaces.some((s) => (role.surfaces as string[]).includes(s))) return false
   if (tool.mutating && role.readOnly) return false
   if (tool.approval && !role.canApprove) return false
+  if (tool.clientRight && !role.holdsClientRights) return false
   return true
 }
 

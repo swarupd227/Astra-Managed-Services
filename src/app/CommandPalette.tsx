@@ -2,7 +2,7 @@ import React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, CornerDownLeft } from 'lucide-react'
 import { useWorkspace } from '@/workspace/store'
-import { ALL_NAV } from './nav'
+import { PAGES } from './nav'
 import { ROLES } from '@/domain/reference'
 import { TOWERS, AGENTS } from '@/domain/estate'
 import { useAstra } from '@/domain/store'
@@ -45,8 +45,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   const commands: Cmd[] = React.useMemo(() => {
     const out: Cmd[] = []
-    ALL_NAV.forEach((n) =>
-      out.push({ id: `nav-${n.to}`, group: n.surfaceName, label: n.label, hint: n.desc, run: () => nav(n.to) }),
+    // Every page, not just the six in the sidebar: the nav is a way in, this is the index.
+    PAGES.forEach((n) =>
+      out.push({ id: `nav-${n.to}`, group: 'Pages', label: n.label, hint: n.desc, run: () => nav(n.to) }),
     )
     Object.values(work)
       .slice(0, 400)
