@@ -21,7 +21,6 @@ export const ASK_META: Record<AskKind, { label: string; icon: typeof Gavel; tone
   decision: { label: 'Decide', icon: FileSignature, tone: 'info' },
   obligation: { label: 'Obligation', icon: FileSignature, tone: 'crit' },
   proposal: { label: 'Proposed', icon: Lightbulb, tone: 'brand' },
-  recommendation: { label: 'Recommended', icon: Lightbulb, tone: 'brand' },
 }
 
 export function AskRow({ ask, compact }: { ask: BriefAsk; compact?: boolean }) {
