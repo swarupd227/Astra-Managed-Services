@@ -425,6 +425,10 @@ export interface InnovationItem {
   id: string
   title: string
   source: 'artizent' | 'client' | 'agent' | 'council'
+  /** When it was raised. Cadence cannot be read without it. */
+  raisedAt?: ISO
+  /** The improvement dimension it serves, where somebody has said which. */
+  dimension?: string
   sponsor: string
   valueClass: 'cost' | 'experience' | 'risk' | 'revenue' | 'capability'
   stage: 'idea' | 'assessed' | 'funded' | 'delivered' | 'verified' | 'scaled' | 'retired'

@@ -198,6 +198,21 @@ export const DATASETS: DataSet[] = [
     maturity: 'partial',
   },
   {
+    id: 'ds_improvement_dimensions', name: 'The improvement dimensions recommendations are owed against', origin: 'client_extract',
+    source: 'Table 1 — Enterprise Data Platform, Data Governance & Quality, and Data Integration & Pipelines, item 1: the six the clause names, in the client’s own words',
+    asOf: '2026-08-31',
+    routes: ['/governance/recommendations'],
+    caution: 'Cadence is scored against this list alone; an engagement that files none is not scored at all',
+    maturity: 'live',
+  },
+  {
+    id: 'ds_recommendations', name: 'Recommendations raised, and what they returned', origin: 'seeded',
+    source: 'Two demonstration registers read as one: six unprompted agent proposals about the estate, and eleven innovation items from idea to verified value with realised figures',
+    routes: ['/governance/recommendations', '/governance/proposals'],
+    caution: 'The recommendations are seeded; the cadence window, the expiry clocks and the realised-against-projected arithmetic are computed',
+    maturity: 'live',
+  },
+  {
     id: 'ds_procedure_areas', name: 'The procedure areas the contract requires', origin: 'client_extract',
     source: 'Attachment B.3 — Application Management, item 1: the eleven areas in the client’s own words and order',
     asOf: '2026-08-31',

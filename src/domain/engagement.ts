@@ -103,7 +103,7 @@ export interface Ingested {
  * adopted. Filed is a document; adopting it into the register is somebody
  * putting their name to a clause — see `src/domain/procedures.ts`.
  */
-export interface FiledArea {
+export interface FiledItem {
   id: string
   /** The client's words, in the contract's order. */
   name: string
@@ -123,7 +123,14 @@ export interface Engagement {
   stage: StageId
   contract: { termMonths: number; startsAt: string; baselineHrsPerYear: number | null; costReductionPct: number | null }
   /** The maintenance procedure areas the contract requires, and where they are stated. */
-  procedureAreas?: { reference: string; areas: FiledArea[] }
+  procedureAreas?: { reference: string; areas: FiledItem[] }
+  /**
+   * The improvement dimensions the contract expects recommendations against.
+   * Unlike the procedure areas, these are not adopted separately: they are
+   * named in the same clause as the obligation itself, so the clause is the
+   * authority. An engagement that files none is not scored for cadence.
+   */
+  improvementDimensions?: { reference: string; items: FiledItem[] }
   ingested: Ingested
   /** Why the engagement is where it is, in one clause. */
   note: string
@@ -160,6 +167,18 @@ export const ENGAGEMENTS: Engagement[] = [
         { id: 'ka_config', name: 'Configuration changes', standardId: 'sa_config' },
         { id: 'ka_knowledge', name: 'Knowledge capture', standardId: 'sa_knowledge' },
         { id: 'ka_handoff', name: 'Service handoffs', standardId: 'sa_handoff' },
+      ],
+    },
+    // Table 1, item 1 — the six the clause names, in the client's own words.
+    improvementDimensions: {
+      reference: 'Table 1 — Enterprise Data Platform, Data Governance & Quality, and Data Integration & Pipelines, item 1',
+      items: [
+        { id: 'kd_capability', name: 'Platform capabilities', standardId: 'platform_capability' },
+        { id: 'kd_quality', name: 'Data quality', standardId: 'data_quality' },
+        { id: 'kd_automation', name: 'Automation', standardId: 'automation' },
+        { id: 'kd_performance', name: 'Performance', standardId: 'performance' },
+        { id: 'kd_security', name: 'Security', standardId: 'security' },
+        { id: 'kd_efficiency', name: 'Operational efficiency', standardId: 'operational_efficiency' },
       ],
     },
     ingested: { contract: true, inventory: true, tickets: true, estate: true, telemetry: true },

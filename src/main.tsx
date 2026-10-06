@@ -52,6 +52,7 @@ import { Provenance } from './surfaces/governance/Provenance'
 import { ClientControl } from './surfaces/governance/ClientControl'
 import { SuccessorPack } from './surfaces/governance/SuccessorPack'
 import { Procedures } from './surfaces/governance/Procedures'
+import { Recommendations } from './surfaces/governance/Recommendations'
 import { AgentLifecycle } from './surfaces/atlas/AgentLifecycle'
 import { ExitReadiness } from './surfaces/governance/ExitReadiness'
 import {
@@ -130,6 +131,7 @@ const router = createHashRouter([
       { path: 'governance/client-control', element: <ClientControl /> },
       { path: 'governance/successor-pack', element: <SuccessorPack /> },
       { path: 'governance/procedures', element: <Procedures /> },
+      { path: 'governance/recommendations', element: <Recommendations /> },
       { path: 'governance/exit', element: <ExitReadiness /> },
       { path: 'transition', element: <TransitionGroup /> },
       { path: 'operate/operations', element: <OperationsGroup /> },

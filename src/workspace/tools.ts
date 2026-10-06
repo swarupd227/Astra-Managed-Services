@@ -12,7 +12,10 @@ import {
   PROCEDURES, STANDARD_AREAS, STANDARD_BY_ID, proceduresInArea, readProcedure, readProcedures,
   type ContractArea, type ProcedureReading,
 } from '@/domain/procedures'
-import { ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
+import { ORIGIN_LABEL as PROVENANCE_ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
+import {
+  DIMENSION_BY_ID, ORIGIN_LABEL, PROGRESS_LABEL, readRecommendations, type Recommendation,
+} from '@/domain/recommendations'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
@@ -383,6 +386,61 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
+  get_recommendations: (input) => {
+    const engagementId = str(input.engagement) || ENGAGEMENT.id
+    if (!ENGAGEMENTS.some((e) => e.id === engagementId)) {
+      throw new ToolError(`No engagement has the id "${engagementId}". Engagements: ${ENGAGEMENTS.map((e) => e.id).join(', ')}.`)
+    }
+    const windowDays = typeof input.window_days === 'number' ? input.window_days : undefined
+    const r = readRecommendations({ engagementId, windowDays })
+    const describe = (x: Recommendation) => ({
+      id: x.id,
+      recommendation: x.title,
+      dimension: x.dimensionId ? DIMENSION_BY_ID[x.dimensionId]?.name ?? x.dimensionId : null,
+      raisedBy: x.raisedBy,
+      unprompted: x.unprompted,
+      from: ORIGIN_LABEL[x.origin],
+      raisedAt: x.raisedAt,
+      ageDays: x.ageDays,
+      state: PROGRESS_LABEL[x.progress],
+      projectedUsd: x.projectedUsd,
+      realisedUsd: x.realisedUsd,
+      decisionLapsesAt: x.expiresAt,
+    })
+    return {
+      payload: {
+        engagement: { id: r.engagement.id, client: r.engagement.client },
+        windowDays: r.windowDays,
+        dimensionsFiledAt: r.reference,
+        notScored: r.reference ? null : 'The contract files no improvement dimensions, so cadence is not scored',
+        totals: {
+          raisedInWindow: r.raisedInWindow, unpromptedInWindow: r.unpromptedInWindow,
+          awaitingDecision: r.awaitingDecision.length, expiredUndecided: r.expiredUndecided.length,
+          projectedUsd: r.projectedUsd, realisedUsd: r.realisedUsd,
+          realisedVsProjectedPct: r.realisedVsProjectedPct === null ? null : Math.round(r.realisedVsProjectedPct),
+          unclassified: r.unclassified.length,
+        },
+        dimensions: r.dimensions.map((d) => ({
+          dimension: d.name,
+          aboutWhat: d.standard?.covers ?? null,
+          inWindow: d.inWindow,
+          total: d.recommendations.length,
+          daysSinceLast: d.silentDays,
+          silent: d.silent,
+          realisedUsd: d.realisedUsd,
+        })),
+        // Ours to answer for.
+        silentDimensions: r.silentDimensions.map((d) => ({ dimension: d.name, daysSinceLast: d.silentDays })),
+        // Theirs: a decision the client never made.
+        expiredUndecided: r.expiredUndecided.map(describe),
+        unclassified: r.unclassified.map(describe),
+        dimensionsTheContractDoesNotName: r.notInContract.map((d) => d.name),
+        recommendations: r.all.map(describe),
+      },
+      artifacts: [card('recommendations', `${r.engagement.client} · recommendations`, { engagement: engagementId }, '/governance/recommendations')],
+    }
+  },
+
   get_procedures: (input) => {
     const engagementId = str(input.engagement) || ENGAGEMENT.id
     if (!ENGAGEMENTS.some((e) => e.id === engagementId)) {
@@ -690,7 +748,7 @@ export const EXECUTORS: Record<string, Executor> = {
     const describe = (d: DataSet) => ({
       id: d.id,
       about: d.name,
-      origin: ORIGIN_LABEL[d.origin],
+      origin: PROVENANCE_ORIGIN_LABEL[d.origin],
       whatThatMeans: ORIGIN_MEANING[d.origin],
       source: d.source,
       asOf: d.asOf ?? null,
@@ -700,7 +758,7 @@ export const EXECUTORS: Record<string, Executor> = {
     })
     return {
       payload: scoped
-        ? { screen: scoped.path, headline: scoped.headline ? ORIGIN_LABEL[scoped.headline] : null, datasets: scoped.datasets.map(describe) }
+        ? { screen: scoped.path, headline: scoped.headline ? PROVENANCE_ORIGIN_LABEL[scoped.headline] : null, datasets: scoped.datasets.map(describe) }
         : {
           totals: { datasets: s.datasets.length, screens: s.routes, carryingACaution: s.withCaution, byOrigin: s.byOrigin },
           datasets: s.datasets.map(describe),

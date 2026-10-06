@@ -125,6 +125,18 @@
       }
     },
     {
+      "name": "get_recommendations", "agent": "agt_prospect", "surfaces": ["governance", "transform", "run"],
+      "description": "What the service proposed without being asked, read across both registers — agents' unprompted proposals about the estate and the innovation register — against the improvement dimensions the client's contract names. Per dimension: how many recommendations in the cadence window, how many in total, how long since the last one, the value realised, and whether it has gone silent. Per recommendation: what it is, who raised it and whether they were asked, when, what it projected and what it actually returned, and whether it is open, accepted, delivered, realised, declined or expired without anyone deciding. Also the two figures that cut both ways: dimensions nothing has been raised on, which is the supplier's to answer for, and recommendations that expired undecided, which is the client's. An engagement whose contract files no dimensions is not scored for cadence.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "engagement": { "type": "string", "description": "Engagement id, e.g. eng_kearney" },
+          "window_days": { "type": "integer", "description": "The cadence window. Defaults to 90." }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_procedures", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition", "transform"],
       "description": "The maintenance procedures and runbooks the contract requires, and whether each is current. Returns the client's own procedure areas as its contract names them — and whether anyone has adopted that list against a clause yet, because coverage is not scored against a list nobody filed. Per area: whether a current procedure exists, and which. Per procedure: its version and state, the role answerable for it, who wrote it, when it was last reviewed and when the next review is due, whether it is overdue, the agents that execute it, the action classes it authorises, the verification pack that proves a run worked, where it is written down, and how many times the platform actually executed it in the window. Also the gaps (areas with nothing current), the drafts, the overdue ones, the dormant ones (current, authorised to act, and never executed — dead or being bypassed), the areas the contract names that the platform offers nothing for, and the standard areas the contract does not name.",
       "input_schema": {

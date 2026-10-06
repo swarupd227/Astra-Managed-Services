@@ -56,6 +56,8 @@ export interface Proposal {
   to: string
   claim: string
   detail: string
+  /** The improvement dimension it serves, where somebody has said which. */
+  dimension?: string
   evidence: ProposalEvidence[]
   /**
    * Only stated where there is no source record to read it from. Use
@@ -142,6 +144,7 @@ export const PROPOSALS: Proposal[] = [
     claim: 'Raise AC-41 from L2 Approve-first to L3 Supervised on the Application Development & Integration estate',
     detail:
       'Approval latency on certificate rotation is now the dominant term in its MTTR. The evidence base is large enough, and stable enough, that the gate is costing more than it is catching.',
+    dimension: 'security',
     evidence: [
       { label: '284 runs on sk_cert_rotate_v3 at 98.8% success, 0 incidents', ref: 'ev_dd41b1' },
       { label: 'Median approval latency 9m 4s on this class', ref: 'ev_dd41b2' },
@@ -171,6 +174,7 @@ export const PROPOSALS: Proposal[] = [
     claim: 'Formalise a backup-maintainer runbook for the Mulesoft integration hub before the bus-factor-of-one becomes an outage',
     detail:
       'All Salesforce↔SAP integration traffic depends on one named user with undocumented, tribal knowledge of the Anypoint deployment. A failover runbook exists for the pipeline itself, but nothing lets a second engineer maintain or extend it. The bridge has already gone unmonitored three times when that one person was unavailable.',
+    dimension: 'operational_efficiency',
     evidence: [
       { label: 'ke_mulesoft_soleowner — 3 occurrences since first seen 2026-06-02', ref: 'ev_dd41c1' },
       { label: 'app_mulesoft — 1 named user on prod-centralus, no documented deployment runbook', ref: 'ev_dd41c2' },
@@ -190,6 +194,7 @@ export const PROPOSALS: Proposal[] = [
     claim: 'Consolidate the three concurrent endpoint-security stacks contending for CPU on Digital Workplace endpoints',
     detail:
       'Three endpoint-security agents run in parallel across the fleet, each installed under a different prior vendor engagement and never rationalised. The contention between them is now driving support volume, not just wasting license spend.',
+    dimension: 'security',
     evidence: [
       { label: 'ke_triple_av — 41 occurrences since first seen 2025-09-11', ref: 'ev_dd41d1' },
       { label: 'rb_endpoint_dedupe human-verified, 87.0% success — treats symptom only', ref: 'ev_dd41d2' },
@@ -209,6 +214,7 @@ export const PROPOSALS: Proposal[] = [
     claim: 'Route classification and extraction steps to the cheapest tier',
     detail:
       'Opus is carrying steps that Haiku resolves at equal agreement. The routing frontier has moved since these skills were authored.',
+    dimension: 'cost',
     evidence: [
       { label: 'Agreement parity on 2,140 replayed classification steps', ref: 'ev_dd41e1' },
       { label: 'Current mix: 74% Opus on steps below the reasoning bar', ref: 'ev_dd41e2' },
@@ -226,6 +232,7 @@ export const PROPOSALS: Proposal[] = [
     to: 'Service governance board',
     claim: 'Complete ta_007 — deprecate the legacy FTP batch interface',
     detail: 'The demand class is already eliminated in practice. The interface remains, and with it the failure mode.',
+    dimension: 'platform_capability',
     evidence: [
       { label: 'dc_ftp_stall — eliminated, 0 occurrences in 90 days', ref: 'ev_dd41f1' },
       { label: 'Run simplification score 0.71', ref: 'ev_dd41f2' },

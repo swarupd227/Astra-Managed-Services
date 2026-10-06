@@ -1,0 +1,245 @@
+import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement } from './engagement'
+import { AGENT_BY_ID } from './estate'
+import { INNOVATION } from './ledgers'
+import { PROPOSALS, proposalValue, type Proposal } from './proposals'
+import { NOW } from './workSeed'
+import type { InnovationItem } from './types'
+
+/* ==========================================================================
+   Recommendations — what the service proposed without being asked.
+
+   "Proactive recommendations and innovation support" is the least falsifiable
+   promise in a managed services contract. Every provider writes it, none
+   evidences it, and it settles into two slides a quarter. The only way to
+   make it answerable is to count it: raised when, by whom, against which of
+   the dimensions the contract names, decided or left to expire, and what the
+   delivered ones actually returned against what they promised.
+
+   The register reads two existing books rather than starting a third. A
+   proposal is an agent's unprompted case about the estate; an innovation
+   item is an idea moving from hypothesis to verified value. Both are
+   recommendations, and the question "what have you proposed on security this
+   quarter" has to see both.
+
+   It is deliberately two-sided. A recommendation that expired undecided is
+   the client's silence, not ours, and it is counted here next to the
+   dimensions we have been quiet on. A ledger that only showed our diligence
+   would be marketing; one that shows both is a governance paper.
+   ========================================================================== */
+
+export interface StandardDimension {
+  id: string
+  name: string
+  /** What a recommendation here is about. */
+  covers: string
+}
+
+/** What the platform recommends against. A contract names its own and maps onto these. */
+export const STANDARD_DIMENSIONS: StandardDimension[] = [
+  { id: 'platform_capability', name: 'Platform capabilities', covers: 'What the platform cannot do yet that the estate needs' },
+  { id: 'data_quality', name: 'Data quality', covers: 'Contracts, completeness, freshness and the rules that catch a breach before a consumer does' },
+  { id: 'automation', name: 'Automation', covers: 'Work a person does today that an agent or a self-service path could take' },
+  { id: 'performance', name: 'Performance', covers: 'Run duration, availability against target, and the headroom before a window is missed' },
+  { id: 'security', name: 'Security', covers: 'Exposure, entitlement, patch currency and what an agent may do unattended' },
+  { id: 'operational_efficiency', name: 'Operational efficiency', covers: 'Hops, handoffs and rework that cost time without producing anything' },
+  { id: 'cost', name: 'Cost', covers: 'Spend that buys less than it could — rightsizing, commitment cover, model routing' },
+  { id: 'resilience', name: 'Resilience', covers: 'What happens when something fails, and whether that has been rehearsed' },
+]
+
+export const DIMENSION_BY_ID = Object.fromEntries(STANDARD_DIMENSIONS.map((d) => [d.id, d])) as Record<string, StandardDimension>
+
+/* ------------------------------ One recommendation --------------------------- */
+
+export type Origin = 'proposal' | 'innovation'
+
+export const ORIGIN_LABEL: Record<Origin, string> = {
+  proposal: 'Raised against the estate',
+  innovation: 'Innovation register',
+}
+
+/** Where a recommendation has got to. Both books' states, said once. */
+export type Progress = 'open' | 'accepted' | 'delivered' | 'realised' | 'failed' | 'declined' | 'expired'
+
+export const PROGRESS_LABEL: Record<Progress, string> = {
+  open: 'Open',
+  accepted: 'Accepted',
+  delivered: 'Delivered',
+  realised: 'Value realised',
+  /** Tried, and it did not work. A register that cannot say so is a brochure. */
+  failed: 'Tested — no value',
+  declined: 'Declined',
+  expired: 'Expired undecided',
+}
+
+export interface Recommendation {
+  id: string
+  origin: Origin
+  title: string
+  /** The standard dimension it serves, or null where nobody has said. */
+  dimensionId: string | null
+  /** The agent or person it came from. */
+  raisedBy: string
+  /** Raised by an agent rather than asked for by a person. */
+  unprompted: boolean
+  raisedAt: string | null
+  ageDays: number | null
+  progress: Progress
+  projectedUsd: number | null
+  realisedUsd: number | null
+  /** For a proposal: when the decision lapses. */
+  expiresAt: string | null
+  route: string
+}
+
+const DAY = 86_400_000
+const age = (iso: string | null, nowMs: number) => (iso ? Math.floor((nowMs - Date.parse(iso)) / DAY) : null)
+
+function fromProposal(p: Proposal, nowMs: number): Recommendation {
+  const lapsed = Date.parse(p.expiresAt) < nowMs
+  const progress: Progress =
+    p.state === 'accepted' ? 'accepted'
+      : p.state === 'rejected' ? 'declined'
+        : p.state === 'expired' || (p.state === 'open' && lapsed) ? 'expired'
+          : 'open'
+  const value = proposalValue(p)
+  return {
+    id: p.id,
+    origin: 'proposal',
+    title: p.claim,
+    dimensionId: p.dimension ?? null,
+    raisedBy: AGENT_BY_ID[p.from]?.name ?? p.from,
+    unprompted: Boolean(AGENT_BY_ID[p.from]),
+    raisedAt: p.raisedAt,
+    ageDays: age(p.raisedAt, nowMs),
+    progress,
+    projectedUsd: value.projectedUsd ?? null,
+    realisedUsd: null,
+    expiresAt: p.expiresAt,
+    route: '/governance/proposals',
+  }
+}
+
+const INNOVATION_PROGRESS: Record<InnovationItem['stage'], Progress> = {
+  idea: 'open', assessed: 'open', funded: 'accepted',
+  delivered: 'delivered', verified: 'realised', scaled: 'realised', retired: 'declined',
+}
+
+function fromInnovation(i: InnovationItem, nowMs: number): Recommendation {
+  // The stage says the trial finished; the verdict says whether it was worth
+  // finishing. A failed trial must not read as value realised.
+  const progress = i.verdict === 'failed' ? 'failed' : INNOVATION_PROGRESS[i.stage]
+  return {
+    id: i.id,
+    origin: 'innovation',
+    title: i.title,
+    dimensionId: i.dimension ?? null,
+    raisedBy: i.source === 'agent' ? 'An agent' : i.source === 'client' ? 'The client' : i.source === 'council' ? 'The council' : 'Artizent',
+    unprompted: i.source === 'agent' || i.source === 'artizent',
+    raisedAt: i.raisedAt ?? null,
+    ageDays: age(i.raisedAt ?? null, nowMs),
+    progress,
+    projectedUsd: i.projectedValueUsd ?? null,
+    realisedUsd: i.realisedValueUsd ?? null,
+    expiresAt: null,
+    route: '/governance/savings?tab=innovation',
+  }
+}
+
+/* --------------------------------- Readings ---------------------------------- */
+
+export interface DimensionReading {
+  /** The contract's own words. */
+  name: string
+  standard: StandardDimension | null
+  recommendations: Recommendation[]
+  /** Raised inside the cadence window. */
+  inWindow: number
+  /** Days since the last one, or null where there has never been one. */
+  silentDays: number | null
+  /** Nothing raised inside the window. */
+  silent: boolean
+  projectedUsd: number
+  realisedUsd: number
+}
+
+export interface RecommendationLedger {
+  engagement: Engagement
+  windowDays: number
+  /** Null when the contract files no dimensions: cadence is then not scored. */
+  reference: string | null
+  dimensions: DimensionReading[]
+  all: Recommendation[]
+  raisedInWindow: number
+  unpromptedInWindow: number
+  /** Ours to answer for. */
+  silentDimensions: DimensionReading[]
+  /** Raised against nothing the register recognises. */
+  unclassified: Recommendation[]
+  /** Theirs to answer for: a decision never made. */
+  expiredUndecided: Recommendation[]
+  /** Open and inside its decision window. */
+  awaitingDecision: Recommendation[]
+  projectedUsd: number
+  realisedUsd: number
+  /** Realised against projected on everything that reached a value, or null. */
+  realisedVsProjectedPct: number | null
+  /** Standard dimensions the contract does not name. Ours, not theirs. */
+  notInContract: StandardDimension[]
+}
+
+export const CADENCE_WINDOW_DAYS = 90
+
+export function readRecommendations(
+  opts: { engagementId?: string; nowMs?: number; windowDays?: number } = {},
+): RecommendationLedger {
+  const engagementId = opts.engagementId ?? ENGAGEMENT.id
+  const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
+  const nowMs = opts.nowMs ?? NOW.getTime()
+  const windowDays = opts.windowDays ?? CADENCE_WINDOW_DAYS
+
+  const all = [
+    ...PROPOSALS.map((p) => fromProposal(p, nowMs)),
+    ...INNOVATION.map((i) => fromInnovation(i, nowMs)),
+  ].sort((a, b) => (b.raisedAt ?? '').localeCompare(a.raisedAt ?? ''))
+
+  const inWindow = (r: Recommendation) => r.ageDays !== null && r.ageDays <= windowDays
+  const filed = engagement.improvementDimensions
+
+  const dimensions: DimensionReading[] = (filed?.items ?? []).map((item) => {
+    const mine = all.filter((r) => r.dimensionId === item.standardId)
+    const last = mine.map((r) => r.ageDays).filter((d): d is number => d !== null).sort((a, b) => a - b)[0] ?? null
+    return {
+      name: item.name,
+      standard: item.standardId ? DIMENSION_BY_ID[item.standardId] ?? null : null,
+      recommendations: mine,
+      inWindow: mine.filter(inWindow).length,
+      silentDays: last,
+      silent: !mine.some(inWindow),
+      projectedUsd: mine.reduce((n, r) => n + (r.projectedUsd ?? 0), 0),
+      realisedUsd: mine.reduce((n, r) => n + (r.realisedUsd ?? 0), 0),
+    }
+  })
+
+  const named = new Set((filed?.items ?? []).map((i) => i.standardId).filter(Boolean))
+  const valued = all.filter((r) => r.realisedUsd !== null && r.projectedUsd)
+  const promised = valued.reduce((n, r) => n + (r.projectedUsd ?? 0), 0)
+  const returned = valued.reduce((n, r) => n + (r.realisedUsd ?? 0), 0)
+
+  return {
+    engagement,
+    windowDays,
+    reference: filed?.reference ?? null,
+    dimensions,
+    all,
+    raisedInWindow: all.filter(inWindow).length,
+    unpromptedInWindow: all.filter((r) => inWindow(r) && r.unprompted).length,
+    silentDimensions: dimensions.filter((d) => d.silent),
+    unclassified: all.filter((r) => !r.dimensionId),
+    expiredUndecided: all.filter((r) => r.progress === 'expired'),
+    awaitingDecision: all.filter((r) => r.progress === 'open'),
+    projectedUsd: all.reduce((n, r) => n + (r.projectedUsd ?? 0), 0),
+    realisedUsd: all.reduce((n, r) => n + (r.realisedUsd ?? 0), 0),
+    realisedVsProjectedPct: promised ? (100 * returned) / promised : null,
+    notInContract: STANDARD_DIMENSIONS.filter((s) => !named.has(s.id)),
+  }
+}

@@ -10,6 +10,7 @@ import { privacySummary } from './privacy'
 import { clustersWithCause, historyFor, recurring, refusal, themeOf, type Derivable, type TicketHistory } from './ticketHistory'
 import type { FleetLifecycle } from './agentLifecycle'
 import { readProcedures, type AreaLoad, type Review } from './procedures'
+import { readRecommendations } from './recommendations'
 // Type only: the pack reads the commitment register, and this must not become a cycle.
 import type { PackExport } from './successorPack'
 import { NOW, WORK_OBJECTS } from './workSeed'
@@ -274,6 +275,23 @@ export const MEASURES: Record<string, Measure> = {
     needs: ['tickets'], needsDerivable: ['handling_time'],
     read: () => unreadable('Nothing to compare against'),
   },
+  recommendation_cadence: {
+    id: 'recommendation_cadence', name: 'Improvement dimensions with a recommendation this quarter', unit: 'pct',
+    needs: ['contract'], route: '/governance/recommendations',
+    read: ({ nowMs }) => {
+      const r = readRecommendations({ nowMs })
+      if (!r.reference) return unreadable('The contract files no improvement dimensions, so cadence is not scored')
+      const covered = r.dimensions.length - r.silentDimensions.length
+      return {
+        value: r.dimensions.length ? (100 * covered) / r.dimensions.length : 0,
+        display: `${covered}/${r.dimensions.length}`,
+        note: r.silentDimensions.length
+          ? `Nothing raised in ${r.windowDays} days on: ${r.silentDimensions.map((d) => d.name).join(', ')}`
+          : `${r.raisedInWindow} raised in ${r.windowDays} days, ${r.unpromptedInWindow} of them unprompted`,
+        basis: 'measured',
+      }
+    },
+  },
   procedures_current: {
     id: 'procedures_current', name: 'Contract procedure areas with a current, in-date procedure', unit: 'pct',
     needs: ['contract'], route: '/governance/procedures',
@@ -388,6 +406,22 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
   successor_pack_produced: () => [
     { what: 'Produce the successor pack and hand it over — every part builds today', owner: 'serviceowner', route: '/governance/successor-pack' },
   ],
+  recommendation_cadence: ({ nowMs }) => {
+    const r = readRecommendations({ nowMs })
+    return [
+      ...r.silentDimensions.map((d) => ({
+        what: `Nothing raised on “${d.name}” in ${r.windowDays} days${d.silentDays === null ? ' — not once, ever' : `; the last was ${d.silentDays} days ago`}`,
+        owner: 'sdm',
+        route: '/governance/recommendations',
+      })),
+      ...(r.expiredUndecided.length
+        ? [{ what: `${r.expiredUndecided.length} recommendation${r.expiredUndecided.length === 1 ? '' : 's'} expired without a decision — ours to re-raise, theirs to answer`, owner: 'serviceowner', route: '/governance/proposals' }]
+        : []),
+      ...(r.unclassified.length
+        ? [{ what: `${r.unclassified.length} recommendation${r.unclassified.length === 1 ? '' : 's'} serve no named dimension: classify or retire them`, owner: 'sdm', route: '/governance/recommendations' }]
+        : []),
+    ]
+  },
   procedures_current: ({ procedures }) => {
     const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [] })
     if (!r.load) return [{ what: `Adopt the ${r.engagement.procedureAreas?.areas.length ?? 0} procedure areas the contract files, against its clause`, owner: 'transition', route: '/governance/procedures' }]
@@ -573,6 +607,14 @@ export const COMMITMENTS: Commitment[] = [
     measureId: 'exit_path_proven', target: { value: 100, direction: 'at_least' }, dueAt: '2027-12-31',
     baseline: { value: 0, display: 'Inventory assembled at exit, contested', source: 'Declared · contract requirement' },
     consequence: { kind: 'make_good', note: 'Exit pack produced at our cost' },
+  },
+  {
+    id: 'cm_recommendations', engagementId: 'eng_kearney', stage: 'improve', audience: 'client',
+    name: 'Nothing the contract asks us to improve goes quiet',
+    promise: 'Every improvement dimension the contract names carries at least one evidenced recommendation each quarter, with its value tracked to what it actually returned',
+    measureId: 'recommendation_cadence', target: { value: 100, direction: 'at_least' }, dueAt: '2027-06-30',
+    baseline: { value: 0, display: 'Proactivity promised, never counted', source: 'Ingested contract · Table 1, item 1' },
+    consequence: { kind: 'fee_at_risk', pctOfCharge: 2, note: '2% of the monthly charge at risk' },
   },
   {
     id: 'cm_procedures', engagementId: 'eng_kearney', stage: 'assure', audience: 'client',
