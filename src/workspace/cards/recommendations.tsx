@@ -36,32 +36,30 @@ function useLedger(props: CardProps['props']): RecommendationLedger {
   return React.useMemo(() => readRecommendations({ engagementId }), [engagementId])
 }
 
+/* The band answers "what is being suggested and what needs me", in that order. */
 function RecommendationMetrics({ props, size }: CardProps) {
   const r = useLedger(props)
-  const covered = r.dimensions.length - r.silentDimensions.length
+  // The same "on the table" the page leads with: open, plus accepted and not yet done.
+  const live = r.all.filter((x) => x.progress === 'open' || x.progress === 'accepted')
   return (
     <Band size={size} cols={6}>
+      <Metric size="sm" label="Suggestions on the table" value={live.length} hint={`${live.filter((x) => x.standing).length} are standing estate defects`} />
+      <Metric size="sm" label="Waiting on a decision" value={r.awaitingDecision.filter((x) => !x.standing).length} hint="raised, not yet answered" />
       <Metric
-        size="sm" label={`Raised in ${r.windowDays} days`} value={r.raisedInWindow}
-        hint={`${r.unpromptedInWindow} without being asked`}
+        size="sm" label="Nobody answered" value={r.expiredUndecided.length}
+        deltaTone={r.expiredUndecided.length ? 'crit' : 'ok'} hint="the decision window closed"
       />
+      <Metric size="sm" label="Value delivered" value={usd(r.realisedUsd)} hint={`${usd(r.projectedUsd)} was projected`} />
       <Metric
-        size="sm" label="Dimensions covered"
-        value={r.reference ? `${covered}/${r.dimensions.length}` : '—'}
-        deltaTone={r.reference ? (r.silentDimensions.length ? 'warn' : 'ok') : 'neutral'}
-        hint={r.reference ? `${r.silentDimensions.length} silent` : 'none filed in the contract'}
-      />
-      <Metric size="sm" label="Awaiting a decision" value={r.awaitingDecision.length} />
-      <Metric
-        size="sm" label="Expired undecided" value={r.expiredUndecided.length}
-        deltaTone={r.expiredUndecided.length ? 'crit' : 'ok'} hint="never answered"
-      />
-      <Metric size="sm" label="Value realised" value={usd(r.realisedUsd)} hint={`${usd(r.projectedUsd)} projected across all`} />
-      <Metric
-        size="sm" label="Realised vs projected"
+        size="sm" label="Against what we promised"
         value={r.realisedVsProjectedPct === null ? '—' : `${r.realisedVsProjectedPct.toFixed(0)}%`}
         deltaTone={r.realisedVsProjectedPct !== null && r.realisedVsProjectedPct >= 100 ? 'ok' : 'warn'}
-        hint="on everything that reached a value"
+      />
+      <Metric
+        size="sm" label="Areas with nothing suggested"
+        value={r.reference ? r.silentDimensions.length : '—'}
+        deltaTone={r.reference && r.silentDimensions.length ? 'warn' : 'ok'}
+        hint={r.reference ? `of ${r.dimensions.length} the contract names` : 'none filed in the contract'}
       />
     </Band>
   )
@@ -96,12 +94,12 @@ function DimensionsTable({ rows, windowDays, full }: { rows: DimensionReading[];
   )
 }
 
-function RecommendationsTable({ rows, full }: { rows: Recommendation[]; full: boolean }) {
+function RecommendationsTable({ rows, full, verb = 'Recommendation' }: { rows: Recommendation[]; full: boolean; verb?: string }) {
   return (
     <Table>
       <thead>
         <tr>
-          <Th>Recommendation</Th><Th>Raised by</Th>{full && <Th>From</Th>}<Th>Raised</Th>
+          <Th>{verb}</Th><Th>Raised by</Th>{full && <Th>From</Th>}<Th>Raised</Th>
           <Th align="right">Projected</Th><Th align="right">Realised</Th><Th>State</Th>
         </tr>
       </thead>
@@ -144,6 +142,9 @@ function RecommendationsTable({ rows, full }: { rows: Recommendation[]; full: bo
 function RecommendationsBody({ props, size }: CardProps) {
   const r = useLedger(props)
   const focus = String(props.focus ?? '')
+  // What someone can still act on, and what is already settled.
+  const live = r.all.filter((x) => x.progress === 'open' || x.progress === 'accepted')
+  const closed = r.all.filter((x) => !live.includes(x))
 
   if (size !== 'page') {
     if (focus === 'recommendations') {
@@ -160,29 +161,20 @@ function RecommendationsBody({ props, size }: CardProps) {
   return (
     <>
       <Card
-        title="What the contract asks us to improve"
-        subtitle={r.reference
-          ? `${r.dimensions.length} dimensions · ${r.reference} · ${r.silentDimensions.length} silent for ${r.windowDays} days`
-          : `${r.engagement.client} files no improvement dimensions, so cadence is not scored`}
-        right={<TrendingUp size={13} className="text-ink-3" />}
+        title="What we are recommending"
+        subtitle={`${live.length} on the table · ${live.filter((x) => x.standing).length} of them defects standing in the estate right now`}
+        right={<Lightbulb size={13} className="text-ink-3" />}
       >
-        {r.reference
-          ? <DimensionsTable rows={r.dimensions} windowDays={r.windowDays} full />
-          : (
-            <Table>
-              <thead><tr><Th>Not filed</Th></tr></thead>
-              <tbody><Tr><Td className="text-2xs text-ink-3">No clause names the dimensions recommendations are owed against.</Td></Tr></tbody>
-            </Table>
-          )}
+        <RecommendationsTable rows={live} full verb="What we suggest doing" />
       </Card>
 
       <Card
         className="mt-4"
-        title="Every recommendation"
-        subtitle={`${r.all.length} across both registers and the estate watch · ${r.raisedInWindow} in the last ${r.windowDays} days · ${r.unpromptedInWindow} unprompted`}
-        right={<Lightbulb size={13} className="text-ink-3" />}
+        title="What came of the earlier ones"
+        subtitle={`${closed.length} decided, delivered or lapsed · ${usd(r.realisedUsd)} delivered against ${usd(r.projectedUsd)} projected`}
+        right={<TrendingUp size={13} className="text-ink-3" />}
       >
-        <RecommendationsTable rows={r.all} full />
+        <RecommendationsTable rows={closed} full verb="What we suggested" />
       </Card>
 
       <Card
@@ -232,6 +224,24 @@ function RecommendationsBody({ props, size }: CardProps) {
           </Table>
         )}
       </Card>
+
+      <Card
+        className="mt-4"
+        title="Cover against the contract"
+        subtitle={r.reference
+          ? `${r.dimensions.length} areas the contract names · ${r.reference}`
+          : `${r.engagement.client} files no improvement areas, so this is not scored`}
+        right={<TrendingUp size={13} className="text-ink-3" />}
+      >
+        {r.reference
+          ? <DimensionsTable rows={r.dimensions} windowDays={r.windowDays} full />
+          : (
+            <Table>
+              <thead><tr><Th>Not filed</Th></tr></thead>
+              <tbody><Tr><Td className="text-2xs text-ink-3">No clause names the areas recommendations are owed against.</Td></Tr></tbody>
+            </Table>
+          )}
+      </Card>
     </>
   )
 }
@@ -241,7 +251,7 @@ export const recommendationsView: ArtifactView = {
   Metrics: RecommendationMetrics,
   page: {
     title: 'Recommendations',
-    subtitle: 'What was proposed without being asked, against the dimensions the contract names, and what the delivered ones returned',
+    subtitle: 'What we are suggesting the client does, what came of the earlier ones, and whether every area the contract names has had something said about it',
     agents: ['agt_prospect', 'agt_herald'],
     what: 'reading both registers against the client’s own dimensions',
   },
