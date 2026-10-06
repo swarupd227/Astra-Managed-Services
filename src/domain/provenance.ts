@@ -57,6 +57,13 @@ export interface DataSet {
 
 export const DATASETS: DataSet[] = [
   {
+    id: 'ds_engagement', name: 'The engagement’s own terms', origin: 'client_extract',
+    source: 'Azure Database for PostgreSQL: the contract, regime, service lines, stated thresholds and filed areas, read once at start-up — there is no compiled copy to fall back to',
+    routes: ['/governance/acceleration', '/governance/commitments', '/governance/procedures', '/governance/recommendations'],
+    caution: 'A term changes by changing the row; if the database cannot be read the platform does not start rather than running on a stale copy',
+    maturity: 'live',
+  },
+  {
     id: 'ds_tickets', name: 'Incidents, requests, problems and catalogue tasks', origin: 'client_extract',
     source: 'Attachment C.3 — Volumes.xlsx, tabs I1–I4: 28,028 incidents, 63,350 requests, 49 problem records, 3,195 catalogue tasks',
     asOf: '2026-06-05',
@@ -199,7 +206,7 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_improvement_dimensions', name: 'The improvement dimensions recommendations are owed against', origin: 'client_extract',
-    source: 'Table 1 — Enterprise Data Platform, Data Governance & Quality, and Data Integration & Pipelines, item 1: the six the clause names, in the client’s own words',
+    source: 'Read from the engagement database at start-up, as filed at Table 1 — Enterprise Data Platform, Data Governance & Quality, and Data Integration & Pipelines, item 1: the six the clause names, in the client’s own words',
     asOf: '2026-08-31',
     routes: ['/governance/recommendations'],
     caution: 'Cadence is scored against this list alone; an engagement that files none is not scored at all',
@@ -214,7 +221,7 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_procedure_areas', name: 'The procedure areas the contract requires', origin: 'client_extract',
-    source: 'Attachment B.3 — Application Management, item 1: the eleven areas in the client’s own words and order',
+    source: 'Read from the engagement database at start-up, as filed at Attachment B.3 — Application Management, item 1: the eleven areas in the client’s own words and order',
     asOf: '2026-08-31',
     routes: ['/governance/procedures'],
     caution: 'Coverage is reported against this list only once somebody adopts it against the clause; until then nothing is scored',

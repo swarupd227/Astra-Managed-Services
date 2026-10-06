@@ -1,4 +1,4 @@
-import { BUNDLES } from './estate'
+import { configuredEngagements } from './config'
 import type { Thresholds } from './thresholds'
 
 /* ==========================================================================
@@ -142,76 +142,14 @@ export interface Engagement {
   note: string
 }
 
-export const ENGAGEMENTS: Engagement[] = [
-  {
-    id: 'eng_kearney',
-    client: 'Kearney',
-    industry: 'Management consulting',
-    regions: 'Global · 40 offices',
-    currency: 'USD',
-    serviceLines: BUNDLES.map((b) => ({
-      id: b.id,
-      name: b.name,
-      packId: { B1: 'pack_workplace', B2: 'pack_infra', B3: 'pack_apps', B4: 'pack_data', B5: 'pack_cross' }[b.id] ?? 'pack_cross',
-    })),
-    regime: { name: 'GDPR', responseDays: 30, extensionDays: 60, clientNoticeHrs: 24, regulatorNoticeHrs: 72, adequate: ['EEA', 'UK', 'CH', 'JP', 'KR', 'CA', 'NZ', 'IL'] },
-    stage: 'run',
-    contract: { termMonths: 60, startsAt: '2026-04-01', baselineHrsPerYear: 214_000, costReductionPct: 12 },
-    // Attachment B.3, Application Management, item 1 — the client's own words
-    // and order. The eleven it names; nothing added, nothing renamed.
-    procedureAreas: {
-      reference: 'Attachment B.3 — Application Management, item 1',
-      areas: [
-        { id: 'ka_triage', name: 'Incident triage', standardId: 'sa_triage' },
-        { id: 'ka_escalation', name: 'Escalation', standardId: 'sa_escalation' },
-        { id: 'ka_corrective', name: 'Corrective maintenance', standardId: 'sa_corrective' },
-        { id: 'ka_problem', name: 'Problem management', standardId: 'sa_problem' },
-        { id: 'ka_release', name: 'Release support', standardId: 'sa_release' },
-        { id: 'ka_regression', name: 'Regression testing', standardId: 'sa_regression' },
-        { id: 'ka_patching', name: 'Patching', standardId: 'sa_patching' },
-        { id: 'ka_saas', name: 'SaaS coordination', standardId: 'sa_saas' },
-        { id: 'ka_config', name: 'Configuration changes', standardId: 'sa_config' },
-        { id: 'ka_knowledge', name: 'Knowledge capture', standardId: 'sa_knowledge' },
-        { id: 'ka_handoff', name: 'Service handoffs', standardId: 'sa_handoff' },
-      ],
-    },
-    // Table 1, item 1 — the six the clause names, in the client's own words.
-    improvementDimensions: {
-      reference: 'Table 1 — Enterprise Data Platform, Data Governance & Quality, and Data Integration & Pipelines, item 1',
-      items: [
-        { id: 'kd_capability', name: 'Platform capabilities', standardId: 'platform_capability' },
-        { id: 'kd_quality', name: 'Data quality', standardId: 'data_quality' },
-        { id: 'kd_automation', name: 'Automation', standardId: 'automation' },
-        { id: 'kd_performance', name: 'Performance', standardId: 'performance' },
-        { id: 'kd_security', name: 'Security', standardId: 'security' },
-        { id: 'kd_efficiency', name: 'Operational efficiency', standardId: 'operational_efficiency' },
-      ],
-    },
-    // Stated in the contract; everything else takes the platform default.
-    thresholds: { recommendationWindowDays: 90, procedureReviewDays: 180 },
-    ingested: { contract: true, inventory: true, tickets: true, estate: true, telemetry: true },
-    note: 'Towers in Run; two still in transition',
-  },
-  {
-    id: 'eng_harbour',
-    client: 'Harbour Mutual',
-    industry: 'Insurance',
-    regions: 'Singapore, United Kingdom',
-    currency: 'SGD',
-    serviceLines: [
-      { id: 'L1', name: 'Application Services', packId: 'pack_apps' },
-      { id: 'L2', name: 'Cloud & Platform', packId: 'pack_infra' },
-      { id: 'L3', name: 'Data & Analytics', packId: 'pack_data' },
-      { id: 'L4', name: 'Security Operations', packId: 'pack_security' },
-    ],
-    regime: { name: 'PDPA + UK GDPR', responseDays: 30, extensionDays: 30, clientNoticeHrs: 12, regulatorNoticeHrs: 72, adequate: ['UK', 'EEA', 'SG'] },
-    stage: 'bid',
-    contract: { termMonths: 36, startsAt: '2027-07-01', baselineHrsPerYear: null, costReductionPct: null },
-    thresholds: { recommendationWindowDays: 60, procedureReviewDays: 90, recurringClusterThreshold: 5 },
-    ingested: { contract: true, inventory: false, tickets: false, estate: false, telemetry: false },
-    note: 'Bid stage: contract terms loaded, no estate ingested',
-  },
-]
+/**
+ * The engagements, as the database held them when the application started.
+ *
+ * These were literals here until the contract moved into Postgres. Nothing
+ * about them is compiled in any more: a term changes by changing the row,
+ * and there is no second copy to disagree with it.
+ */
+export const ENGAGEMENTS: Engagement[] = configuredEngagements()
 
 export const ENGAGEMENT_BY_ID = Object.fromEntries(ENGAGEMENTS.map((e) => [e.id, e])) as Record<string, Engagement>
 
@@ -219,7 +157,7 @@ export const ENGAGEMENT_BY_ID = Object.fromEntries(ENGAGEMENTS.map((e) => [e.id,
  * The engagement the operational surfaces read. One estate is ingested, so
  * there is one answer to this and the platform does not pretend otherwise.
  */
-export const ENGAGEMENT: Engagement = ENGAGEMENT_BY_ID.eng_kearney
+export const ENGAGEMENT: Engagement = ENGAGEMENTS.find((e) => e.ingested.estate) ?? ENGAGEMENTS[0]
 
 export const packsOf = (e: Engagement): ServicePack[] =>
   [...new Set(e.serviceLines.map((l) => l.packId))].map((id) => PACK_BY_ID[id]).filter(Boolean)
