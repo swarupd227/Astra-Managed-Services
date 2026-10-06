@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, BarChart3, CalendarCheck2, ChevronDown, FileSignature, MessageSquare, RefreshCw, Sparkles } from 'lucide-react'
+import { readRecommendations } from '@/domain/recommendations'
 import { CLIENT, TOWERS } from '@/domain/estate'
 import { DECISIONS, INNOVATION, OBLIGATIONS, SLAS, TRANSFORM, bankedHours } from '@/domain/ledgers'
 import { useAstra } from '@/domain/store'
@@ -176,6 +177,10 @@ export function ExecutiveHome() {
   }, [run])
 
   const { argument, asks } = splitBrief(text)
+  const recs = readRecommendations()
+  const live = recs.all.filter((r) => r.progress === 'open' || r.progress === 'accepted')
+  const standing = live.filter((r) => r.standing)
+  const expired = recs.expiredUndecided
   const awaiting = openDecisions.length + overdueObligations.length + openProposals.length
 
   return (
@@ -252,6 +257,27 @@ export function ExecutiveHome() {
 
           {/* §A3.2 — decisions are the destination. The executive discharges
               governance from the briefing itself. */}
+          {/* What the service is suggesting, where the person who decides already is. */}
+          <Card
+            className="mb-4"
+            title="What we are recommending"
+            subtitle={`${live.length} on the table · ${standing.length} are defects standing in the estate · ${expired.length} expired without an answer`}
+            right={<Link to="/governance/recommendations"><Chip tone={expired.length ? 'crit' : 'brand'}>All {recs.all.length}</Chip></Link>}
+          >
+            <ul className="space-y-2">
+              {live.slice(0, 4).map((r) => (
+                <li key={r.id} className="rounded border border-line bg-sunken p-3">
+                  <p className="text-xs text-ink">{r.title}</p>
+                  <p className="mt-1 text-2xs text-ink-3">
+                    {r.fix ?? r.readFrom ?? 'Raised against the estate'}
+                    {r.exposure && r.exposure.consumers > 0 && ` · ${r.exposure.consumers} downstream readers exposed`}
+                    {r.projectedUsd ? ` · $${Math.round(r.projectedUsd / 1000)}k projected` : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+
           <Card
             title="Awaiting your decision"
             subtitle="Conditions, obligations and proposals"

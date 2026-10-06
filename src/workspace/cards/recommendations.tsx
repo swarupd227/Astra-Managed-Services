@@ -4,6 +4,8 @@ import {
   ORIGIN_LABEL, PROGRESS_LABEL, readRecommendations,
   type DimensionReading, type Progress, type Recommendation, type RecommendationLedger,
 } from '@/domain/recommendations'
+import { ROLE_BY_ID } from '@/domain/reference'
+import { useAstra } from '@/domain/store'
 import { Card, Chip, Hint, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
 import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
 
@@ -94,7 +96,25 @@ function DimensionsTable({ rows, windowDays, full }: { rows: DimensionReading[];
   )
 }
 
-function RecommendationsTable({ rows, full, verb = 'Recommendation' }: { rows: Recommendation[]; full: boolean; verb?: string }) {
+/**
+ * Who raised it, as the reader should see it. The client bought a service
+ * that recommends; which agent inside it did the work is ours to manage, not
+ * theirs to parse. The author stays on the record either way.
+ */
+function RaisedBy({ r, supplier }: { r: Recommendation; supplier: boolean }) {
+  const inHouse = r.origin !== 'innovation' || r.raisedBy === 'Artizent' || r.raisedBy === 'An agent'
+  const shown = supplier || !inHouse ? r.raisedBy : 'The service'
+  return (
+    <>
+      {supplier || !inHouse
+        ? shown
+        : <Hint text={`${r.raisedBy} raised it`}><span>{shown}</span></Hint>}
+      {r.unprompted && <span className="block text-[10px] text-ink-3">{r.standing ? 'standing' : 'unprompted'}</span>}
+    </>
+  )
+}
+
+function RecommendationsTable({ rows, full, verb = 'Recommendation', supplier }: { rows: Recommendation[]; full: boolean; verb?: string; supplier: boolean }) {
   return (
     <Table>
       <thead>
@@ -116,10 +136,7 @@ function RecommendationsTable({ rows, full, verb = 'Recommendation' }: { rows: R
               )}
               {full && !r.dimensionId && <span className="mt-0.5 block"><Chip tone="warn">no dimension</Chip></span>}
             </Td>
-            <Td className="whitespace-nowrap text-2xs text-ink-2">
-              {r.raisedBy}
-              {r.unprompted && <span className="block text-[10px] text-ink-3">{r.standing ? 'standing' : 'unprompted'}</span>}
-            </Td>
+            <Td className="whitespace-nowrap text-2xs text-ink-2"><RaisedBy r={r} supplier={supplier} /></Td>
             {full && <Td className="text-2xs text-ink-3">{ORIGIN_LABEL[r.origin]}</Td>}
             <Td className="tnum whitespace-nowrap text-2xs text-ink-2">
               {day(r.raisedAt)}
@@ -141,7 +158,9 @@ function RecommendationsTable({ rows, full, verb = 'Recommendation' }: { rows: R
 
 function RecommendationsBody({ props, size }: CardProps) {
   const r = useLedger(props)
+  const roleId = useAstra((s) => s.roleId)
   const focus = String(props.focus ?? '')
+  const supplier = ROLE_BY_ID[roleId]?.org === 'artizent'
   // What someone can still act on, and what is already settled.
   const live = r.all.filter((x) => x.progress === 'open' || x.progress === 'accepted')
   const closed = r.all.filter((x) => !live.includes(x))
@@ -149,11 +168,11 @@ function RecommendationsBody({ props, size }: CardProps) {
   if (size !== 'page') {
     if (focus === 'recommendations') {
       const shown = limit(r.all, size, 6)
-      return <><RecommendationsTable rows={shown} full={size === 'pane'} /><More shown={shown.length} total={r.all.length} /></>
+      return <><RecommendationsTable rows={shown} full={size === 'pane'} supplier={supplier} /><More shown={shown.length} total={r.all.length} /></>
     }
     if (!r.reference) {
       const shown = limit(r.all, size, 6)
-      return <><RecommendationsTable rows={shown} full={size === 'pane'} /><More shown={shown.length} total={r.all.length} /></>
+      return <><RecommendationsTable rows={shown} full={size === 'pane'} supplier={supplier} /><More shown={shown.length} total={r.all.length} /></>
     }
     return <DimensionsTable rows={r.dimensions} windowDays={r.windowDays} full={size === 'pane'} />
   }
@@ -165,7 +184,7 @@ function RecommendationsBody({ props, size }: CardProps) {
         subtitle={`${live.length} on the table · ${live.filter((x) => x.standing).length} of them defects standing in the estate right now`}
         right={<Lightbulb size={13} className="text-ink-3" />}
       >
-        <RecommendationsTable rows={live} full verb="What we suggest doing" />
+        <RecommendationsTable rows={live} full verb="What we suggest doing" supplier={supplier} />
       </Card>
 
       <Card
@@ -174,7 +193,7 @@ function RecommendationsBody({ props, size }: CardProps) {
         subtitle={`${closed.length} decided, delivered or lapsed · ${usd(r.realisedUsd)} delivered against ${usd(r.projectedUsd)} projected`}
         right={<TrendingUp size={13} className="text-ink-3" />}
       >
-        <RecommendationsTable rows={closed} full verb="What we suggested" />
+        <RecommendationsTable rows={closed} full verb="What we suggested" supplier={supplier} />
       </Card>
 
       <Card
