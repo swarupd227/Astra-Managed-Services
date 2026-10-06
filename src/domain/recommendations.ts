@@ -1,3 +1,4 @@
+import { dataQualityFindings, type DataQualityFinding } from './dataQualityWatch'
 import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement } from './engagement'
 import { AGENT_BY_ID } from './estate'
 import { INNOVATION } from './ledgers'
@@ -50,11 +51,12 @@ export const DIMENSION_BY_ID = Object.fromEntries(STANDARD_DIMENSIONS.map((d) =>
 
 /* ------------------------------ One recommendation --------------------------- */
 
-export type Origin = 'proposal' | 'innovation'
+export type Origin = 'proposal' | 'innovation' | 'watch'
 
 export const ORIGIN_LABEL: Record<Origin, string> = {
   proposal: 'Raised against the estate',
   innovation: 'Innovation register',
+  watch: 'Standing finding from the estate watch',
 }
 
 /** Where a recommendation has got to. Both books' states, said once. */
@@ -75,6 +77,16 @@ export interface Recommendation {
   id: string
   origin: Origin
   title: string
+  /**
+   * A condition that holds rather than an idea somebody had: re-stated for as
+   * long as it is true, and gone when it is fixed.
+   */
+  standing?: boolean
+  /** What the finding was read from, and what ends it. */
+  readFrom?: string
+  fix?: string
+  /** Downstream readers exposed by the condition. */
+  exposure?: { consumers: number; largestAudience: number | null }
   /** The standard dimension it serves, or null where nobody has said. */
   dimensionId: string | null
   /** The agent or person it came from. */
@@ -145,6 +157,35 @@ function fromInnovation(i: InnovationItem, nowMs: number): Recommendation {
   }
 }
 
+/**
+ * Custodian's standing findings about data quality. They are dated now
+ * because the watch ran now and the condition holds now — not because
+ * somebody chose today to mention it.
+ */
+function fromWatch(f: DataQualityFinding, nowMs: number): Recommendation {
+  return {
+    id: f.id,
+    origin: 'watch',
+    title: f.title,
+    standing: true,
+    readFrom: f.readFrom,
+    fix: f.fix,
+    exposure: { consumers: f.consumersExposed, largestAudience: f.largestAudience },
+    dimensionId: 'data_quality',
+    raisedBy: AGENT_BY_ID.agt_custodian?.name ?? 'Custodian',
+    unprompted: true,
+    raisedAt: new Date(nowMs).toISOString(),
+    ageDays: 0,
+    progress: 'open',
+    // No currency figure: the estate register counts items and readers, and a
+    // value derived from those would be asserted rather than measured.
+    projectedUsd: null,
+    realisedUsd: null,
+    expiresAt: null,
+    route: '/operate/data',
+  }
+}
+
 /* --------------------------------- Readings ---------------------------------- */
 
 export interface DimensionReading {
@@ -200,6 +241,7 @@ export function readRecommendations(
   const all = [
     ...PROPOSALS.map((p) => fromProposal(p, nowMs)),
     ...INNOVATION.map((i) => fromInnovation(i, nowMs)),
+    ...dataQualityFindings().map((f) => fromWatch(f, nowMs)),
   ].sort((a, b) => (b.raisedAt ?? '').localeCompare(a.raisedAt ?? ''))
 
   const inWindow = (r: Recommendation) => r.ageDays !== null && r.ageDays <= windowDays

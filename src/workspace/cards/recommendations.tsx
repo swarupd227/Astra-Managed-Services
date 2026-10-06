@@ -110,11 +110,17 @@ function RecommendationsTable({ rows, full }: { rows: Recommendation[]; full: bo
           <Tr key={r.id}>
             <Td className="max-w-[320px] text-2xs text-ink">
               {r.title}
+              {full && r.exposure && r.exposure.consumers > 0 && (
+                <span className="block text-[10px] text-ink-3">
+                  {r.exposure.consumers} downstream reader{r.exposure.consumers === 1 ? '' : 's'} exposed
+                  {r.exposure.largestAudience ? `, largest audience ${r.exposure.largestAudience.toLocaleString('en-GB')}` : ''} · {r.fix}
+                </span>
+              )}
               {full && !r.dimensionId && <span className="mt-0.5 block"><Chip tone="warn">no dimension</Chip></span>}
             </Td>
             <Td className="whitespace-nowrap text-2xs text-ink-2">
               {r.raisedBy}
-              {r.unprompted && <span className="block text-[10px] text-ink-3">unprompted</span>}
+              {r.unprompted && <span className="block text-[10px] text-ink-3">{r.standing ? 'standing' : 'unprompted'}</span>}
             </Td>
             {full && <Td className="text-2xs text-ink-3">{ORIGIN_LABEL[r.origin]}</Td>}
             <Td className="tnum whitespace-nowrap text-2xs text-ink-2">
@@ -173,7 +179,7 @@ function RecommendationsBody({ props, size }: CardProps) {
       <Card
         className="mt-4"
         title="Every recommendation"
-        subtitle={`${r.all.length} across both registers · ${r.raisedInWindow} in the last ${r.windowDays} days · ${r.unpromptedInWindow} unprompted`}
+        subtitle={`${r.all.length} across both registers and the estate watch · ${r.raisedInWindow} in the last ${r.windowDays} days · ${r.unpromptedInWindow} unprompted`}
         right={<Lightbulb size={13} className="text-ink-3" />}
       >
         <RecommendationsTable rows={r.all} full />

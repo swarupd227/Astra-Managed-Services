@@ -207,7 +207,7 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_recommendations', name: 'Recommendations raised, and what they returned', origin: 'seeded',
-    source: 'Two demonstration registers read as one: six unprompted agent proposals about the estate, and eleven innovation items from idea to verified value with realised figures',
+    source: 'Two demonstration registers and one live watch, read as one: six unprompted agent proposals, eleven innovation items with realised figures, and Custodian’s standing data-quality findings computed from the estate register itself',
     routes: ['/governance/recommendations', '/governance/proposals'],
     caution: 'The recommendations are seeded; the cadence window, the expiry clocks and the realised-against-projected arithmetic are computed',
     maturity: 'live',
