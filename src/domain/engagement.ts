@@ -1,4 +1,5 @@
 import { BUNDLES } from './estate'
+import type { Thresholds } from './thresholds'
 
 /* ==========================================================================
    The engagement — one client's contract, scope and regime, held as data.
@@ -131,6 +132,11 @@ export interface Engagement {
    * authority. An engagement that files none is not scored for cadence.
    */
   improvementDimensions?: { reference: string; items: FiledItem[] }
+  /**
+   * Operating thresholds this contract states, overriding the platform's
+   * defaults. See `src/domain/thresholds.ts` for what each one moves.
+   */
+  thresholds?: Partial<Thresholds>
   ingested: Ingested
   /** Why the engagement is where it is, in one clause. */
   note: string
@@ -181,6 +187,8 @@ export const ENGAGEMENTS: Engagement[] = [
         { id: 'kd_efficiency', name: 'Operational efficiency', standardId: 'operational_efficiency' },
       ],
     },
+    // Stated in the contract; everything else takes the platform default.
+    thresholds: { recommendationWindowDays: 90, procedureReviewDays: 180 },
     ingested: { contract: true, inventory: true, tickets: true, estate: true, telemetry: true },
     note: 'Towers in Run; two still in transition',
   },
@@ -199,6 +207,7 @@ export const ENGAGEMENTS: Engagement[] = [
     regime: { name: 'PDPA + UK GDPR', responseDays: 30, extensionDays: 30, clientNoticeHrs: 12, regulatorNoticeHrs: 72, adequate: ['UK', 'EEA', 'SG'] },
     stage: 'bid',
     contract: { termMonths: 36, startsAt: '2027-07-01', baselineHrsPerYear: null, costReductionPct: null },
+    thresholds: { recommendationWindowDays: 60, procedureReviewDays: 90, recurringClusterThreshold: 5 },
     ingested: { contract: true, inventory: false, tickets: false, estate: false, telemetry: false },
     note: 'Bid stage: contract terms loaded, no estate ingested',
   },

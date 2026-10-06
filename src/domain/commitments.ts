@@ -11,6 +11,7 @@ import { clustersWithCause, historyFor, recurring, refusal, themeOf, type Deriva
 import type { FleetLifecycle } from './agentLifecycle'
 import { readProcedures, type AreaLoad, type Review } from './procedures'
 import { readRecommendations } from './recommendations'
+import { thresholdsFor } from './thresholds'
 // Type only: the pack reads the commitment register, and this must not become a cycle.
 import type { PackExport } from './successorPack'
 import { NOW, WORK_OBJECTS } from './workSeed'
@@ -316,7 +317,8 @@ export const MEASURES: Record<string, Measure> = {
     read: ({ nowMs, packExports }) => {
       // Produced, not promised: only a pack that was actually built counts, and
       // only while it is less than a year old.
-      const within = (packExports ?? []).filter((e) => nowMs - Date.parse(e.at) <= 365 * 86_400_000)
+      const every = thresholdsFor().successorPackEveryDays
+      const within = (packExports ?? []).filter((e) => nowMs - Date.parse(e.at) <= every * 86_400_000)
       const last = [...(packExports ?? [])].sort((a, b) => b.at.localeCompare(a.at))[0]
       return {
         value: within.length,

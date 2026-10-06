@@ -1,3 +1,5 @@
+import { thresholdsFor } from './thresholds'
+
 /* ==========================================================================
    The ticket history ingested for an engagement.
 
@@ -228,8 +230,11 @@ export const refusal = (h: TicketHistory, what: Derivable): string | null =>
 export const themeOf = (h: TicketHistory, id: string): DemandTheme | null => h.themes.find((t) => t.id === id) ?? null
 
 /** Clusters at or above the threshold a problem record is expected at. */
-export const recurring = (h: TicketHistory, atLeast = 10): Cluster[] => h.clusters.filter((c) => c.incidents >= atLeast)
+export const recurring = (h: TicketHistory, atLeast?: number): Cluster[] => {
+  const floor = atLeast ?? thresholdsFor(h.engagementId).recurringClusterThreshold
+  return h.clusters.filter((c) => c.incidents >= floor)
+}
 
 /** Clusters whose cause is carried by a costed demand class. */
-export const clustersWithCause = (h: TicketHistory, atLeast = 10): Cluster[] =>
+export const clustersWithCause = (h: TicketHistory, atLeast?: number): Cluster[] =>
   recurring(h, atLeast).filter((c) => Boolean(c.classId))

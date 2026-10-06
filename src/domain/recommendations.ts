@@ -3,6 +3,7 @@ import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement } from './engagement'
 import { AGENT_BY_ID } from './estate'
 import { INNOVATION } from './ledgers'
 import { PROPOSALS, proposalValue, type Proposal } from './proposals'
+import { thresholdsFor } from './thresholds'
 import { NOW } from './workSeed'
 import type { InnovationItem } from './types'
 
@@ -228,7 +229,6 @@ export interface RecommendationLedger {
   notInContract: StandardDimension[]
 }
 
-export const CADENCE_WINDOW_DAYS = 90
 
 export function readRecommendations(
   opts: { engagementId?: string; nowMs?: number; windowDays?: number } = {},
@@ -236,7 +236,7 @@ export function readRecommendations(
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
   const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
   const nowMs = opts.nowMs ?? NOW.getTime()
-  const windowDays = opts.windowDays ?? CADENCE_WINDOW_DAYS
+  const windowDays = opts.windowDays ?? thresholdsFor(engagementId).recommendationWindowDays
 
   const all = [
     ...PROPOSALS.map((p) => fromProposal(p, nowMs)),
