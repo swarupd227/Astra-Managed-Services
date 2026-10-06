@@ -19,6 +19,8 @@ import { PHASE_FUNCTION, PHASE_PURPOSE, REGISTRY_FILE, currency, loadRegistry, p
 import { classifyInjection } from './injection.mjs'
 import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } from './converse.mjs'
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
+import { configured as dbConfigured, ping } from './db.mjs'
+import { readEngagements } from './config.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -727,8 +729,9 @@ http
     const url = req.url ?? ''
 
     if (req.method === 'GET' && url === '/api/agent/health') {
-      return json(res, 200, {
+      return ping().then((database) => json(res, 200, {
         ok: true,
+        database: { configured: dbConfigured, ...database },
         configured: Boolean(client),
         source: keySource,
         maskedKey: mask(apiKey),
@@ -741,7 +744,19 @@ http
           servedModelApproved: resolveSystem(registry, MODEL, null).ok,
         },
         suspendedFunctions: [...suspendedFunctions],
-      })
+      }))
+    }
+
+    // The engagements, read from the database. There is no compiled copy to
+    // fall back to: a failure here is reported and the application does not
+    // start, rather than quietly running on terms nobody can change.
+    if (req.method === 'GET' && url === '/api/config') {
+      return readEngagements()
+        .then((engagements) => json(res, 200, { engagements }))
+        .catch((err) => json(res, 503, {
+          error: 'The configuration could not be read from the database.',
+          detail: err instanceof Error ? err.message : String(err),
+        }))
     }
 
     if (req.method === 'GET' && url === '/api/agent/registry') {
