@@ -6,7 +6,7 @@ import { buildPack, manifestOf, type PackExport } from './successorPack'
 import type { Settlement } from './exit'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
-import { appendRecord, verifyChain, type ChainVerification } from './evidence'
+import { appendRecord, sealChain, verifyChain, type ChainVerification } from './evidence'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
 import { AGENTS, TOWER_BY_ID } from './estate'
@@ -227,6 +227,67 @@ function nowIso(offsetMins: number) {
   return new Date(NOW.getTime() + offsetMins * 60000).toISOString()
 }
 
+/* --------------------------- Surviving a refresh ---------------------------- */
+
+/**
+ * What a person did here, kept across a reload.
+ *
+ * The line is drawn at records rather than at state. Everything a person
+ * recorded through a confirmed action — a privacy notice, a destruction
+ * certificate, a commitment remedy, a client directive, a successor pack, an
+ * adopted list of procedure areas, a procedure review — is an append-only
+ * register and survives. The simulated estate does not: work items, runs and
+ * agents are regenerated from their seeds and change on every tick, so
+ * writing them to storage every second would be both wasteful and a lie
+ * about what the platform is.
+ *
+ * The evidence chain is stored as its tail alone and re-sealed against the
+ * seeded backbone on load, so the hashes stay arithmetic rather than
+ * remembered — a chain that loaded its own hashes from storage could not
+ * detect that storage had been edited.
+ */
+const SESSION_KEY = 'astra.session.v1'
+
+interface SessionRecords {
+  privacyLog: LoggedAction[]
+  incidentNotices: IncidentNotice[]
+  exitLog: Settlement[]
+  commitmentLog: Remedy[]
+  clientDirectives: Directive[]
+  packExports: PackExport[]
+  areaLoads: AreaLoad[]
+  procedureReviews: Review[]
+  /** Appended since the seeded backbone, without their hashes. */
+  evidenceTail: Omit<EvidenceRecord, 'hash' | 'prevHash' | 'tampered'>[]
+}
+
+const EMPTY_SESSION: SessionRecords = {
+  privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
+  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], evidenceTail: [],
+}
+
+function loadSession(): SessionRecords {
+  if (typeof localStorage === 'undefined') return EMPTY_SESSION
+  try {
+    const raw = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as Partial<SessionRecords> | null
+    if (!raw) return EMPTY_SESSION
+    // Each key is taken only if it is still an array: a half-written or
+    // out-of-date store loses that register rather than the whole session.
+    return Object.fromEntries(
+      (Object.keys(EMPTY_SESSION) as (keyof SessionRecords)[]).map((k) => [k, Array.isArray(raw[k]) ? raw[k] : EMPTY_SESSION[k]]),
+    ) as unknown as SessionRecords
+  } catch {
+    return EMPTY_SESSION
+  }
+}
+
+const SESSION = loadSession()
+
+/** The chain as it stands: the seeded backbone, then anything this browser appended. */
+const hydratedEvidence = SESSION.evidenceTail.length
+  ? sealChain([...PRISTINE_EVIDENCE, ...SESSION.evidenceTail])
+  : PRISTINE_EVIDENCE
+
 /** Advances a work object one lifecycle step. Used by the simulation. */
 const NEXT_STATE: Partial<Record<WorkState, WorkState>> = {
   detected: 'triaged',
@@ -295,19 +356,19 @@ export const useAstra = create<State>((set, get) => ({
 
   work: byId(WORK_OBJECTS),
   runs: byId(RUNS),
-  evidence: PRISTINE_EVIDENCE,
+  evidence: hydratedEvidence,
   assertions: ASSERTIONS,
   agents: byId(AGENTS),
   missions: byId(MISSIONS),
   proposals: byId(PROPOSALS),
-  privacyLog: [],
-  incidentNotices: [],
-  exitLog: [],
-  commitmentLog: [],
-  clientDirectives: [],
-  packExports: [],
-  areaLoads: [],
-  procedureReviews: [],
+  privacyLog: SESSION.privacyLog,
+  incidentNotices: SESSION.incidentNotices,
+  exitLog: SESSION.exitLog,
+  commitmentLog: SESSION.commitmentLog,
+  clientDirectives: SESSION.clientDirectives,
+  packExports: SESSION.packExports,
+  areaLoads: SESSION.areaLoads,
+  procedureReviews: SESSION.procedureReviews,
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1630,3 +1691,56 @@ export const useApprovalCount = () =>
 
 export const useOpenWork = () =>
   useAstra(useShallow((s) => Object.values(s.work).filter((w) => !['resolved', 'learned'].includes(w.state))))
+
+/* ---------------------------- Saving what was done --------------------------- */
+
+/**
+ * The registers are written back whenever one of them changes. They change on
+ * a confirmed action and at no other time, so this costs nothing on a tick:
+ * the identity check below is what keeps the simulation's own churn out of
+ * storage entirely.
+ */
+const SAVED_KEYS = [
+  'privacyLog', 'incidentNotices', 'exitLog', 'commitmentLog',
+  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews',
+] as const
+
+let lastSaved: Record<string, unknown> = Object.fromEntries(
+  SAVED_KEYS.map((k) => [k, useAstra.getState()[k]]),
+)
+let lastEvidenceLength = useAstra.getState().evidence.length
+
+/** Everything the chain has gained since the seeded backbone, without its hashes. */
+function evidenceTail(evidence: EvidenceRecord[]) {
+  return evidence.slice(PRISTINE_EVIDENCE.length).map(({ hash, prevHash, tampered, ...rest }) => rest)
+}
+
+if (typeof localStorage !== 'undefined') {
+  useAstra.subscribe((state) => {
+    const changed = SAVED_KEYS.some((k) => state[k] !== lastSaved[k]) || state.evidence.length !== lastEvidenceLength
+    if (!changed) return
+    lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]]))
+    lastEvidenceLength = state.evidence.length
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        ...Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]])),
+        evidenceTail: evidenceTail(state.evidence),
+      }))
+    } catch {
+      // A full or blocked store must not take the session down with it: the
+      // records stay in memory and simply do not outlive the tab.
+    }
+  })
+}
+
+/** Forgets what this browser recorded, leaving the seeded estate as it was. */
+export function clearSessionRecords() {
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(SESSION_KEY)
+  lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, [] as unknown]))
+  lastEvidenceLength = PRISTINE_EVIDENCE.length
+  useAstra.setState({
+    privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
+    clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [],
+    evidence: PRISTINE_EVIDENCE,
+  })
+}

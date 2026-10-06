@@ -125,6 +125,12 @@
       }
     },
     {
+      "name": "reset_session_records", "agent": "astra", "surfaces": ["governance", "platform"], "mutating": true, "approval": true,
+      "description": "Forget everything recorded in this browser — privacy notices, returns and destruction certificates, commitment remedies, the client's directives over the workforce, successor packs produced, adopted procedure areas and procedure reviews — and return the evidence chain to its seeded backbone. The seeded estate is untouched: this clears what a person did here, not what the platform holds. Irreversible, and worth confirming out loud before a demonstration is repeated.",
+      "describe": "Forget everything recorded in this browser and return the evidence chain to its backbone.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
       "name": "get_recommendations", "agent": "agt_prospect", "surfaces": ["governance", "transform", "run"],
       "description": "What the service proposed without being asked, read across both registers — agents' unprompted proposals about the estate and the innovation register — against the improvement dimensions the client's contract names. Per dimension: how many recommendations in the cadence window, how many in total, how long since the last one, the value realised, and whether it has gone silent. Per recommendation: what it is, who raised it and whether they were asked, when, what it projected and what it actually returned, and whether it is open, accepted, delivered, realised, declined or expired without anyone deciding. Also the two figures that cut both ways: dimensions nothing has been raised on, which is the supplier's to answer for, and recommendations that expired undecided, which is the client's. An engagement whose contract files no dimensions is not scored for cadence.",
       "input_schema": {

@@ -24,10 +24,10 @@ import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
 import { AGENTS, AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
 import { INCIDENTS, holdsOn, privacySummary, readIncident, readRequest, REQUESTS } from '@/domain/privacy'
-import { NOW } from '@/domain/workSeed'
+import { EVIDENCE as SEEDED_EVIDENCE, NOW } from '@/domain/workSeed'
 import { ACTION_CLASSES, MODE_TO_LEVEL, ROLE_BY_ID } from '@/domain/reference'
 import { releaseSummary } from '@/domain/releases'
-import { useAstra } from '@/domain/store'
+import { clearSessionRecords, useAstra } from '@/domain/store'
 import { debtSummary } from '@/domain/techDebt'
 import type { WorkObject } from '@/domain/types'
 import { describeAgent, describeChecks, describeFleet, findReading, readReadiness } from './readiness'
@@ -383,6 +383,31 @@ export const EXECUTORS: Record<string, Executor> = {
           : { source: 'Not ingested', willNotSupport: (h?.cannot ?? []).map((c) => ({ what: DERIVABLE_LABEL[c.what], because: c.because })) },
       },
       artifacts: [card('commitments', `${l.engagement.client} · commitments`, { engagement: engagementId, ...(status ? { status } : {}) }, '/governance/commitments')],
+    }
+  },
+
+  reset_session_records: () => {
+    const s = useAstra.getState()
+    const cleared = {
+      privacyActions: s.privacyLog.length,
+      incidentNotices: s.incidentNotices.length,
+      returnsAndDestructions: s.exitLog.length,
+      commitmentRemedies: s.commitmentLog.length,
+      clientDirectives: s.clientDirectives.length,
+      successorPacks: s.packExports.length,
+      procedureAreaAdoptions: s.areaLoads.length,
+      procedureReviews: s.procedureReviews.length,
+      evidenceRecordsAppended: Math.max(0, s.evidence.length - SEEDED_EVIDENCE.length),
+    }
+    clearSessionRecords()
+    return {
+      payload: {
+        cleared,
+        total: Object.values(cleared).reduce((n, x) => n + x, 0),
+        seededEstateUntouched: true,
+        evidenceRecords: useAstra.getState().evidence.length,
+      },
+      artifacts: [],
     }
   },
 
