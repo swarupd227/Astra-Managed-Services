@@ -21,6 +21,7 @@ import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } f
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
 import { configured as dbConfigured, ping } from './db.mjs'
 import { readEngagements } from './config.mjs'
+import { appendRecords, readRecords } from './records.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -759,6 +760,14 @@ http
         }))
     }
 
+    // What people have recorded, for the engagement the browser is reading.
+    if (req.method === 'GET' && url.startsWith('/api/records')) {
+      const id = new URL(url, 'http://local').searchParams.get('engagement') ?? ''
+      return readRecords(id)
+        .then((registers) => json(res, 200, { engagement: id, registers }))
+        .catch((err) => json(res, 503, { error: 'The records could not be read.', detail: String(err?.message ?? err) }))
+    }
+
     if (req.method === 'GET' && url === '/api/agent/registry') {
       return json(res, 200, publicView(registry, MODEL))
     }
@@ -841,6 +850,14 @@ http
           } catch (err) {
             return json(res, 200, { ok: false, error: err?.message ?? String(err) })
           }
+        }
+
+        if (url === '/api/records') {
+          const { engagement, registers, by, role } = body ?? {}
+          if (!engagement || !registers) return json(res, 400, { error: 'An engagement and its registers are required.' })
+          return appendRecords(String(engagement), registers, String(by ?? 'unknown'), String(role ?? 'unknown'))
+            .then((added) => json(res, 200, { added }))
+            .catch((err) => json(res, 503, { error: 'The records could not be written.', detail: String(err?.message ?? err) }))
         }
 
         if (url === '/api/agent/classify') {

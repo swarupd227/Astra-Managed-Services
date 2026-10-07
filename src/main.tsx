@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'
-import { setConfig } from './domain/config'
+import { setConfig, setRecords } from './domain/config'
 import type { Engagement } from './domain/engagement'
 
 /* ==========================================================================
@@ -43,6 +43,18 @@ async function start() {
   }
   const { engagements } = (await res.json()) as { engagements: Engagement[] }
   setConfig(engagements)
+
+  // What people recorded before, for the engagement the surfaces read. A
+  // failure here is as loud as a missing configuration: a register that
+  // silently starts empty would read as a client who had never done anything.
+  const live = engagements.find((e) => e.ingested?.estate) ?? engagements[0]
+  const recs = await fetch(`/api/records?engagement=${encodeURIComponent(live.id)}`)
+  if (!recs.ok) {
+    const body = await recs.json().catch(() => ({}))
+    throw new Error(body.detail ?? body.error ?? `/api/records answered ${recs.status}`)
+  }
+  const { registers } = (await recs.json()) as { registers: Record<string, unknown[]> }
+  setRecords(registers)
 
   // Imported only now: everything below reads the configuration as it loads.
   const { Root } = await import('./app/Root')

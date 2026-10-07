@@ -7,6 +7,7 @@ import type { Settlement } from './exit'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, sealChain, verifyChain, type ChainVerification } from './evidence'
+import { loadedRecords, recordEngagementId } from './config'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
 import { AGENTS, TOWER_BY_ID } from './estate'
@@ -246,8 +247,6 @@ function nowIso(offsetMins: number) {
  * remembered — a chain that loaded its own hashes from storage could not
  * detect that storage had been edited.
  */
-const SESSION_KEY = 'astra.session.v1'
-
 interface SessionRecords {
   privacyLog: LoggedAction[]
   incidentNotices: IncidentNotice[]
@@ -266,22 +265,12 @@ const EMPTY_SESSION: SessionRecords = {
   clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], evidenceTail: [],
 }
 
-function loadSession(): SessionRecords {
-  if (typeof localStorage === 'undefined') return EMPTY_SESSION
-  try {
-    const raw = JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') as Partial<SessionRecords> | null
-    if (!raw) return EMPTY_SESSION
-    // Each key is taken only if it is still an array: a half-written or
-    // out-of-date store loses that register rather than the whole session.
-    return Object.fromEntries(
-      (Object.keys(EMPTY_SESSION) as (keyof SessionRecords)[]).map((k) => [k, Array.isArray(raw[k]) ? raw[k] : EMPTY_SESSION[k]]),
-    ) as unknown as SessionRecords
-  } catch {
-    return EMPTY_SESSION
-  }
-}
-
-const SESSION = loadSession()
+/**
+ * What people have recorded, as the database held it when the application
+ * started. Fetched by the bootstrap before the domain is imported, for the
+ * same reason the configuration is: every reader below stays synchronous.
+ */
+const SESSION: SessionRecords = { ...EMPTY_SESSION, ...(loadedRecords() as Partial<SessionRecords>) }
 
 /** The chain as it stands: the seeded backbone, then anything this browser appended. */
 const hydratedEvidence = SESSION.evidenceTail.length
@@ -1715,27 +1704,60 @@ function evidenceTail(evidence: EvidenceRecord[]) {
   return evidence.slice(PRISTINE_EVIDENCE.length).map(({ hash, prevHash, tampered, ...rest }) => rest)
 }
 
-if (typeof localStorage !== 'undefined') {
-  useAstra.subscribe((state) => {
-    const changed = SAVED_KEYS.some((k) => state[k] !== lastSaved[k]) || state.evidence.length !== lastEvidenceLength
-    if (!changed) return
-    lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]]))
-    lastEvidenceLength = state.evidence.length
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        ...Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]])),
-        evidenceTail: evidenceTail(state.evidence),
-      }))
-    } catch {
-      // A full or blocked store must not take the session down with it: the
-      // records stay in memory and simply do not outlive the tab.
-    }
-  })
+/**
+ * Anything new is sent to the database. The subscription fires only when a
+ * register changes, which happens on a confirmed action and never on a tick,
+ * so the simulation's churn costs nothing here.
+ *
+ * The write is append-only on the server: it sends everything this browser
+ * holds, the rows already there are left alone, and whatever is new is added.
+ * Two people recording at once therefore keep both sets rather than the last
+ * one to save winning.
+ */
+let saving: Promise<void> = Promise.resolve()
+
+function persist(state: State) {
+  const registers = {
+    ...Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]])),
+    evidenceTail: evidenceTail(state.evidence),
+  }
+  const role = ROLE_BY_ID[state.roleId]
+  saving = saving
+    .then(() => fetch('/api/records', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        engagement: recordEngagementId(),
+        registers,
+        by: role?.person ?? 'unknown',
+        role: state.roleId,
+      }),
+    }))
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`the gateway answered ${res.status}`)
+    })
+    .catch((err: unknown) => {
+      // Loud rather than silent: a record the person believes is sealed and
+      // is only in memory is worse than a visible failure.
+      console.error('A record could not be written to the database:', err)
+      useAstra.getState().pushToast({
+        tone: 'crit',
+        title: 'A record was not written to the database',
+        body: 'It exists in this session only. The action itself stands; its record does not.',
+      })
+    })
 }
+
+useAstra.subscribe((state) => {
+  const changed = SAVED_KEYS.some((k) => state[k] !== lastSaved[k]) || state.evidence.length !== lastEvidenceLength
+  if (!changed) return
+  lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]]))
+  lastEvidenceLength = state.evidence.length
+  persist(state)
+})
 
 /** Forgets what this browser recorded, leaving the seeded estate as it was. */
 export function clearSessionRecords() {
-  if (typeof localStorage !== 'undefined') localStorage.removeItem(SESSION_KEY)
   lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, [] as unknown]))
   lastEvidenceLength = PRISTINE_EVIDENCE.length
   useAstra.setState({

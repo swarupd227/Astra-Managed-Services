@@ -77,3 +77,33 @@ create table if not exists engagement_filed_item (
 
 create index if not exists engagement_filed_item_kind on engagement_filed_item (engagement_id, kind, position);
 create index if not exists engagement_service_line_order on engagement_service_line (engagement_id, position);
+
+-- ===========================================================================
+-- What people record.
+--
+-- One append-only table rather than one per register. These are events — a
+-- notice given, a directive set, a pack produced — and they are read
+-- wholesale by the application rather than queried across. A row is never
+-- updated and never deleted; two browsers recording at once converge on the
+-- union rather than overwriting each other, which is the whole reason this
+-- is not a blob per session.
+--
+-- `identity_verified` is false while the role is chosen from a picker rather
+-- than proven by a sign-in. It is a column rather than an assumption so that
+-- turning on authentication later upgrades the record instead of migrating
+-- around a claim that was never true.
+-- ===========================================================================
+
+create table if not exists record (
+  engagement_id     text not null references engagement(id) on delete cascade,
+  kind              text not null,
+  key               text not null,
+  payload           jsonb not null,
+  recorded_by       text not null,
+  recorded_role     text not null,
+  identity_verified boolean not null default false,
+  recorded_at       timestamptz not null default now(),
+  primary key (engagement_id, kind, key)
+);
+
+create index if not exists record_kind on record (engagement_id, kind, recorded_at);
