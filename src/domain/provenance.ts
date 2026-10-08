@@ -65,7 +65,7 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_tickets', name: 'Incidents, requests, problems and catalogue tasks', origin: 'client_extract',
-    source: 'Attachment C.3 — Volumes.xlsx, tabs I1–I4: 28,028 incidents, 63,350 requests, 49 problem records, 3,195 catalogue tasks',
+    source: 'Ingested into the database from Attachment C.3 — Volumes.xlsx, tabs I1–I4: 28,028 incidents, 63,350 requests, 49 problem records, 3,195 catalogue tasks. Re-ingesting a newer extract replaces it without a deploy',
     asOf: '2026-06-05',
     routes: ['/governance/commitments', '/governance/elimination', '/governance/savings'],
     caution: 'No resolution or close timestamp and an unusable priority field: handling time, MTTR and urgency cannot be derived from it',

@@ -1,0 +1,310 @@
+[
+  {
+    "engagementId": "eng_kearney",
+    "source": "Attachment C.3 — Volumes.xlsx, tabs I1–I4, as supplied",
+    "period": {
+      "from": "2025-06-01",
+      "to": "2026-06-05",
+      "months": 12.2
+    },
+    "volumes": {
+      "incidents": 28028,
+      "requests": 63350,
+      "problems": 49,
+      "catalogueTasks": 3195
+    },
+    "scope": {
+      "rule": "ServiceNow category and sub-category, applied in order, reversible",
+      "inScope": 2721,
+      "inScopePct": 9.7,
+      "byLine": [
+        {
+          "id": "B3",
+          "name": "Application Management",
+          "incidents": 2128
+        },
+        {
+          "id": "B4",
+          "name": "Data Management",
+          "incidents": 593
+        }
+      ]
+    },
+    "themes": [
+      {
+        "id": "th_access",
+        "name": "Access, login, permission, password",
+        "incidents": 1354,
+        "pctOfInScope": 49.8,
+        "classIds": [
+          "dc_pwd_reset",
+          "dc_access_recert"
+        ]
+      },
+      {
+        "id": "th_availability",
+        "name": "Down, inaccessible, crashed",
+        "incidents": 295,
+        "pctOfInScope": 10.8,
+        "classIds": [
+          "dc_iem_ghost",
+          "dc_node_pressure"
+        ]
+      },
+      {
+        "id": "th_pipeline",
+        "name": "Job, batch, pipeline or interface failure",
+        "incidents": 173,
+        "pctOfInScope": 6.4,
+        "classIds": [
+          "dc_pipeline_fail",
+          "dc_batch_overrun",
+          "dc_mq_depth"
+        ]
+      },
+      {
+        "id": "th_apperror",
+        "name": "Error raised by the application",
+        "incidents": 98,
+        "pctOfInScope": 3.6,
+        "classIds": []
+      },
+      {
+        "id": "th_monitoring",
+        "name": "Routine monitoring or maintenance task",
+        "incidents": 94,
+        "pctOfInScope": 3.5,
+        "classIds": [
+          "dc_oracle_blindspot"
+        ]
+      },
+      {
+        "id": "th_dataquality",
+        "name": "Data or report incorrect or missing",
+        "incidents": 87,
+        "pctOfInScope": 3.2,
+        "classIds": [
+          "dc_dq_null_ratio"
+        ]
+      },
+      {
+        "id": "th_config",
+        "name": "Configuration, setup or change",
+        "incidents": 62,
+        "pctOfInScope": 2.3,
+        "classIds": [
+          "dc_tf_drift"
+        ]
+      },
+      {
+        "id": "th_performance",
+        "name": "Performance and slowness",
+        "incidents": 29,
+        "pctOfInScope": 1.1,
+        "classIds": [
+          "dc_triple_av"
+        ]
+      }
+    ],
+    "clusters": [
+      {
+        "id": "cl_access_iem",
+        "example": "IEM access issue",
+        "subCategory": "IEM",
+        "incidents": 194,
+        "months": 13,
+        "classId": "dc_iem_ghost"
+      },
+      {
+        "id": "cl_iem_login",
+        "example": "IEM Login Issue",
+        "subCategory": "IEM",
+        "incidents": 94,
+        "months": 13,
+        "classId": "dc_iem_ghost"
+      },
+      {
+        "id": "cl_iem",
+        "example": "IEM Issue",
+        "subCategory": "IEM",
+        "incidents": 59,
+        "months": 12,
+        "classId": "dc_iem_ghost"
+      },
+      {
+        "id": "cl_daily_db_monitoring_oracle",
+        "example": "Daily Oracle DB Monitoring",
+        "subCategory": "Servers - Oracle",
+        "incidents": 49,
+        "months": 4,
+        "classId": "dc_oracle_blindspot"
+      },
+      {
+        "id": "cl_access_loga",
+        "example": "Unable to access Loga3",
+        "subCategory": "HR/ESS",
+        "incidents": 38,
+        "months": 10
+      },
+      {
+        "id": "cl_access_crs",
+        "example": "Unable to access CRS",
+        "subCategory": "CRS - Career Roadmap System",
+        "incidents": 38,
+        "months": 9
+      },
+      {
+        "id": "cl_thinkcell",
+        "example": "Thinkcell issue",
+        "subCategory": "think-cell",
+        "incidents": 32,
+        "months": 10
+      },
+      {
+        "id": "cl_access_mylearning",
+        "example": "MyLearning access issue",
+        "subCategory": "MyLearning - SuccessFactors",
+        "incidents": 26,
+        "months": 8
+      },
+      {
+        "id": "cl_cell_think",
+        "example": "Think-cell issue",
+        "subCategory": "think-cell",
+        "incidents": 20,
+        "months": 8
+      },
+      {
+        "id": "cl_login_sap",
+        "example": "SAP login issue",
+        "subCategory": "FOCUS/SAP-HANA",
+        "incidents": 19,
+        "months": 9
+      },
+      {
+        "id": "cl_hriscams_inaccessible_restar",
+        "example": "HRISCAMS was inaccessible - Tomcat Restarted",
+        "subCategory": "HRIS-CAMS Interface",
+        "incidents": 19,
+        "months": 8
+      },
+      {
+        "id": "cl_down_iem",
+        "example": "IEM is down",
+        "subCategory": "IEM",
+        "incidents": 15,
+        "months": 8,
+        "classId": "dc_iem_ghost"
+      },
+      {
+        "id": "cl_access_sap",
+        "example": "SAP access issue",
+        "subCategory": "FOCUS/SAP-HANA",
+        "incidents": 15,
+        "months": 8
+      },
+      {
+        "id": "cl_expired_iem_login_password",
+        "example": "IEM Login Issue: Password Expired",
+        "subCategory": "IEM",
+        "incidents": 15,
+        "months": 7,
+        "classId": "dc_pwd_reset"
+      },
+      {
+        "id": "cl_iem_inaccessible",
+        "example": "IEM inaccessible",
+        "subCategory": "IEM",
+        "incidents": 14,
+        "months": 7,
+        "classId": "dc_iem_ghost"
+      },
+      {
+        "id": "cl_adf_failed_pipelines",
+        "example": "ADF pipelines failed",
+        "subCategory": "Azure Apps (Solutions Factory)",
+        "incidents": 13,
+        "months": 2,
+        "classId": "dc_pipeline_fail"
+      },
+      {
+        "id": "cl_kearney_macros",
+        "example": "Kearney Macros issue",
+        "subCategory": "Kearney Office Add-Ins/Templates",
+        "incidents": 12,
+        "months": 5
+      },
+      {
+        "id": "cl_sap",
+        "example": "SAP issue",
+        "subCategory": "FOCUS/SAP-HANA",
+        "incidents": 11,
+        "months": 8
+      },
+      {
+        "id": "cl_crs",
+        "example": "CRS issue",
+        "subCategory": "Career Roadmap",
+        "incidents": 11,
+        "months": 8
+      },
+      {
+        "id": "cl_iem_working",
+        "example": "IEM not working",
+        "subCategory": "IEM",
+        "incidents": 11,
+        "months": 8,
+        "classId": "dc_iem_ghost"
+      },
+      {
+        "id": "cl_app_critical_egv_port_proble",
+        "example": "[PROBLEM]  Port 7001 – xmhost app server on EGV-VMINFORXM2 is CRITICAL!",
+        "subCategory": "IEM",
+        "incidents": 10,
+        "months": 4
+      },
+      {
+        "id": "cl_hriscams_inaccessible_restar",
+        "example": "INC0099614 HRISCAMS Inaccessible - Tomcat Restarted",
+        "subCategory": "HRIS-CAMS Interface",
+        "incidents": 10,
+        "months": 6
+      }
+    ],
+    "shape": {
+      "subCategories": 80,
+      "top5Pct": 50.3,
+      "top16Pct": 81.8,
+      "singletons": 24,
+      "outOfHoursPct": 50.9,
+      "weekendPct": 10.9,
+      "repeatPct": 52.4,
+      "clustersOverTen": 22,
+      "clusterSharePct": 26.6,
+      "humanRaisedPct": 96.4,
+      "stillOpenPct": 5.0,
+      "offInventoryPct": 61.7,
+      "offInventory": 1679
+    },
+    "problems": {
+      "records": 49,
+      "open": 16,
+      "inScopeWithoutProblemPct": 42.1
+    },
+    "growth": {
+      "firstHalf": 25551,
+      "secondHalf": 34367,
+      "pct": 35
+    },
+    "cannot": [
+      {
+        "what": "handling_time",
+        "because": "No resolution or close timestamp is supplied, so time to resolve cannot be derived from this extract"
+      },
+      {
+        "what": "priority",
+        "because": "26,249 of 28,028 records carry the default priority, so urgency cannot be read from the field"
+      }
+    ]
+  }
+]

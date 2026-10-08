@@ -16,6 +16,7 @@ import type { Engagement } from './engagement'
 
 let loaded: Engagement[] | null = null
 let records: Record<string, unknown[]> = {}
+let ticketHistories: unknown[] = []
 let engagementId = ''
 
 export function setConfig(engagements: Engagement[]) {
@@ -24,6 +25,13 @@ export function setConfig(engagements: Engagement[]) {
   // The engagement the operational surfaces read: whichever has an estate.
   engagementId = (engagements.find((e) => e.ingested?.estate) ?? engagements[0]).id
 }
+
+/** The ticket histories ingested for each engagement. */
+export function setTicketHistories(histories: unknown[]) {
+  ticketHistories = histories ?? []
+}
+
+export const loadedTicketHistories = (): unknown[] => ticketHistories
 
 /** What people had recorded, as the database held it when the application started. */
 export function setRecords(registers: Record<string, unknown[]>) {

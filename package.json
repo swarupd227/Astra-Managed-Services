@@ -13,7 +13,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "node --test \"server/**/*.test.mjs\"",
     "start": "node server/agent.mjs",
-    "db:migrate": "node server/migrate.mjs"
+    "db:migrate": "node server/migrate.mjs",
+    "db:ingest": "node server/ingest.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",

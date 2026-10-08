@@ -66,3 +66,46 @@ export async function readEngagements() {
     }
   })
 }
+
+/** The ticket histories, shaped as the domain reads them. */
+export async function readTicketHistories() {
+  const [histories, lines, themes, clusters, limits] = await Promise.all([
+    query('select * from ticket_history'),
+    query('select * from ticket_scope_line order by engagement_id, id'),
+    query('select * from ticket_theme order by engagement_id, position'),
+    query('select * from ticket_cluster order by engagement_id, incidents desc'),
+    query('select * from ticket_limitation order by engagement_id, what'),
+  ])
+  const by = (rows, id) => rows.filter((r) => r.engagement_id === id)
+  const date = (d) => (typeof d === 'string' ? d : d.toISOString().slice(0, 10))
+
+  return histories.map((h) => ({
+    engagementId: h.engagement_id,
+    source: h.source,
+    period: { from: date(h.period_from), to: date(h.period_to), months: Number(h.period_months) },
+    volumes: { incidents: h.incidents, requests: h.requests, problems: h.problems, catalogueTasks: h.catalogue_tasks },
+    scope: {
+      rule: h.scope_rule,
+      inScope: h.in_scope,
+      inScopePct: Number(h.in_scope_pct),
+      byLine: by(lines, h.engagement_id).map((l) => ({ id: l.id, name: l.name, incidents: l.incidents })),
+    },
+    themes: by(themes, h.engagement_id).map((t) => ({
+      id: t.id, name: t.name, incidents: t.incidents, pctOfInScope: Number(t.pct_of_inscope), classIds: t.class_ids,
+    })),
+    clusters: by(clusters, h.engagement_id).map((c) => ({
+      id: c.id, example: c.example, subCategory: c.sub_category, incidents: c.incidents, months: c.months,
+      ...(c.class_id ? { classId: c.class_id } : {}),
+    })),
+    shape: {
+      subCategories: h.sub_categories, top5Pct: Number(h.top5_pct), top16Pct: Number(h.top16_pct),
+      singletons: h.singletons, outOfHoursPct: Number(h.out_of_hours_pct), weekendPct: Number(h.weekend_pct),
+      repeatPct: Number(h.repeat_pct), clustersOverTen: h.clusters_over_ten,
+      clusterSharePct: Number(h.cluster_share_pct), humanRaisedPct: Number(h.human_raised_pct),
+      stillOpenPct: Number(h.still_open_pct), offInventoryPct: Number(h.off_inventory_pct), offInventory: h.off_inventory,
+    },
+    problems: { records: h.problem_records, open: h.problems_open, inScopeWithoutProblemPct: Number(h.without_problem_pct) },
+    growth: { firstHalf: h.growth_first_half, secondHalf: h.growth_second_half, pct: Number(h.growth_pct) },
+    cannot: by(limits, h.engagement_id).map((c) => ({ what: c.what, because: c.because })),
+  }))
+}

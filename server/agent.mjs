@@ -20,7 +20,7 @@ import { classifyInjection } from './injection.mjs'
 import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } from './converse.mjs'
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
 import { configured as dbConfigured, ping } from './db.mjs'
-import { readEngagements } from './config.mjs'
+import { readEngagements, readTicketHistories } from './config.mjs'
 import { appendRecords, clearRecords, readRecords } from './records.mjs'
 
 /**
@@ -752,8 +752,8 @@ http
     // fall back to: a failure here is reported and the application does not
     // start, rather than quietly running on terms nobody can change.
     if (req.method === 'GET' && url === '/api/config') {
-      return readEngagements()
-        .then((engagements) => json(res, 200, { engagements }))
+      return Promise.all([readEngagements(), readTicketHistories()])
+        .then(([engagements, ticketHistories]) => json(res, 200, { engagements, ticketHistories }))
         .catch((err) => json(res, 503, {
           error: 'The configuration could not be read from the database.',
           detail: err instanceof Error ? err.message : String(err),

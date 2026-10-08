@@ -107,3 +107,90 @@ create table if not exists record (
 );
 
 create index if not exists record_kind on record (engagement_id, kind, recorded_at);
+
+-- ===========================================================================
+-- The client's ticket history, as ingested from the extract it was supplied in.
+--
+-- Themes and clusters are rows rather than JSON because they are the two
+-- things worth asking questions of: which phrasing recurs, what it costs,
+-- whether anything is costed against it. The shape figures are a fixed set of
+-- scalars and sit on the history itself.
+--
+-- `limitation` is the part most registers would leave out: what this extract
+-- cannot answer. A measure that needs one of these is refused rather than
+-- estimated, so the reason has to travel with the data.
+-- ===========================================================================
+
+create table if not exists ticket_history (
+  engagement_id   text primary key references engagement(id) on delete cascade,
+  source          text not null,
+  period_from     date not null,
+  period_to       date not null,
+  period_months   numeric not null,
+  incidents       integer not null,
+  requests        integer not null,
+  problems        integer not null,
+  catalogue_tasks integer not null,
+  scope_rule      text not null,
+  in_scope        integer not null,
+  in_scope_pct    numeric not null,
+  sub_categories  integer not null,
+  top5_pct        numeric not null,
+  top16_pct       numeric not null,
+  singletons      integer not null,
+  out_of_hours_pct numeric not null,
+  weekend_pct     numeric not null,
+  repeat_pct      numeric not null,
+  clusters_over_ten integer not null,
+  cluster_share_pct numeric not null,
+  human_raised_pct  numeric not null,
+  still_open_pct    numeric not null,
+  off_inventory_pct numeric not null,
+  off_inventory     integer not null,
+  problem_records   integer not null,
+  problems_open     integer not null,
+  without_problem_pct numeric not null,
+  growth_first_half integer not null,
+  growth_second_half integer not null,
+  growth_pct        numeric not null,
+  ingested_at     timestamptz not null default now()
+);
+
+create table if not exists ticket_scope_line (
+  engagement_id text not null references engagement(id) on delete cascade,
+  id            text not null,
+  name          text not null,
+  incidents     integer not null,
+  primary key (engagement_id, id)
+);
+
+create table if not exists ticket_theme (
+  engagement_id  text not null references engagement(id) on delete cascade,
+  id             text not null,
+  name           text not null,
+  incidents      integer not null,
+  pct_of_inscope numeric not null,
+  class_ids      text[] not null default '{}',
+  position       integer not null default 0,
+  primary key (engagement_id, id)
+);
+
+create table if not exists ticket_cluster (
+  engagement_id text not null references engagement(id) on delete cascade,
+  id            text not null,
+  example       text not null,
+  sub_category  text not null,
+  incidents     integer not null,
+  months        integer not null,
+  class_id      text,
+  primary key (engagement_id, id)
+);
+
+create table if not exists ticket_limitation (
+  engagement_id text not null references engagement(id) on delete cascade,
+  what          text not null,
+  because       text not null,
+  primary key (engagement_id, what)
+);
+
+create index if not exists ticket_cluster_size on ticket_cluster (engagement_id, incidents desc);
