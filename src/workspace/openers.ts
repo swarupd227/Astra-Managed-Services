@@ -61,7 +61,11 @@ export function groundedOpeners(roleId: string): string[] {
 
   if (has('get_commitments')) {
     attempt(out, () => {
-      const l = commitmentLedger({ remedies: s.commitmentLog, packExports: s.packExports, procedures: { loads: s.areaLoads, reviews: s.procedureReviews } })
+      const l = commitmentLedger({
+        remedies: s.commitmentLog, packExports: s.packExports,
+        procedures: { loads: s.areaLoads, reviews: s.procedureReviews },
+        privacy: { log: s.privacyLog, notices: s.incidentNotices }, exitLog: s.exitLog,
+      })
       if (l.byStatus.missed) return { text: `${l.byStatus.missed} commitment${l.byStatus.missed === 1 ? ' is past its' : 's are past their'} date — which, and what happens now?`, weight: 92 }
       if (l.unanswered) return { text: `${l.unanswered} commitments are behind with nothing decided, ${l.chargeAtRiskPct}% of the charge at risk — show me`, weight: 88 }
       return { text: 'What have we committed to, and are we meeting it?', weight: 40 }

@@ -2,11 +2,11 @@ import type { Basis } from './acceleration'
 import { reliabilitySummary } from './dataReliability'
 import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement, type Ingested, type StageId } from './engagement'
 import { escalationSummary } from './escalations'
-import { readExit } from './exit'
+import { readExit, type Settlement } from './exit'
 import { inventorySummary } from './inventory'
 import { DEMAND_CLASSES, TRANSFORM } from './ledgers'
 import { glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './metrics'
-import { privacySummary } from './privacy'
+import { privacySummary, type IncidentNotice, type LoggedAction } from './privacy'
 import { clustersWithCause, historyFor, recurring, refusal, themeOf, type Derivable, type TicketHistory } from './ticketHistory'
 import type { FleetLifecycle } from './agentLifecycle'
 import { readProcedures, type AreaLoad, type Review } from './procedures'
@@ -57,6 +57,18 @@ export interface MeasureCtx {
   packExports?: PackExport[]
   /** What the procedure register needs: the client's adopted areas, and the reviews recorded. */
   procedures?: { loads: AreaLoad[]; reviews: Review[] }
+  /**
+   * What has been recorded against privacy — the actions logged on a request,
+   * and the notices given on an incident.
+   *
+   * The measures used to read the privacy register without them, so recording
+   * a client notice moved the privacy screen and left the commitment it was
+   * owed against reading one still outstanding. A record that does not reach
+   * the promise it answers is the same as not having recorded it.
+   */
+  privacy?: { log: LoggedAction[]; notices: IncidentNotice[] }
+  /** Holdings returned or destroyed, for the commitment that the exit path is proven. */
+  exitLog?: Settlement[]
 }
 
 export interface MeasureReading {
@@ -223,8 +235,8 @@ export const MEASURES: Record<string, Measure> = {
   notice_on_time: {
     id: 'notice_on_time', name: 'Incidents notified inside the contract clock', unit: 'pct',
     needs: ['telemetry'], route: '/operate/privacy',
-    read: ({ nowMs }) => {
-      const s = privacySummary(nowMs)
+    read: ({ nowMs, privacy }) => {
+      const s = privacySummary(nowMs, privacy?.log ?? [], privacy?.notices ?? [])
       const notified = s.incidents.filter((i) => i.notice)
       if (!notified.length) return unreadable('No incident has been notified in the window')
       const onTime = notified.filter((i) => Date.parse(i.notice!.at) <= Date.parse(i.clientDueAt))
@@ -262,10 +274,10 @@ export const MEASURES: Record<string, Measure> = {
   exit_path_proven: {
     id: 'exit_path_proven', name: 'Holdings with a proven exit path', unit: 'pct',
     needs: ['contract'], route: '/governance/exit',
-    read: () => {
+    read: ({ exitLog }) => {
       // Proven means one of two things, tested now rather than at exit: it can
       // be handed back in a usable form, or there is a stated reason it stays.
-      const r = readExit()
+      const r = readExit(exitLog ?? [])
       if (!r.holdings.length) return unreadable('No holding is registered, so there is no exit path to prove')
       const proven = r.holdings.filter((h) => h.returnable || h.mustKeep)
       const unproven = r.holdings.filter((h) => !h.returnable && !h.mustKeep)
@@ -390,8 +402,8 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
       .filter((x) => x.measured && !x.meetsTarget)
       .map((x) => ({ what: `${x.service.name}: availability below target`, owner: 'sdm', route: '/operate/data-reliability' }))
   },
-  notice_on_time: ({ nowMs }) =>
-    privacySummary(nowMs).incidents
+  notice_on_time: ({ nowMs, privacy }) =>
+    privacySummary(nowMs, privacy?.log ?? [], privacy?.notices ?? []).incidents
       .filter((i) => !i.notice)
       .map((i) => ({ what: `Notify the client of ${i.incident.id} — ${i.hoursLeft !== null && i.hoursLeft < 0 ? `${Math.abs(i.hoursLeft)} h past the clock` : `${i.hoursLeft} h left`}`, owner: 'sdm', route: '/operate/privacy' })),
   inventory_reconciled: () => {
@@ -404,8 +416,8 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
   knowledge_verified: () => [
     { what: 'Put the remaining claims to the people who know them, highest volume first', owner: 'sme', route: '/transition/verify' },
   ],
-  exit_path_proven: () => {
-    const r = readExit()
+  exit_path_proven: ({ exitLog }) => {
+    const r = readExit(exitLog ?? [])
     return r.holdings
       .filter((h) => !h.returnable && !h.mustKeep)
       .map((h) => ({ what: `${h.holding.name}: make it returnable in a usable form, or state the reason it stays`, owner: 'serviceowner', route: '/governance/exit' }))
@@ -786,7 +798,10 @@ export function commitmentLedger(
   opts: {
     engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle
     remedies?: Remedy[]; packExports?: PackExport[]
-    procedures?: { loads: AreaLoad[]; reviews: Review[] }; nowMs?: number
+    procedures?: { loads: AreaLoad[]; reviews: Review[] }
+    privacy?: { log: LoggedAction[]; notices: IncidentNotice[] }
+    exitLog?: Settlement[]
+    nowMs?: number
   } = {},
 ): Ledger {
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
@@ -794,6 +809,7 @@ export function commitmentLedger(
   const ctx: MeasureCtx = {
     nowMs: opts.nowMs ?? NOW.getTime(),
     fleet: opts.fleet, remedies: opts.remedies, packExports: opts.packExports, procedures: opts.procedures,
+    privacy: opts.privacy, exitLog: opts.exitLog,
   }
   const rows = COMMITMENTS
     .filter((c) => c.engagementId === engagementId)

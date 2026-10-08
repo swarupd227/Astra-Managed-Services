@@ -332,6 +332,8 @@ export const EXECUTORS: Record<string, Executor> = {
       remedies: useAstra.getState().commitmentLog,
       packExports: useAstra.getState().packExports,
       procedures: { loads: useAstra.getState().areaLoads, reviews: useAstra.getState().procedureReviews },
+      privacy: { log: useAstra.getState().privacyLog, notices: useAstra.getState().incidentNotices },
+      exitLog: useAstra.getState().exitLog,
     })
     const status = str(input.status)
     const rows = (status ? l.rows.filter((r) => r.status === status) : l.rows).map((r) => ({
