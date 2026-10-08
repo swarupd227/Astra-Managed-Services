@@ -20,7 +20,7 @@ import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
 type Tone = 'neutral' | 'ok' | 'warn' | 'crit' | 'info' | 'brand' | 'agent'
 
 const ORIGIN_TONE: Record<Origin, Tone> = {
-  client_extract: 'ok', platform_record: 'info', declared: 'warn', seeded: 'warn', not_built: 'neutral',
+  client_extract: 'ok', platform_record: 'info', declared: 'warn', seeded: 'warn', connector: 'warn', not_built: 'neutral',
 }
 const MATURITY_TONE: Record<Maturity, Tone> = { live: 'ok', partial: 'warn', not_built: 'neutral' }
 

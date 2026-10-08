@@ -197,6 +197,7 @@ const ORIGIN_TONE: Record<Origin, 'ok' | 'info' | 'warn' | 'neutral'> = {
   platform_record: 'info',
   declared: 'warn',
   seeded: 'warn',
+  connector: 'warn',
   not_built: 'neutral',
 }
 

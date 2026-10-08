@@ -14,11 +14,12 @@
    figures would survive contact with a real estate.
    ========================================================================== */
 
-export type Origin = 'client_extract' | 'platform_record' | 'seeded' | 'declared' | 'not_built'
+export type Origin = 'client_extract' | 'platform_record' | 'connector' | 'seeded' | 'declared' | 'not_built'
 
 export const ORIGIN_LABEL: Record<Origin, string> = {
   client_extract: 'From the client’s records',
   platform_record: 'Written by the platform',
+  connector: 'Client feed sample',
   seeded: 'Demonstration data',
   declared: 'Declared by someone',
   not_built: 'Not built',
@@ -26,14 +27,22 @@ export const ORIGIN_LABEL: Record<Origin, string> = {
 
 export const ORIGIN_MEANING: Record<Origin, string> = {
   client_extract: 'Read from a file the client supplied. The figures are theirs; the platform only scoped and counted them.',
-  platform_record: 'Produced by the platform as it ran — appended, hash-linked and replayable.',
+  platform_record: 'Produced by the platform as it ran — appended, hash-linked and replayable. Empty until it has run.',
+  connector: 'Behind a client feed. The named system supplies these rows in service; until it is connected they are a sample of the right shape, and never this client’s figures.',
   seeded: 'A deterministic demonstration set. Shaped to be realistic and never to be quoted as evidence of this client’s estate.',
   declared: 'Somebody’s statement — a contract schedule, a bid estimate, a client’s own account — carried with whose it is.',
   not_built: 'Nothing is read: the capability does not exist yet.',
 }
 
-/** Most cautionary first. The header marker takes the first origin present. */
-export const ORIGIN_ORDER: Origin[] = ['not_built', 'seeded', 'declared', 'client_extract', 'platform_record']
+/**
+ * Most cautionary first. The header marker takes the first origin present.
+ *
+ * A connector sample ranks beside a seed, because that is what it is until the
+ * feed is wired. It is kept separate so a screen can say which system will
+ * supply it, and so the one thing the platform may legitimately seed is
+ * distinguishable from the things it may not.
+ */
+export const ORIGIN_ORDER: Origin[] = ['not_built', 'seeded', 'connector', 'declared', 'client_extract', 'platform_record']
 
 export type Maturity = 'live' | 'partial' | 'not_built'
 
@@ -88,24 +97,24 @@ export const DATASETS: DataSet[] = [
     maturity: 'partial',
   },
   {
-    id: 'ds_sla_attainment', name: 'Service level attainment, credits and clock events', origin: 'seeded',
-    source: 'Demonstration set against the client’s own targets: attainment month to date, jeopardy, clock audits and computed credits',
+    id: 'ds_sla_attainment', name: 'Service level attainment, credits and clock events', origin: 'connector',
+    source: 'ServiceNow, via the service-management feed: attainment month to date, jeopardy and the clock events a credit is settled against. Sampled against the client’s own targets until the feed is connected',
     routes: ['/governance/sla'],
     caution: 'The targets are the client’s; every attainment figure and credit on this screen is seeded',
     maturity: 'live',
   },
   {
-    id: 'ds_inventory_records', name: 'Application records, drift and reconciliation', origin: 'seeded',
-    source: 'Demonstration set shaped from the client’s listing: lifecycle, configuration baselines and reconciliation against what the tickets show',
+    id: 'ds_inventory_records', name: 'Application records, drift and reconciliation', origin: 'connector',
+    source: 'The CMDB and configuration feeds: lifecycle, configuration baselines and reconciliation against what the tickets show. Sampled from the client’s own listing until those feeds are connected',
     routes: ['/governance/portfolio', '/governance/inventory'],
     caution: 'Which applications exist is the client’s; their drift, baselines and reconciliation state are seeded',
     maturity: 'live',
   },
   {
-    id: 'ds_commitment_measures', name: 'The figures read against each promise', origin: 'seeded',
-    source: 'Read by the platform’s own measures, which draw on the sets registered here — the ticket extract for baselines, demonstration sets for today’s figures',
+    id: 'ds_commitment_measures', name: 'The figures read against each promise', origin: 'connector',
+    source: 'Read by the platform’s own measures, which draw on the sets registered here — the ticket extract for baselines, the platform’s own records for what has been delivered, and the client feeds for today’s service figures',
     routes: ['/governance/commitments'],
-    caution: 'Every row names what it was read from; where that is a demonstration set, the figure is not evidence of this estate',
+    caution: 'Every row names what it was read from and refuses to score what it cannot read; a measure with no record behind it reads as not measured rather than zero',
     maturity: 'live',
   },
   {
@@ -124,7 +133,7 @@ export const DATASETS: DataSet[] = [
     id: 'ds_evidence', name: 'The evidence chain', origin: 'platform_record',
     source: 'Appended as the platform runs: every tool call, decision, approval and recorded remedy, hash-linked to the one before it',
     routes: ['/governance/evidence', '/governance/proof'],
-    caution: 'The chain opens on a seeded backbone; everything done in a session is appended and verifiable for real',
+    caution: 'The chain opens empty. Everything done in a session is appended to it and verifiable for real; a verification that passes over no records says exactly that',
     maturity: 'live',
   },
   {
@@ -149,59 +158,59 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
-    id: 'ds_work', name: 'The live queue, runs and approvals', origin: 'seeded',
-    source: 'Deterministic demonstration set: work objects with their timelines, agent runs, gated approvals and shift handovers',
+    id: 'ds_work', name: 'The live queue, runs and approvals', origin: 'connector',
+    source: 'ServiceNow, via the service-management feed: the work objects themselves. Their timelines, agent runs and approvals are written by the platform as it works them. Sampled until the feed is connected',
     routes: ['/', '/w/', '/operate/room', '/operate/board', '/operate/work', '/operate/resolver', '/operate/approvals', '/operate/shift', '/operate/mim', '/operate/run', '/workplace', '/brief', '/copilot', '/missions'],
     caution: 'Not this client’s estate. Volumes and timings are shaped to be realistic and must not be quoted as measurement',
     maturity: 'live',
   },
   {
-    id: 'ds_graph', name: 'The estate as a typed graph', origin: 'seeded',
-    source: 'Demonstration set shaped from the client’s inventory: towers, applications, components and their edges with confidence',
+    id: 'ds_graph', name: 'The estate as a typed graph', origin: 'connector',
+    source: 'Discovery and the CMDB: towers, applications, components and the edges between them. Sampled from the client’s inventory until discovery runs against the estate',
     routes: ['/operate/graph', '/atlas/coverage', '/transition'],
     caution: 'Edges and confidences are seeded; a real engagement discovers them',
     maturity: 'live',
   },
   {
-    id: 'ds_data_estate', name: 'Data estate, lineage and reliability', origin: 'seeded',
-    source: 'Demonstration set shaped from the data response and C.3 tab E: sources, feeds, pipelines, datasets, reports, applications and external recipients, with 30 days of run history',
+    id: 'ds_data_estate', name: 'Data estate, lineage and reliability', origin: 'connector',
+    source: 'Azure Data Factory, Purview and the warehouse catalogue: sources, feeds, pipelines, datasets, reports and external recipients, with the pipeline run history behind them. Sampled from the data response and C.3 tab E until those feeds are connected',
     routes: ['/operate/data', '/operate/data-reliability'],
     caution: 'Run histories, availability and error budgets are seeded; the lineage shape follows the client’s described estate',
     maturity: 'live',
   },
   {
-    id: 'ds_privacy', name: 'Privacy requests, incidents and records of processing', origin: 'seeded',
-    source: 'Demonstration set: requests against the statutory clock, data incidents with notice clocks, holds and retention',
+    id: 'ds_privacy', name: 'Privacy requests, incidents and records of processing', origin: 'connector',
+    source: 'The privacy request tool and the incident record: subject requests against the statutory clock, data incidents with their notice clocks, holds and retention. Sampled until those feeds are connected',
     routes: ['/operate/privacy'],
     caution: 'The regime, notice hours and clock arithmetic are the engagement’s; the requests and incidents are seeded',
     maturity: 'live',
   },
   {
-    id: 'ds_fleet', name: 'The agent workforce and its readiness', origin: 'seeded',
-    source: 'Demonstration set: twelve agents with employment records, evaluation history, budgets and escalation logs',
+    id: 'ds_fleet', name: 'The agent workforce and its readiness', origin: 'platform_record',
+    source: 'The charters are the platform’s design — identity, mission, towers, skills, prohibitions and the ceiling each may reach. Everything measured about them is written as they run: evaluation, live success, spend, hand-backs and incidents all start at nothing',
     routes: ['/workforce', '/atlas/fleet', '/atlas/lifecycle', '/atlas/agent', '/atlas/tokenops', '/governance/autonomy'],
-    caution: 'Readiness checks read live files where they exist — the approved model registry and the tool catalogue — and seeded records everywhere else',
+    caution: 'Readiness checks read live files where they exist — the approved model registry and the tool catalogue — and report unproven where there is no record yet, which at the start is everywhere else',
     maturity: 'live',
   },
   {
-    id: 'ds_ledgers', name: 'Banked savings, the glidepath and credits', origin: 'seeded',
-    source: 'Demonstration set: verification windows, banked and rejected claims against a countersigned baseline of 214,000 hours',
+    id: 'ds_ledgers', name: 'Banked savings, the glidepath and credits', origin: 'platform_record',
+    source: 'Written by the platform when a claim survives its verification window. The baseline and the contracted curve are the contract’s; nothing is banked against them until it has been verified, so the ledgers open empty',
     routes: ['/governance/glidepath', '/governance/savings', '/transform/work-orders', '/transform/debt', '/governance/programmes', '/governance/headroom'],
-    caution: 'Hours and values are seeded; the baseline and the contracted curve are the contract’s',
+    caution: 'An hour appears here only after its verification window has elapsed, so delivered reads nothing against a contracted curve that keeps rising',
     maturity: 'live',
   },
   {
-    id: 'ds_exit', name: 'What the platform holds of the client', origin: 'seeded',
-    source: 'Demonstration register of nine holdings with their return paths, retention reasons and settlement records',
+    id: 'ds_exit', name: 'What the platform holds of the client', origin: 'connector',
+    source: 'Nine holdings with their return paths and retention reasons. What is held is the platform’s own design; how much of it there is comes from the sets it describes, so the counts follow their feeds',
     routes: ['/governance/exit'],
-    caution: 'Counts are read from the seeded sets they describe',
+    caution: 'A holding’s return path is a commitment; its volume is only as real as the feed behind the set it counts',
     maturity: 'live',
   },
   {
-    id: 'ds_assurance', name: 'Conformance, red team and AI incidents', origin: 'seeded',
-    source: 'Demonstration set: control mappings, adversarial cases and detected AI incidents with their clocks',
+    id: 'ds_assurance', name: 'Conformance, red team and AI incidents', origin: 'connector',
+    source: 'Control mappings and adversarial cases are the platform’s own; the AI incidents are detected and recorded as it runs. The control set and the cases are sampled; a run against them executes for real',
     routes: ['/governance/ai-pack', '/governance/ai-incidents', '/governance/assurance', '/atlas/evaluation', '/governance/registers', '/governance/reports', '/governance/proposals', '/governance/objectives', '/governance/executive', '/operate/releases', '/operate/vendors'],
-    caution: 'Runs execute for real against seeded controls and records',
+    caution: 'A conformance or red-team run executes for real; the control set and the adversarial cases it runs against are the platform’s own sample',
     maturity: 'partial',
   },
   {
@@ -213,7 +222,7 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
-    id: 'ds_recommendations', name: 'Recommendations raised, and what they returned', origin: 'seeded',
+    id: 'ds_recommendations', name: 'Recommendations raised, and what they returned', origin: 'platform_record',
     source: 'Two demonstration registers and one live watch, read as one: six unprompted agent proposals, eleven innovation items with realised figures, and Custodian’s standing data-quality findings computed from the estate register itself',
     routes: ['/governance/recommendations', '/governance/proposals'],
     caution: 'The recommendations are seeded; the cadence window, the expiry clocks and the realised-against-projected arithmetic are computed',
@@ -228,7 +237,7 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
-    id: 'ds_procedures', name: 'The procedures themselves, and their reviews', origin: 'seeded',
+    id: 'ds_procedures', name: 'The procedures themselves, and their reviews', origin: 'platform_record',
     source: 'Demonstration register of twelve procedures with owners, versions, review periods and the action classes each authorises; execution counts are read from the work the platform did',
     routes: ['/governance/procedures'],
     caution: 'The procedures and review dates are seeded; the areas they answer are the client’s, and the execution counts are read from live work records',
