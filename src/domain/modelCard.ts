@@ -40,7 +40,7 @@ export interface CardContext {
   residency?: { allowedRegions?: string[]; zeroRetentionRequired?: boolean } | null
 }
 
-const d = (iso?: string) => (iso ? iso.slice(0, 10) : '—')
+const d = (iso?: string | null) => (iso ? iso.slice(0, 10) : '—')
 
 export function agentCard(agent: Agent, ctx: CardContext = {}): ModelCard {
   const suites = SUITES.filter((s) => s.coverage.some((c) => agent.grants[c]))
@@ -72,13 +72,19 @@ export function agentCard(agent: Agent, ctx: CardContext = {}): ModelCard {
       {
         title: 'Evaluation',
         rows: [
-          { label: 'Replay suite', value: `${agent.evaluation.suiteId} — score ${agent.evaluation.score.toFixed(3)} over ${agent.evaluation.replayN.toLocaleString('en-GB')} cases, last ${d(agent.evaluation.lastRun)}`, tone: agent.evaluation.score >= 0.9 ? 'ok' : 'warn' },
+          {
+            label: 'Replay suite',
+            value: agent.evaluation.suiteId
+              ? `${agent.evaluation.suiteId} — score ${agent.evaluation.score.toFixed(3)} over ${agent.evaluation.replayN.toLocaleString('en-GB')} cases, last ${d(agent.evaluation.lastRun)}`
+              : 'not run',
+            tone: agent.evaluation.suiteId ? (agent.evaluation.score >= 0.9 ? 'ok' : 'warn') : 'neutral',
+          },
           { label: 'Suites covering its classes', value: suites.length ? suites.map((s) => `${s.name} (${s.pass.toFixed(3)}, ${s.regression} regression${s.regression === 1 ? '' : 's'})`).join('; ') : 'none' },
           { label: 'Live success, 90 days', value: agent.evaluation.liveSuccess90d ? `${(agent.evaluation.liveSuccess90d * 100).toFixed(1)}%` : 'not yet live' },
           { label: 'Red team', value: rt ? `${rt.results.filter((r) => r.pass).length} of ${rt.results.length} controls held, ${d(rt.at)}` : 'not run this session', tone: rt ? (rt.results.every((r) => r.pass) ? 'ok' : 'crit') : 'neutral' },
           { label: 'Bias suite', value: bias ? `${bias.pairs} matched pairs, ${bias.disparities.length} disparities, ${d(bias.at)}` : 'not run this session', tone: bias ? (bias.invariant ? 'ok' : 'crit') : 'neutral' },
           { label: 'Drift', value: drift ? drift.reason : agent.driftAlarm ? 'Alarm raised (seeded state — run the monitor)' : 'No alarm', tone: (drift?.alarm ?? agent.driftAlarm) ? 'warn' : 'ok' },
-          { label: 'Promotion review', value: d(agent.promotionReview) },
+          { label: 'Promotion review', value: agent.promotionReview ? d(agent.promotionReview) : 'not scheduled' },
         ],
       },
       {

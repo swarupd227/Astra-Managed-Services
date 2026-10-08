@@ -129,7 +129,7 @@ const KILL_SWITCH_DAYS = 90
 /** How long an escalation may sit before the escalation path is not really staffed. */
 const PICKUP_TARGET_MINS = 120
 
-const daysSince = (iso?: string) => (iso ? Math.round((NOW.getTime() - Date.parse(iso)) / 86_400_000) : null)
+const daysSince = (iso?: string | null) => (iso ? Math.round((NOW.getTime() - Date.parse(iso)) / 86_400_000) : null)
 
 /**
  * Every check for one agent. `approvedModels` comes from the AI system
@@ -189,7 +189,9 @@ export function checksFor(a: Agent, approvedModels?: string[]): Check[] {
     // Prove it.
     check('evaluation', 'prove', 'Evaluation against this estate', 'evaluated',
       a.evaluation.score >= EVAL_SCORE_BAR && a.evaluation.replayN >= EVAL_REPLAY_BAR ? 'pass' : 'fail',
-      `${(a.evaluation.score * 100).toFixed(1)}% over ${a.evaluation.replayN.toLocaleString('en-GB')} replays`, 'Evaluation suite'),
+      a.evaluation.replayN
+        ? `${(a.evaluation.score * 100).toFixed(1)}% over ${a.evaluation.replayN.toLocaleString('en-GB')} replays`
+        : 'No suite has been run against this estate', 'Evaluation suite'),
     check('eval_fresh', 'prove', 'Evaluation still current', 'evaluated',
       evalAge === null ? 'unknown' : evalAge <= EVAL_STALE_DAYS ? 'pass' : 'fail',
       evalAge === null ? 'Never run' : `${evalAge} days ago`, 'Evaluation suite'),

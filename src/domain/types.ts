@@ -208,13 +208,20 @@ export interface Agent {
   prohibited: string[]
   grants: Record<string, Grade>
   ceiling: ExecutionMode
-  evaluation: { suiteId: string; score: number; replayN: number; liveSuccess90d: number; lastRun: ISO }
+  /**
+   * What the evaluation suite found. `suiteId` and `lastRun` are null until a
+   * suite has actually been run against the agent, and the scores are zero
+   * rather than hopeful: the readers treat a zero score as unproven.
+   */
+  evaluation: { suiteId: string | null; score: number; replayN: number; liveSuccess90d: number; lastRun: ISO | null }
   economics: { costUsd30d: number; costPerWo: number; humanMinsDisplaced30d: number }
   incidents: AgentIncident[]
   state: 'active' | 'suspended' | 'probation' | 'onboarding'
-  promotionReview: ISO
+  /** Null until a review has been scheduled. */
+  promotionReview: ISO | null
   createdAt: ISO
   driftAlarm: boolean
+  /** Live-success history. Empty until the agent has run. */
   trend: number[]
 }
 

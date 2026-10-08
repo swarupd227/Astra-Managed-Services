@@ -230,8 +230,19 @@ export function resolveMeasure(m: ObjectiveMeasure): ResolvedMeasure {
     case 'spend_ratio': {
       const cost = AGENTS.reduce((s, a) => s + a.economics.costUsd30d, 0)
       const displacedUsd = (AGENTS.reduce((s, a) => s + a.economics.humanMinsDisplaced30d, 0) / 60) * 78
-      const value = displacedUsd ? (cost / displacedUsd) * 100 : 0
       const target = m.target ?? 6
+      // Nothing spent against nothing displaced is not a ratio inside target.
+      if (!displacedUsd) {
+        return {
+          ...base,
+          display: '—',
+          detail: 'No model spend metered and no human effort displaced in the window',
+          target: `≤ ${fmtPct(target, 0)}`,
+          state: 'no_measure',
+          href: '/atlas/tokenops',
+        }
+      }
+      const value = (cost / displacedUsd) * 100
       return {
         ...base,
         display: fmtPct(value, 1),

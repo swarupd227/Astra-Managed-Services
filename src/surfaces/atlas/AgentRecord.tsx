@@ -58,11 +58,16 @@ export function AgentRecord() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Evaluation score" value={agent.evaluation.score.toFixed(3)} hint={`suite ${agent.evaluation.suiteId} · ${ago(agent.evaluation.lastRun)}`} />
-        <Metric size="sm" label="Live success 90d" value={agent.evaluation.liveSuccess90d ? pct(agent.evaluation.liveSuccess90d * 100) : 'not in production'} deltaTone={agent.evaluation.liveSuccess90d >= 0.97 ? 'ok' : 'warn'} />
+        <Metric
+          size="sm"
+          label="Evaluation score"
+          value={agent.evaluation.suiteId ? agent.evaluation.score.toFixed(3) : '—'}
+          hint={agent.evaluation.suiteId ? `suite ${agent.evaluation.suiteId} · ${ago(agent.evaluation.lastRun!)}` : 'not run'}
+        />
+        <Metric size="sm" label="Live success 90d" value={agent.evaluation.liveSuccess90d ? pct(agent.evaluation.liveSuccess90d * 100) : 'not in production'} deltaTone={agent.evaluation.liveSuccess90d >= 0.97 ? 'ok' : agent.evaluation.liveSuccess90d ? 'warn' : undefined} />
         <Metric size="sm" label="Replay sample" value={num(agent.evaluation.replayN)} />
         <Metric size="sm" label="Cost 30d" value={usd(agent.economics.costUsd30d)} hint={`${usd(agent.economics.costPerWo)} per work object`} />
-        <Metric size="sm" label="Human cost displaced" value={usd(displacedUsd)} deltaTone="ok" hint={`${num(Math.round(displacedHrs))} hours · ratio ${pct((agent.economics.costUsd30d / Math.max(1, displacedUsd)) * 100, 1)}`} />
+        <Metric size="sm" label="Human cost displaced" value={usd(displacedUsd)} deltaTone={displacedUsd ? 'ok' : undefined} hint={displacedUsd ? `${num(Math.round(displacedHrs))} hours · ratio ${pct((agent.economics.costUsd30d / displacedUsd) * 100, 1)}` : 'nothing displaced yet'} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -195,7 +200,7 @@ export function AgentRecord() {
                   <TrendingUp size={12} /> Propose promotion
                 </Button>
               )}
-              <p className="mt-2 text-2xs text-ink-3">Next promotion review: {dateShort(agent.promotionReview)}</p>
+              <p className="mt-2 text-2xs text-ink-3">Next promotion review: {agent.promotionReview ? dateShort(agent.promotionReview) : 'not scheduled'}</p>
             </Card>
 
             <Card title="Skills" subtitle="Versioned, evaluation-gated">
@@ -227,7 +232,12 @@ export function AgentRecord() {
                 <div className="flex justify-between gap-2"><dt className="text-ink-3">Model spend, 30 days</dt><dd className="tnum text-ink-2">{usd(agent.economics.costUsd30d)}</dd></div>
                 <div className="flex justify-between gap-2"><dt className="text-ink-3">Cost per work object</dt><dd className="tnum text-ink-2">{usd(agent.economics.costPerWo)}</dd></div>
                 <div className="flex justify-between gap-2"><dt className="text-ink-3">Human minutes displaced</dt><dd className="tnum text-ink-2">{num(agent.economics.humanMinsDisplaced30d)}</dd></div>
-                <div className="flex justify-between gap-2 border-t border-line pt-1.5"><dt className="text-ink-3">Spend versus displaced cost</dt><dd className={cn('tnum font-medium', (agent.economics.costUsd30d / Math.max(1, displacedUsd)) * 100 <= 6 ? 'text-ok' : 'text-warn')}>{pct((agent.economics.costUsd30d / Math.max(1, displacedUsd)) * 100, 2)}</dd></div>
+                <div className="flex justify-between gap-2 border-t border-line pt-1.5">
+                  <dt className="text-ink-3">Spend versus displaced cost</dt>
+                  <dd className={cn('tnum font-medium', !displacedUsd ? 'text-ink-3' : (agent.economics.costUsd30d / displacedUsd) * 100 <= 6 ? 'text-ok' : 'text-warn')}>
+                    {displacedUsd ? pct((agent.economics.costUsd30d / displacedUsd) * 100, 2) : '—'}
+                  </dd>
+                </div>
               </dl>
               <Link to="/atlas/tokenops" className="mt-2 inline-block text-2xs text-brand-ink hover:underline">Open TokenOps Studio →</Link>
             </Card>

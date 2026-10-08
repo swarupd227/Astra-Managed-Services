@@ -126,92 +126,22 @@ export interface Review {
   evidenceId?: string
 }
 
-export const PROCEDURES: Procedure[] = [
-  {
-    id: 'pr_triage', engagementId: 'eng_kearney', standardAreaId: 'sa_triage',
-    name: 'Classify, enrich and route incoming work', version: '4.2', state: 'current',
-    owner: 'sdm', author: 'agt_sentinel', lastReviewedAt: '2027-01-12', reviewEveryDays: 180,
-    agents: ['agt_sentinel'], actionClasses: ['AC-05', 'AC-08'], verificationPack: 'classification_agreement',
-    reference: 'RB-B3-001',
-  },
-  {
-    id: 'pr_escalation', engagementId: 'eng_kearney', standardAreaId: 'sa_escalation',
-    name: 'Escalation path and clocks, agent to person to vendor', version: '2.0', state: 'current',
-    owner: 'sdm', author: 'R. Venkatesh', lastReviewedAt: '2025-11-28', reviewEveryDays: 180,
-    agents: ['agt_sentinel', 'agt_diagnost', 'agt_remedian'], actionClasses: [], verificationPack: null,
-    reference: 'RB-B3-002',
-  },
-  {
-    id: 'pr_restart', engagementId: 'eng_kearney', standardAreaId: 'sa_corrective',
-    name: 'Restart and pool recovery for stateless workloads', version: '6.1', state: 'current',
-    owner: 'sdm', author: 'agt_remedian', lastReviewedAt: '2027-01-30', reviewEveryDays: 180,
-    agents: ['agt_remedian'], actionClasses: ['AC-12', 'AC-24'], verificationPack: 'health_probe_v4',
-    reference: 'RB-B3-010',
-  },
-  {
-    id: 'pr_defect', engagementId: 'eng_kearney', standardAreaId: 'sa_corrective',
-    name: 'Reproduce, fix and raise a pull request for an application defect', version: '3.4', state: 'current',
-    owner: 'sdm', author: 'agt_forge', lastReviewedAt: '2026-12-15', reviewEveryDays: 180,
-    agents: ['agt_forge'], actionClasses: ['AC-37'], verificationPack: 'release_pack_v9',
-    reference: 'RB-B3-011',
-  },
-  {
-    id: 'pr_problem', engagementId: 'eng_kearney', standardAreaId: 'sa_problem',
-    name: 'Recurrence to named cause, costed fix and verification window', version: '0.3', state: 'draft',
-    owner: 'serviceowner', author: 'agt_prospect', lastReviewedAt: '2027-02-02', reviewEveryDays: 90,
-    agents: ['agt_prospect'], actionClasses: [], verificationPack: null,
-    reference: 'RB-B3-020 (draft)',
-  },
-  {
-    id: 'pr_release', engagementId: 'eng_kearney', standardAreaId: 'sa_release',
-    name: 'Release gating, freeze windows and override authority', version: '5.0', state: 'current',
-    owner: 'sdm', author: 'agt_sentryq', lastReviewedAt: '2027-01-05', reviewEveryDays: 180,
-    agents: ['agt_sentryq'], actionClasses: ['AC-37'], verificationPack: 'release_pack_v9',
-    reference: 'RB-B3-030',
-  },
-  {
-    id: 'pr_regression', engagementId: 'eng_kearney', standardAreaId: 'sa_regression',
-    name: 'Risk-based regression pack selection and generation', version: '4.0', state: 'current',
-    owner: 'sdm', author: 'agt_sentryq', lastReviewedAt: '2026-12-20', reviewEveryDays: 180,
-    agents: ['agt_sentryq'], actionClasses: [], verificationPack: 'release_pack_v9',
-    reference: 'RB-B3-031',
-  },
-  {
-    id: 'pr_patching', engagementId: 'eng_kearney', standardAreaId: 'sa_patching',
-    name: 'Canaried patch waves with health gates', version: '7.2', state: 'current',
-    owner: 'sdm', author: 'agt_warden', lastReviewedAt: '2027-02-01', reviewEveryDays: 90,
-    agents: ['agt_warden'], actionClasses: ['AC-52'], verificationPack: 'patch_wave_v2',
-    reference: 'RB-B3-040',
-  },
-  {
-    id: 'pr_config', engagementId: 'eng_kearney', standardAreaId: 'sa_config',
-    name: 'Baseline, drift detection and revert to last-known-good', version: '2.6', state: 'current',
-    owner: 'sdm', author: 'agt_remedian', lastReviewedAt: '2026-11-10', reviewEveryDays: 180,
-    agents: ['agt_remedian'], actionClasses: ['AC-31'], verificationPack: 'canary_slo_v6',
-    reference: 'RB-B3-050',
-  },
-  {
-    id: 'pr_knowledge', engagementId: 'eng_kearney', standardAreaId: 'sa_knowledge',
-    name: 'Claim to verified assertion, with verifier and expiry', version: '3.1', state: 'current',
-    owner: 'transition', author: 'agt_archivist', lastReviewedAt: '2027-01-20', reviewEveryDays: 180,
-    agents: ['agt_archivist'], actionClasses: [], verificationPack: null,
-    reference: 'RB-B3-060',
-  },
-  {
-    id: 'pr_handoff', engagementId: 'eng_kearney', standardAreaId: 'sa_handoff',
-    name: 'Shift, team and provider handover artefacts and their tests', version: '2.2', state: 'current',
-    owner: 'shiftlead', author: 'agt_herald', lastReviewedAt: '2026-08-18', reviewEveryDays: 180,
-    agents: ['agt_herald'], actionClasses: [], verificationPack: null,
-    reference: 'RB-B3-070',
-  },
-  {
-    id: 'pr_monitoring', engagementId: 'eng_kearney', standardAreaId: 'sa_monitoring',
-    name: 'Signal thresholds, noise ownership and what raises work', version: '3.0', state: 'current',
-    owner: 'shiftlead', author: 'agt_sentinel', lastReviewedAt: '2027-01-08', reviewEveryDays: 180,
-    agents: ['agt_sentinel'], actionClasses: ['AC-05'], verificationPack: null,
-    reference: 'RB-B3-080',
-  },
-]
+/**
+ * The procedures written for this engagement.
+ *
+ * The register starts empty. Twelve were listed here — triage, escalation,
+ * restart, defect, problem, release, regression, patching, SaaS, config,
+ * knowledge and handover — each with a version, an author, a last-reviewed
+ * date and a runbook reference like RB-B3-001. The register then reported
+ * how much of the client's own filed area list was covered, and the
+ * procedures_current commitment was measured against it.
+ *
+ * A procedure exists when somebody has written it. The client's area list
+ * says which ones are owed, which is what the register measures coverage
+ * against; writing one is an action with an author, a review date and a
+ * reference, and the platform records it when that happens.
+ */
+export const PROCEDURES: Procedure[] = []
 
 /* --------------------------------- Readings ---------------------------------- */
 

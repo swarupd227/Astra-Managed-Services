@@ -79,8 +79,8 @@ export function FleetView() {
         <Metric
           size="sm"
           label="Spend vs. displaced"
-          value={pct((totalCost / displacedUsd) * 100, 1)}
-          deltaTone={(totalCost / displacedUsd) * 100 <= 6 ? 'ok' : 'warn'}
+          value={displacedUsd ? pct((totalCost / displacedUsd) * 100, 1) : '—'}
+          deltaTone={!displacedUsd ? undefined : (totalCost / displacedUsd) * 100 <= 6 ? 'ok' : 'warn'}
           hint="target ≤ 4–6%"
         />
       </div>
