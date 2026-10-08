@@ -295,7 +295,12 @@ export const EXECUTORS: Record<string, Executor> = {
     const visible = STAGES.filter((x) => !clientSide || x.audience === 'client')
     const stage = str(input.stage)
     if (stage && !visible.some((x) => x.id === stage)) throw new ToolError(`No stage is called "${stage}". Stages: ${visible.map((x) => x.id).join(', ')}.`)
-    const s = accelerationSummary(clientSide ? 'client' : 'all')
+    const st = useAstra.getState()
+    const s = accelerationSummary(clientSide ? 'client' : 'all', {
+      evidence: st.evidence,
+      exitLog: st.exitLog,
+      verifiedAssertions: st.assertions.filter((a) => a.verification === 'human_verified').length,
+    })
     const rows = (stage ? s.accelerators.filter((a) => a.stage === stage) : s.accelerators).map((a) => ({
       id: a.id, stage: a.stage, name: a.name, does: a.does, agents: a.agents, state: a.state, givesTimeBackTo: a.saves,
       withoutThePlatform: a.baseline, withIt: { value: a.reading.value, basis: a.reading.basis, note: a.reading.note }, page: a.route ?? null,

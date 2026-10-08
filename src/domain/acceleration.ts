@@ -1,7 +1,7 @@
 import { bundleCoverage, COVERED_BUNDLES } from './coverage'
 import { reliabilitySummary } from './dataReliability'
 import { ENGAGEMENT, STAGES, type StageId } from './engagement'
-import { readExit } from './exit'
+import { readExit, type Settlement } from './exit'
 import { DEMAND_CLASSES } from './ledgers'
 import { COVERAGE, HANDOVER, SHADOW } from './knowledge'
 import { OPERATIONAL, autonomyEligible, glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './metrics'
@@ -51,6 +51,23 @@ export type Saves = 'client' | 'provider' | 'both'
 
 export const SAVES_LABEL: Record<Saves, string> = { client: 'Client', provider: 'Service', both: 'Both' }
 
+/**
+ * What has been recorded, for the rows that read a record rather than a seed.
+ *
+ * Without it a row reads the compiled register and never moves: the sealed-
+ * record count read the `EVIDENCE` constant, which is empty by design now, so
+ * it would have reported nothing sealed however much the platform had sealed.
+ * A row that cannot see what was recorded is not measuring anything.
+ */
+export interface AccelCtx {
+  /** The evidence chain as it stands, not as it was compiled. */
+  evidence?: { length: number }
+  /** Holdings returned or destroyed. */
+  exitLog?: Settlement[]
+  /** Assertions a person has confirmed. */
+  verifiedAssertions?: number
+}
+
 export interface Accelerator {
   id: string
   stage: StageId
@@ -64,7 +81,7 @@ export interface Accelerator {
   state: BuildState
   /** The page that carries the evidence. */
   route?: string
-  read: () => Reading
+  read: (ctx: AccelCtx) => Reading
 }
 
 const pct1 = (n: number) => `${n.toFixed(1)}%`
@@ -251,7 +268,12 @@ export const ACCELERATORS: Accelerator[] = [
     agents: ['agt_herald', 'agt_archivist'],
     baseline: { value: 'Days per audit question, by sampling', source: 'Client-stated' },
     state: 'live', route: '/governance/evidence',
-    read: () => ({ value: `${EVIDENCE.length.toLocaleString('en-GB')} sealed records`, basis: 'measured', note: `Retrieval under ${OPERATIONAL.evidenceRetrievalSec} s` }),
+    read: ({ evidence }) => {
+      const n = evidence?.length ?? EVIDENCE.length
+      return n
+        ? { value: `${n.toLocaleString('en-GB')} sealed records`, basis: 'measured', note: `Retrieval under ${OPERATIONAL.evidenceRetrievalSec} s` }
+        : { value: '—', basis: 'not_measured', note: 'The chain holds no records yet' }
+    },
   },
   {
     id: 'acc_dispute', saves: 'both', stage: 'assure', name: 'Service level disputes closed on the clock audit',
@@ -277,8 +299,8 @@ export const ACCELERATORS: Accelerator[] = [
     agents: ['agt_herald', 'agt_bursar'],
     baseline: { value: 'Data pack rebuilt by hand per review', source: 'Commercial register' },
     state: 'live', route: '/governance/exit',
-    read: () => {
-      const b = readExit().benchmark
+    read: ({ exitLog, verifiedAssertions }) => {
+      const b = readExit(exitLog ?? [], verifiedAssertions).benchmark
       return { value: `${b.quarters.length} quarters ready`, basis: 'measured', note: `${b.serviceLevels.length} service levels and ${b.bankedHrs.toLocaleString('en-GB')} banked hours from the ledger` }
     },
   },
@@ -288,8 +310,8 @@ export const ACCELERATORS: Accelerator[] = [
     agents: ['agt_archivist'],
     baseline: { value: 'Manual inventory, contested at exit', source: 'Contract requirement' },
     state: 'live', route: '/governance/exit',
-    read: () => {
-      const r = readExit()
+    read: ({ exitLog }) => {
+      const r = readExit(exitLog ?? [])
       return { value: `${r.returned + r.destroyed}/${r.holdings.length} settled`, basis: 'measured', note: `${r.residual.length} retained, each with a stated reason` }
     },
   },
@@ -299,8 +321,8 @@ export const ACCELERATORS: Accelerator[] = [
     agents: ['agt_archivist', 'agt_herald'],
     baseline: { value: 'Reverse transition from scratch', source: 'Contract requirement' },
     state: 'live', route: '/governance/exit',
-    read: () => {
-      const p = readExit().reverse
+    read: ({ exitLog, verifiedAssertions }) => {
+      const p = readExit(exitLog ?? [], verifiedAssertions).reverse
       return { value: `${p.verifiedAssertions} verified assertions`, basis: 'measured', note: `${p.demandClasses} demand classes, ${p.estateItems} estate items, ${p.runbooks} handover artefacts` }
     },
   },
@@ -339,11 +361,11 @@ export interface AccelerationSummary {
  * Read for one audience. The client's people see the stages of their own
  * engagement; our own stages are ours to look at.
  */
-export function accelerationSummary(audience: 'client' | 'all' = 'all'): AccelerationSummary {
+export function accelerationSummary(audience: 'client' | 'all' = 'all', ctx: AccelCtx = {}): AccelerationSummary {
   const visible = STAGES.filter((s) => audience === 'all' || s.audience === 'client')
   const rows: AcceleratorReading[] = ACCELERATORS
     .filter((a) => visible.some((s) => s.id === a.stage))
-    .map((a) => ({ ...a, reading: a.read() }))
+    .map((a) => ({ ...a, reading: a.read(ctx) }))
   const stages: StageReading[] = visible.map((stage) => {
     const accelerators = rows.filter((r) => r.stage === stage.id)
     return {

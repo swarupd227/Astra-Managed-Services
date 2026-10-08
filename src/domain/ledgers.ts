@@ -1,4 +1,5 @@
 import { Rng } from './rng'
+import { ENGAGEMENT, ENGAGEMENT_BY_ID, type ContractObligation } from './engagement'
 import { WORK_OBJECTS } from './workSeed'
 import type {
   Decision, DemandClassRec, GlidepathEntry, InnovationItem, Obligation, SlaSpec, TokenSeries, TransformLedger,
@@ -191,14 +192,57 @@ export const DISTILLATION_CANDIDATES: {
  * 'failed' and one that returned $412,000.
  *
  * Decisions are written by the platform when a confirmation is taken, so the
- * register fills itself. Obligations are the contract's and belong in the
- * database beside the engagement's other terms, loaded the way the procedure
- * areas are. Innovation items are raised, assessed, funded and verified
- * through the recommendation flow.
+ * register fills itself. Innovation items are raised, assessed, funded and
+ * verified through the recommendation flow. The obligations now come from the
+ * engagement's own terms in the database — see `OBLIGATIONS` below.
  */
 export const DECISIONS: Decision[] = []
 
-export const OBLIGATIONS: Obligation[] = []
+/**
+ * What the contract obliges, recurring.
+ *
+ * Read from the engagement's terms rather than written here. The contract
+ * states what is owed, how often, what evidence discharges it and when it
+ * first fell due; the next due date follows from the cadence, and the state
+ * follows from that date. Nobody's name is attached, because an owner is an
+ * assignment and not a term — the ten that used to sit here each carried one,
+ * along with a RAG state, which made a hand-written table read as a live
+ * control.
+ */
+export const OBLIGATIONS: Obligation[] = readObligations()
+
+/** Rolls a first-due date forward by its cadence until it is in the future. */
+function nextDue(firstDue: string, cadence: ContractObligation['cadence'], now: Date): Date {
+  const months = cadence === 'Monthly' ? 1 : cadence === 'Quarterly' ? 3 : cadence === 'Half-yearly' ? 6 : 12
+  const d = new Date(`${firstDue}T00:00:00.000Z`)
+  // A cadence that has not come round yet keeps its first date, which is how
+  // an obligation can legitimately be owed before the service has run once.
+  while (d.getTime() <= now.getTime()) d.setUTCMonth(d.getUTCMonth() + months)
+  return d
+}
+
+export function readObligations(engagementId?: string, now = NOW): Obligation[] {
+  const e = engagementId ? ENGAGEMENT_BY_ID[engagementId] : ENGAGEMENT
+  if (!e) return []
+  return e.obligations.map((o) => {
+    const due = nextDue(o.firstDue, o.cadence, now)
+    const daysLeft = Math.round((due.getTime() - now.getTime()) / 86_400_000)
+    return {
+      id: o.id,
+      title: o.title,
+      cadence: o.cadence,
+      evidenceRequirement: o.evidenceRequirement,
+      dueAt: due.toISOString(),
+      // Derived from the clock alone. Whether the evidence has been produced
+      // is a record the platform does not hold yet, so an obligation is never
+      // reported green on the strength of nothing: it is amber once it is
+      // close enough to need attention.
+      state: daysLeft < 0 ? 'red' : daysLeft <= 14 ? 'amber' : 'green',
+      owner: '',
+      reference: o.reference,
+    }
+  })
+}
 
 export const INNOVATION: InnovationItem[] = []
 

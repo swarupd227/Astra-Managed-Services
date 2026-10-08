@@ -238,10 +238,17 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_procedures', name: 'The procedures themselves, and their reviews', origin: 'platform_record',
-    source: 'Demonstration register of twelve procedures with owners, versions, review periods and the action classes each authorises; execution counts are read from the work the platform did',
+    source: 'Written when a procedure is authored and when a review is recorded. The areas they answer are the client’s; the execution counts are read from the work the platform did',
     routes: ['/governance/procedures'],
-    caution: 'The procedures and review dates are seeded; the areas they answer are the client’s, and the execution counts are read from live work records',
+    caution: 'A procedure appears once it has been written, so the register is empty until it is, and coverage is measured against the areas the contract files',
     maturity: 'live',
+  },
+  {
+    id: 'ds_obligations', name: 'What the contract obliges, recurring', origin: 'client_extract',
+    source: 'Read from the engagement database at start-up: what is owed, how often, what evidence discharges it, the clause, and the date it first fell due',
+    routes: ['/governance/registers'],
+    caution: 'Only the contract’s side is loaded. The next due date is rolled forward from the cadence and the state from that date; nobody is named as owner until somebody is assigned, and no obligation is reported green on the strength of evidence the platform has not seen',
+    maturity: 'partial',
   },
   {
     id: 'ds_client_control', name: 'The client’s rights over the workforce, and the directives in force', origin: 'platform_record',

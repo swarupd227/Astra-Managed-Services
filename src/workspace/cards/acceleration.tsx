@@ -42,7 +42,13 @@ function useClientSide() {
 }
 
 function useSummary(audience: 'client' | 'all') {
-  return React.useMemo(() => accelerationSummary(audience), [audience])
+  const evidence = useAstra((s) => s.evidence)
+  const exitLog = useAstra((s) => s.exitLog)
+  const verified = useAstra((s) => s.assertions.filter((a) => a.verification === 'human_verified').length)
+  return React.useMemo(
+    () => accelerationSummary(audience, { evidence, exitLog, verifiedAssertions: verified }),
+    [audience, evidence, exitLog, verified],
+  )
 }
 
 function AccelerationMetrics({ size }: CardProps) {

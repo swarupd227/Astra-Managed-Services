@@ -121,6 +121,7 @@ export function Registers() {
               <thead>
                 <tr>
                   <Th>Obligation</Th>
+                  <Th>Clause</Th>
                   <Th>Owner</Th>
                   <Th>Cadence</Th>
                   <Th>Due</Th>
@@ -133,7 +134,8 @@ export function Registers() {
                 {[...OBLIGATIONS].sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()).map((o) => (
                   <Tr key={o.id}>
                     <Td className="text-ink">{o.title}</Td>
-                    <Td>{o.owner}</Td>
+                    <Td className="font-mono text-2xs text-ink-3">{o.reference}</Td>
+                    <Td className={o.owner ? undefined : 'text-2xs text-ink-3'}>{o.owner || 'unassigned'}</Td>
                     <Td className="text-2xs">{o.cadence}</Td>
                     <Td className={cn('text-2xs', o.state === 'red' ? 'text-crit' : o.state === 'amber' ? 'text-warn' : 'text-ink-2')}>
                       {dateShort(o.dueAt)} · {until(o.dueAt)}
@@ -158,7 +160,7 @@ export function Registers() {
                 ))}
               </tbody>
             </Table>
-            {!OBLIGATIONS.length && <Empty title="No obligations loaded" />}
+            {!OBLIGATIONS.length && <Empty title="No obligations filed for this engagement" />}
           </Card>
         )}
 

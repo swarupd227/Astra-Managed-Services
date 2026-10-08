@@ -426,11 +426,16 @@ export interface Decision {
 export interface Obligation {
   id: string
   title: string
+  /** Empty until somebody is assigned it. An owner is a record, not a term. */
   owner: string
+  /** Derived by rolling the contract's first-due date forward by its cadence. */
   dueAt: ISO
   cadence: string
   evidenceRequirement: string
+  /** Derived from the due date. Never green on the strength of no evidence. */
   state: 'green' | 'amber' | 'red' | 'closed'
+  /** The clause it comes from. */
+  reference: string
 }
 
 export interface InnovationItem {

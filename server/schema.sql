@@ -75,8 +75,35 @@ create table if not exists engagement_filed_item (
   primary key (engagement_id, kind, id)
 );
 
+-- ---------------------------------------------------------------------------
+-- What the contract obliges, recurring.
+--
+-- Only the contract's side of an obligation lives here: what is owed, how
+-- often, what evidence discharges it, the clause it comes from, and the first
+-- date it fell due. Those are terms, so they are loaded like any other term.
+--
+-- Deliberately absent: who owns it and whether it is green. An owner is an
+-- assignment somebody makes and the platform records; a state is derived from
+-- the date it is next due and what has been produced against it. Ten
+-- obligations used to be compiled in with an owner's name and a RAG state
+-- apiece, which made the register read as a live control when it was a
+-- hand-written table.
+-- ---------------------------------------------------------------------------
+create table if not exists engagement_obligation (
+  engagement_id        text not null references engagement(id) on delete cascade,
+  id                   text not null,
+  title                text not null,
+  cadence              text not null check (cadence in ('Monthly', 'Quarterly', 'Half-yearly', 'Yearly')),
+  evidence_requirement text not null,
+  reference            text not null,
+  first_due            date not null,
+  position             integer not null default 0,
+  primary key (engagement_id, id)
+);
+
 create index if not exists engagement_filed_item_kind on engagement_filed_item (engagement_id, kind, position);
 create index if not exists engagement_service_line_order on engagement_service_line (engagement_id, position);
+create index if not exists engagement_obligation_order on engagement_obligation (engagement_id, position);
 
 -- ===========================================================================
 -- What people record.

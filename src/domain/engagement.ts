@@ -112,6 +112,19 @@ export interface FiledItem {
   standardId?: string
 }
 
+/** A recurring obligation, as the contract states it. */
+export interface ContractObligation {
+  id: string
+  title: string
+  cadence: 'Monthly' | 'Quarterly' | 'Half-yearly' | 'Yearly'
+  /** What discharges it. */
+  evidenceRequirement: string
+  /** The clause it comes from. */
+  reference: string
+  /** The first date it fell due; later dates follow the cadence. */
+  firstDue: string
+}
+
 export interface Engagement {
   id: string
   client: string
@@ -132,6 +145,14 @@ export interface Engagement {
    * authority. An engagement that files none is not scored for cadence.
    */
   improvementDimensions?: { reference: string; items: FiledItem[] }
+  /**
+   * What the contract obliges, recurring — and only the contract's side of it:
+   * what is owed, how often, what evidence discharges it, the clause, and the
+   * date it first fell due. Who owns it and whether it is on track are not
+   * terms, so they are not here; `readObligations` derives the next due date
+   * from the cadence and the state from that date.
+   */
+  obligations: ContractObligation[]
   /**
    * Operating thresholds this contract states, overriding the platform's
    * defaults. See `src/domain/thresholds.ts` for what each one moves.

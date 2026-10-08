@@ -10,13 +10,14 @@ import { query } from './db.mjs'
    ========================================================================== */
 
 export async function readEngagements() {
-  const [engagements, regimes, ingested, lines, thresholds, filed] = await Promise.all([
+  const [engagements, regimes, ingested, lines, thresholds, filed, obligations] = await Promise.all([
     query('select * from engagement order by id'),
     query('select * from engagement_regime'),
     query('select * from engagement_ingested'),
     query('select * from engagement_service_line order by engagement_id, position'),
     query('select * from engagement_threshold'),
     query('select * from engagement_filed_item order by engagement_id, kind, position'),
+    query('select * from engagement_obligation order by engagement_id, position'),
   ])
 
   const by = (rows, id) => rows.filter((r) => r.engagement_id === id)
@@ -61,6 +62,16 @@ export async function readEngagements() {
       // platform's default, which is the browser's to apply.
       thresholds: Object.fromEntries(by(thresholds, e.id).map((t) => [t.key, Number(t.value)])),
       thresholdsStatedIn: Object.fromEntries(by(thresholds, e.id).map((t) => [t.key, t.stated_in])),
+      // The contract's side of each recurring obligation. Owner and state are
+      // not here: see the table's own note.
+      obligations: by(obligations, e.id).map((o) => ({
+        id: o.id,
+        title: o.title,
+        cadence: o.cadence,
+        evidenceRequirement: o.evidence_requirement,
+        reference: o.reference,
+        firstDue: typeof o.first_due === 'string' ? o.first_due : o.first_due.toISOString().slice(0, 10),
+      })),
       ...(areas.length ? { procedureAreas: { reference: areas[0].reference, areas: areas.map(item) } } : {}),
       ...(dimensions.length ? { improvementDimensions: { reference: dimensions[0].reference, items: dimensions.map(item) } } : {}),
     }
