@@ -66,3 +66,15 @@ export async function appendRecords(engagementId, registers, by, role) {
   }
   return added
 }
+
+/**
+ * Forgets an engagement's records entirely.
+ *
+ * The only operation here that deletes, and it exists because the alternative
+ * is worse: a reset that cleared the browser but left the database would hand
+ * everything back on the next reload while reporting that it had gone.
+ */
+export async function clearRecords(engagementId) {
+  const rows = await query('delete from record where engagement_id = $1 returning kind', [engagementId])
+  return rows.length
+}

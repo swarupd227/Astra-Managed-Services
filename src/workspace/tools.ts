@@ -386,7 +386,7 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
-  reset_session_records: () => {
+  reset_session_records: async () => {
     const s = useAstra.getState()
     const cleared = {
       privacyActions: s.privacyLog.length,
@@ -399,11 +399,12 @@ export const EXECUTORS: Record<string, Executor> = {
       procedureReviews: s.procedureReviews.length,
       evidenceRecordsAppended: Math.max(0, s.evidence.length - SEEDED_EVIDENCE.length),
     }
-    clearSessionRecords()
+    const removed = await clearSessionRecords()
     return {
       payload: {
         cleared,
         total: Object.values(cleared).reduce((n, x) => n + x, 0),
+        rowsDeletedFromDatabase: removed,
         seededEstateUntouched: true,
         evidenceRecords: useAstra.getState().evidence.length,
       },

@@ -126,8 +126,8 @@
     },
     {
       "name": "reset_session_records", "agent": "astra", "surfaces": ["governance", "platform"], "mutating": true, "approval": true,
-      "description": "Forget everything recorded in this browser — privacy notices, returns and destruction certificates, commitment remedies, the client's directives over the workforce, successor packs produced, adopted procedure areas and procedure reviews — and return the evidence chain to its seeded backbone. The seeded estate is untouched: this clears what a person did here, not what the platform holds. Irreversible, and worth confirming out loud before a demonstration is repeated.",
-      "describe": "Forget everything recorded in this browser and return the evidence chain to its backbone.",
+      "description": "Delete everything recorded against this engagement — privacy notices, returns and destruction certificates, commitment remedies, the client's directives over the workforce, successor packs produced, adopted procedure areas and procedure reviews — and return the evidence chain to its seeded backbone. The records are deleted from the database, not just from this browser, so they are gone for everybody rather than hidden from one person. The seeded estate is untouched: this clears what people did here, not what the platform holds. Irreversible, and worth saying out loud before a demonstration is repeated.",
+      "describe": "Delete every record against this engagement, for everybody, and return the evidence chain to its backbone.",
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
     },
     {

@@ -1756,8 +1756,25 @@ useAstra.subscribe((state) => {
   persist(state)
 })
 
-/** Forgets what this browser recorded, leaving the seeded estate as it was. */
-export function clearSessionRecords() {
+/**
+ * Forgets what was recorded, leaving the seeded estate as it was.
+ *
+ * The database is cleared first and the memory only if that succeeded. The
+ * other order would report a reset that the next reload undid, which is the
+ * one failure a reset must never have.
+ */
+export async function clearSessionRecords(): Promise<number> {
+  const res = await fetch('/api/records/clear', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ engagement: recordEngagementId() }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail ?? body.error ?? `the gateway answered ${res.status}`)
+  }
+  const { removed } = (await res.json()) as { removed: number }
+
   lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, [] as unknown]))
   lastEvidenceLength = PRISTINE_EVIDENCE.length
   useAstra.setState({
@@ -1765,4 +1782,5 @@ export function clearSessionRecords() {
     clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [],
     evidence: PRISTINE_EVIDENCE,
   })
+  return removed
 }

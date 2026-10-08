@@ -21,7 +21,7 @@ import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } f
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
 import { configured as dbConfigured, ping } from './db.mjs'
 import { readEngagements } from './config.mjs'
-import { appendRecords, readRecords } from './records.mjs'
+import { appendRecords, clearRecords, readRecords } from './records.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -850,6 +850,14 @@ http
           } catch (err) {
             return json(res, 200, { ok: false, error: err?.message ?? String(err) })
           }
+        }
+
+        if (url === '/api/records/clear') {
+          const id = String(body?.engagement ?? '')
+          if (!id) return json(res, 400, { error: 'An engagement is required.' })
+          return clearRecords(id)
+            .then((removed) => json(res, 200, { removed }))
+            .catch((err) => json(res, 503, { error: 'The records could not be cleared.', detail: String(err?.message ?? err) }))
         }
 
         if (url === '/api/records') {
