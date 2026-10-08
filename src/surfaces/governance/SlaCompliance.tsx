@@ -5,7 +5,7 @@ import { CLOCK_AUDIT, SLAS, clockElapsedMins, clockPausedMins } from '@/domain/l
 import { TOWER_BY_ID } from '@/domain/estate'
 import { useAstra, useOpenWork } from '@/domain/store'
 import { PageHeader, PriorityChip, SlaClock } from '@/ui/domain'
-import { Button, Card, Chip, Drawer, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
+import { Button, Card, Chip, Drawer, Empty, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
 import { Gauge } from '@/ui/charts'
 import { clock, cn, dateTime, mins, num, pct } from '@/lib/format'
 import type { SlaSpec } from '@/domain/types'
@@ -197,12 +197,19 @@ export function SlaCompliance() {
         </div>
       </div>
 
-      <Drawer open={auditOpen} onClose={() => setAuditOpen(false)} title={`Clock audit — ${CLOCK_AUDIT.workObjectRef}`} subtitle={CLOCK_AUDIT.sla} width="max-w-[640px]">
+      <Drawer
+        open={auditOpen}
+        onClose={() => setAuditOpen(false)}
+        title={CLOCK_AUDIT ? `Clock audit — ${CLOCK_AUDIT.workObjectRef}` : 'Clock audit'}
+        subtitle={CLOCK_AUDIT?.sla}
+        width="max-w-[640px]"
+      >
+        {!CLOCK_AUDIT ? <Empty title="No clock audit produced" /> : (
         <div className="p-4">
           <div className="grid grid-cols-3 gap-3">
             <Metric size="sm" label="Target" value={clock(CLOCK_AUDIT.targetMins)} />
-            <Metric size="sm" label="Clock elapsed" value={clock(clockElapsedMins())} hint={`${clock(clockPausedMins())} paused, excluded`} />
-            <Metric size="sm" label="Verdict" value={clockElapsedMins() <= CLOCK_AUDIT.targetMins ? 'attained' : 'breached'} />
+            <Metric size="sm" label="Clock elapsed" value={clock(clockElapsedMins(CLOCK_AUDIT))} hint={`${clock(clockPausedMins(CLOCK_AUDIT))} paused, excluded`} />
+            <Metric size="sm" label="Verdict" value={clockElapsedMins(CLOCK_AUDIT) <= CLOCK_AUDIT.targetMins ? 'attained' : 'breached'} />
           </div>
           <ol className="mt-4 space-y-2">
             {CLOCK_AUDIT.events.map((e) => (
@@ -217,6 +224,7 @@ export function SlaCompliance() {
             ))}
           </ol>
         </div>
+        )}
       </Drawer>
 
       <Drawer open={disputeOpen} onClose={() => setDisputeOpen(false)} title="Dispute workspace" subtitle="dsp_2027_003 · P2 breach, Zero Trust rollout, 09 February" width="max-w-[680px]">

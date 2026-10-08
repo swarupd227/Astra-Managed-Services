@@ -358,7 +358,9 @@ export function ExecutiveHome() {
                   statusTone={glidepathActual <= glidepathContracted ? 'ok' : 'crit'}
                   headline={signedPct(glidepathActual)}
                   sub={`vs ${signedPct(glidepathContracted)} contracted`}
-                  narrative={`${num(bankedHours())} hours banked against the countersigned baseline`}
+                  narrative={bankedHours()
+                    ? `${num(bankedHours())} hours banked against the countersigned baseline`
+                    : 'Nothing banked against the countersigned baseline yet'}
                   to="/governance/glidepath"
                   chart={<Sparkline data={[...HISTORY.glidepathActual]} tone="ok" showLast width={120} height={22} />}
                 />
@@ -369,20 +371,24 @@ export function ExecutiveHome() {
                   statusTone={delta !== null && delta < 0 ? 'warn' : 'brand'}
                   headline={pct(autonomyEligible)}
                   sub="autonomy-eligible volume"
-                  narrative={`${moves.promotions} promotion${moves.promotions === 1 ? '' : 's'} and ${moves.demotions} demotion${moves.demotions === 1 ? '' : 's'} recorded, each with countersigned evidence${moves.refused ? `; ${moves.refused} promotion refused outright` : ''}.`}
+                  narrative={moves.promotions || moves.demotions || moves.refused
+                    ? `${moves.promotions} promotion${moves.promotions === 1 ? '' : 's'} and ${moves.demotions} demotion${moves.demotions === 1 ? '' : 's'} recorded, each with countersigned evidence${moves.refused ? `; ${moves.refused} promotion refused outright` : ''}.`
+                    : 'No autonomy decision has been taken yet.'}
                   to="/governance/autonomy"
-                  chart={<Sparkline data={[...HISTORY.autonomyEligible, autonomyEligible]} tone="brand" showLast width={120} height={22} />}
+                  chart={<Sparkline data={HISTORY.autonomyEligible.length ? [...HISTORY.autonomyEligible, autonomyEligible] : []} tone="brand" showLast width={120} height={22} />}
                 />
 
                 <Tile
                   label="Innovation"
-                  status={`${INNOVATION.filter((i) => i.stage === 'funded').length} in flight`}
+                  status={INNOVATION.length ? `${INNOVATION.filter((i) => i.stage === 'funded').length} in flight` : 'register empty'}
                   statusTone="ok"
                   headline={usd(verifiedInnovation)}
                   sub="verified value"
-                  narrative={`${INNOVATION.filter((i) => i.verdict === 'failed').length} funded experiments failed and remain in the register.`}
+                  narrative={INNOVATION.length
+                    ? `${INNOVATION.filter((i) => i.verdict === 'failed').length} funded experiments failed and remain in the register.`
+                    : 'Nothing has been raised, funded or verified yet.'}
                   to="/governance/innovation"
-                  chart={<Sparkline data={[...HISTORY.innovationValueK, verifiedInnovation / 1000]} tone="agent" showLast width={120} height={22} />}
+                  chart={<Sparkline data={HISTORY.innovationValueK.length ? [...HISTORY.innovationValueK, verifiedInnovation / 1000] : []} tone="agent" showLast width={120} height={22} />}
                 />
 
                 <Tile

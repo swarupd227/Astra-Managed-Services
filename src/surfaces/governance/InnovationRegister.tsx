@@ -4,7 +4,7 @@ import { INNOVATION } from '@/domain/ledgers'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { AgentChip, PageHeader } from '@/ui/domain'
-import { Button, Card, Chip, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
+import { Button, Card, Chip, Empty, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
 import { Funnel, CHART_COLORS } from '@/ui/charts'
 import { cn, num, pct, usd } from '@/lib/format'
 import type { InnovationItem } from '@/domain/types'
@@ -36,10 +36,14 @@ export function InnovationRegister() {
   const delivered = INNOVATION.filter((i) => i.verdict)
   const verified = delivered.filter((i) => i.verdict === 'verified')
   const failed = delivered.filter((i) => i.verdict === 'failed')
-  const successRate = (verified.length / Math.max(1, delivered.length)) * 100
+  // Null rather than zero where there is no denominator: an empty register has
+  // no success rate, and reading 0% off it says the opposite of the truth.
+  const successRate = delivered.length ? (verified.length / delivered.length) * 100 : null
   const realised = verified.reduce((s, i) => s + (i.realisedValueUsd ?? 0), 0)
-  const clientShare = (INNOVATION.filter((i) => i.source === 'client' && ['funded', 'delivered', 'verified', 'scaled'].includes(i.stage)).length /
-    Math.max(1, INNOVATION.filter((i) => ['funded', 'delivered', 'verified', 'scaled'].includes(i.stage)).length)) * 100
+  const inFlight = INNOVATION.filter((i) => ['funded', 'delivered', 'verified', 'scaled'].includes(i.stage))
+  const clientShare = inFlight.length
+    ? (inFlight.filter((i) => i.source === 'client').length / inFlight.length) * 100
+    : null
 
   const stages = [
     { label: 'Idea', count: INNOVATION.filter((i) => STAGE_ORDER.indexOf(i.stage) >= 0).length, tone: CHART_COLORS.ink3 },
@@ -68,17 +72,17 @@ export function InnovationRegister() {
       />
 
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
-        <Metric size="sm" label="Verified value" value={usd(realised)} deltaTone="ok" />
+        <Metric size="sm" label="Verified value" value={usd(realised)} deltaTone={realised ? 'ok' : undefined} />
         <Metric
           size="sm"
           label="Success rate"
-          value={pct(successRate, 0)}
-          deltaTone={successRate >= 40 && successRate <= 70 ? 'ok' : 'warn'}
+          value={successRate === null ? '—' : pct(successRate, 0)}
+          deltaTone={successRate === null ? undefined : successRate >= 40 && successRate <= 70 ? 'ok' : 'warn'}
           hint="target 40–70%"
         />
         <Metric size="sm" label="Published failures" value={failed.length} />
-        <Metric size="sm" label="Client co-creation" value={pct(clientShare, 0)} />
-        <Metric size="sm" label="Median cycle time" value={`${Math.round(delivered.reduce((s, i) => s + (i.cycleDays ?? 0), 0) / Math.max(1, delivered.length))} d`} hint="idea to delivered" />
+        <Metric size="sm" label="Client co-creation" value={clientShare === null ? '—' : pct(clientShare, 0)} />
+        <Metric size="sm" label="Median cycle time" value={delivered.length ? `${Math.round(delivered.reduce((s, i) => s + (i.cycleDays ?? 0), 0) / delivered.length)} d` : '—'} hint="idea to delivered" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -172,6 +176,7 @@ export function InnovationRegister() {
                 ))}
               </tbody>
             </Table>
+            {!list.length && <Empty title="Nothing in the register" />}
 
             <div className="mt-3 grid gap-3 border-t border-line pt-3 md:grid-cols-3">
               {[

@@ -121,147 +121,27 @@ export function daysOpen(p: Proposal, nowMs = NOW.getTime()): number {
  * Denominator is every decision item in front of the board — the standing
  * register plus the open proposals competing for the same attention.
  */
-export function initiativeShare(proposals: Proposal[]): { share: number; agentOriginated: number; total: number } {
+export function initiativeShare(proposals: Proposal[]): { share: number | null; agentOriginated: number; total: number } {
   const agentOriginated = proposals.filter((p) => p.state !== 'expired').length
   const total = DECISIONS.length + agentOriginated
-  return { share: total ? agentOriginated / total : 0, agentOriginated, total }
+  // Nothing in front of the board is not a nil share of it.
+  return { share: total ? agentOriginated / total : null, agentOriginated, total }
 }
 
-/* ---------------------------------- Seed ------------------------------------ */
+/* -------------------------------- The stream -------------------------------- */
 
-const days = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString()
-
-export const PROPOSALS: Proposal[] = [
-  {
-    // Deliberately NOT AC-31. The promotion register already records pr_88
-    // granting AC-31 L2→L3 four days ago, and decision dec_2027_014 approving
-    // it — an open request for the same thing would have the platform asking
-    // for something it had already been given.
-    id: 'prp_ac41_l3',
-    kind: 'permission',
-    from: 'agt_remedian',
-    to: 'Service governance board',
-    claim: 'Raise AC-41 from L2 Approve-first to L3 Supervised on the Application Development & Integration estate',
-    detail:
-      'Approval latency on certificate rotation is now the dominant term in its MTTR. The evidence base is large enough, and stable enough, that the gate is costing more than it is catching.',
-    dimension: 'security',
-    evidence: [
-      { label: '284 runs on sk_cert_rotate_v3 at 98.8% success, 0 incidents', ref: 'ev_dd41b1' },
-      { label: 'Median approval latency 9m 4s on this class', ref: 'ev_dd41b2' },
-      { label: 'Rotation is reversible and carries the tls_probe_v3 verification pack', ref: 'ev_dd41b3' },
-      { label: 'Policy simulation attached — 284 historical runs replayed', ref: 'ev_dd41b4' },
-    ],
-    value: { note: 'Projected MTTR improvement on this class under a 120s abort window' },
-    source: { kind: 'action_class', id: 'AC-41' },
-    requestedDecision: 'Promote with an 8-week enhanced sampling condition',
-    raisedAt: days(-19),
-    expiresAt: days(9),
-    state: 'open',
-    permission: {
-      actionClass: 'AC-41',
-      from: 'approve_first',
-      to: 'supervised',
-      scope: 'Application Development & Integration estate only — no change requested on tier-0 nodes',
-      conditions: '8-week enhanced sampling; automatic demotion on any Sev-attributable error',
-      simulation: 'Replayed against 284 historical runs: 0 decisions would have differed under L3 with the abort window.',
-    },
-  },
-  {
-    id: 'prp_mulesoft_runbook',
-    kind: 'risk',
-    from: 'agt_prospect',
-    to: 'Service governance board',
-    claim: 'Formalise a backup-maintainer runbook for the Mulesoft integration hub before the bus-factor-of-one becomes an outage',
-    detail:
-      'All Salesforce↔SAP integration traffic depends on one named user with undocumented, tribal knowledge of the Anypoint deployment. A failover runbook exists for the pipeline itself, but nothing lets a second engineer maintain or extend it. The bridge has already gone unmonitored three times when that one person was unavailable.',
-    dimension: 'operational_efficiency',
-    evidence: [
-      { label: 'ke_mulesoft_soleowner — 3 occurrences since first seen 2026-06-02', ref: 'ev_dd41c1' },
-      { label: 'app_mulesoft — 1 named user on prod-centralus, no documented deployment runbook', ref: 'ev_dd41c2' },
-      { label: 'rb_mulesoft_failover covers pipeline recovery only, not maintainer onboarding', ref: 'ev_dd41c3' },
-    ],
-    value: { note: 'Removes a single-point-of-failure risk rather than treating another outage after the fact' },
-    requestedDecision: 'Fund a knowledge-capture engagement and name a backup maintainer',
-    raisedAt: days(-23),
-    expiresAt: days(-2),
-    state: 'open',
-  },
-  {
-    id: 'prp_endpoint_dedupe',
-    kind: 'risk',
-    from: 'agt_warden',
-    to: 'R. Venkatesh',
-    claim: 'Consolidate the three concurrent endpoint-security stacks contending for CPU on Digital Workplace endpoints',
-    detail:
-      'Three endpoint-security agents run in parallel across the fleet, each installed under a different prior vendor engagement and never rationalised. The contention between them is now driving support volume, not just wasting license spend.',
-    dimension: 'security',
-    evidence: [
-      { label: 'ke_triple_av — 41 occurrences since first seen 2025-09-11', ref: 'ev_dd41d1' },
-      { label: 'rb_endpoint_dedupe human-verified, 87.0% success — treats symptom only', ref: 'ev_dd41d2' },
-      { label: 'Infrastructure — Security (twr_secops) carries 9,718 of 28,028 incidents/yr, the largest single category', ref: 'ev_dd41d3' },
-    ],
-    value: { note: 'Removes the contention rather than triaging its symptoms endpoint by endpoint' },
-    requestedDecision: 'Approve consolidation onto the single retained stack under AC-52 canaried waves',
-    raisedAt: days(-4),
-    expiresAt: days(2),
-    state: 'open',
-  },
-  {
-    id: 'prp_router_mix',
-    kind: 'cost',
-    from: 'agt_bursar',
-    to: 'J. Whitcombe',
-    claim: 'Route classification and extraction steps to the cheapest tier',
-    detail:
-      'Opus is carrying steps that Haiku resolves at equal agreement. The routing frontier has moved since these skills were authored.',
-    dimension: 'cost',
-    evidence: [
-      { label: 'Agreement parity on 2,140 replayed classification steps', ref: 'ev_dd41e1' },
-      { label: 'Current mix: 74% Opus on steps below the reasoning bar', ref: 'ev_dd41e2' },
-    ],
-    value: { projectedUsd: 18_900, note: 'Annualised, at current volume, with no measured quality change' },
-    requestedDecision: 'Approve routing change and re-baseline the unit-cost ceiling',
-    raisedAt: days(-11),
-    expiresAt: days(17),
-    state: 'open',
-  },
-  {
-    id: 'prp_ftp_deprecate',
-    kind: 'transform',
-    from: 'agt_prospect',
-    to: 'Service governance board',
-    claim: 'Complete ta_007 — deprecate the legacy FTP batch interface',
-    detail: 'The demand class is already eliminated in practice. The interface remains, and with it the failure mode.',
-    dimension: 'platform_capability',
-    evidence: [
-      { label: 'dc_ftp_stall — eliminated, 0 occurrences in 90 days', ref: 'ev_dd41f1' },
-      { label: 'Run simplification score 0.71', ref: 'ev_dd41f2' },
-    ],
-    value: { note: 'Retires the interface and its runbook together' },
-    source: { kind: 'transform_item', id: 'ta_007' },
-    requestedDecision: 'Confirm decommission window',
-    raisedAt: days(-31),
-    expiresAt: days(-6),
-    state: 'accepted',
-    decidedBy: 'R. Castellano (Client Service Owner)',
-    decidedNote: 'Approved — 380 credits allocated, kickoff 2027-02-24',
-  },
-  {
-    id: 'prp_cmdb_reconcile',
-    kind: 'risk',
-    from: 'agt_archivist',
-    to: 'M. Osei (IT Operations / CMDB Owner)',
-    claim: 'Reconcile the 55 shadow-IT applications outside Attachment C.4 into the CMDB',
-    detail:
-      'Every one of these apps already generates incident volume the platform has to route blind — with no CI record there is no owner, no service mapping, and no graph assertion to verify a fix against. The reconciliation gap between the SOW-scoped inventory and total incident volume tracks the shadow estate almost exactly.',
-    evidence: [
-      { label: 'da_cmdb_gap — 55 apps outside Attachment C.4', ref: 'ev_dd41g1' },
-      { label: '1,979 incidents/yr against unmapped apps — 13,134 of 28,028 incidents/yr reconciled to date', ref: 'ev_dd41g2' },
-    ],
-    value: { note: 'Unblocks accurate blast-radius and SLA attribution once the 55 apps are mapped' },
-    requestedDecision: 'Assign a service-mapping sprint and a target completion date',
-    raisedAt: days(-8),
-    expiresAt: days(12),
-    state: 'open',
-  },
-]
+/**
+ * What the agents have raised and nobody has decided yet.
+ *
+ * It starts empty. Six proposals were written here — a permission request
+ * with 284 replayed runs behind it, an elimination with a costed class, a
+ * cost proposal, two accepted with a named client owner's note, one expired
+ * unanswered — and the surface counted them as the platform's initiative
+ * share. An agent that has not run cannot have raised anything, and a
+ * proposal is precisely a thing an agent did.
+ *
+ * Executors write to this stream when an agent originates work, so the
+ * ageing, the expiry and the initiative share all mean something the moment
+ * the first one lands.
+ */
+export const PROPOSALS: Proposal[] = []

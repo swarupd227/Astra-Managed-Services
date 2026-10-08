@@ -142,76 +142,65 @@ export const SLAS: SlaSpec[] = [
 
 /* --------------------------------- TokenOps --------------------------------- */
 
-export const TOKEN_SERIES: TokenSeries[] = Array.from({ length: 30 }, (_, i) => {
-  const day = new Date(NOW.getTime() - (29 - i) * 86400000)
-  const weekend = [0, 6].includes(day.getUTCDay())
-  const base = weekend ? 0.42 : 1
-  const trend = 1 - i * 0.006 // routing and caching improvements compound
-  return {
-    day: day.toISOString().slice(0, 10),
-    frontierUsd: Math.round(base * trend * rng.float(180, 260) * 100) / 100,
-    midUsd: Math.round(base * rng.float(60, 96) * 100) / 100,
-    smallUsd: Math.round(base * rng.float(9, 22) * 100) / 100,
-    cacheHitPct: Math.round((0.41 + i * 0.006 + rng.float(-0.03, 0.03, 3)) * 1000) / 10,
-    displacedUsd: Math.round(base * rng.float(5400, 7200) * 100) / 100,
-  }
-})
+/**
+ * What the platform spent on models, and how it routed to spend it.
+ *
+ * All three registers are measurements of our own operation, so all three
+ * start empty. There were thirty days of daily spend here, drawn from a
+ * random walk with a weekend dip and a compounding efficiency trend; a
+ * routing table reporting the share and quality delta of seven reasoning
+ * steps and the date each was last refitted; and four distillation
+ * candidates with volumes, scores and verdicts. The spend chart, the cost per
+ * resolved work object and the cache-hit trend were all drawn from the first
+ * of those, and the change log carried a routing refit for each row of the
+ * second.
+ */
+export const TOKEN_SERIES: TokenSeries[] = []
 
-export const ROUTING_TABLE = [
-  { step: 'Event classification', tier: 'small (client-hosted)', share: 94, qualityDelta: -0.004, costPer1k: 0.0006, refitAt: daysAgo(4) },
-  { step: 'Log extraction', tier: 'mid', share: 88, qualityDelta: -0.009, costPer1k: 0.003, refitAt: daysAgo(4) },
-  { step: 'Causal reasoning', tier: 'frontier', share: 96, qualityDelta: 0, costPer1k: 0.018, refitAt: daysAgo(4) },
-  { step: 'Plan synthesis', tier: 'frontier', share: 91, qualityDelta: 0, costPer1k: 0.018, refitAt: daysAgo(4) },
-  { step: 'Narrative drafting', tier: 'mid', share: 79, qualityDelta: -0.012, costPer1k: 0.003, refitAt: daysAgo(11) },
-  { step: 'Runbook drafting', tier: 'frontier', share: 68, qualityDelta: 0, costPer1k: 0.018, refitAt: daysAgo(11) },
-  { step: 'Knowledge verification triage', tier: 'mid', share: 96, qualityDelta: -0.006, costPer1k: 0.003, refitAt: daysAgo(4) },
-]
+export const ROUTING_TABLE: {
+  step: string
+  tier: string
+  share: number
+  qualityDelta: number
+  costPer1k: number
+  refitAt: string
+}[] = []
 
-export const DISTILLATION_CANDIDATES = [
-  { skill: 'sk_triage_v12', step: 'Event classification', volume30d: 28400, frontierScore: 0.962, smallScore: 0.958, delta: 0.004, verdict: 'ready', projectedSaveUsd30d: 214 },
-  { skill: 'sk_logscan_v6', step: 'Log extraction', volume30d: 24100, frontierScore: 0.971, smallScore: 0.962, delta: 0.009, verdict: 'ready', projectedSaveUsd30d: 168 },
-  { skill: 'sk_narrative_v7', step: 'Narrative drafting', volume30d: 9600, frontierScore: 0.944, smallScore: 0.918, delta: 0.026, verdict: 'below_threshold', projectedSaveUsd30d: 96 },
-  { skill: 'sk_causal_v9', step: 'Causal reasoning', volume30d: 8940, frontierScore: 0.948, smallScore: 0.792, delta: 0.156, verdict: 'frontier_only', projectedSaveUsd30d: 0 },
-]
+export const DISTILLATION_CANDIDATES: {
+  skill: string
+  step: string
+  volume30d: number
+  frontierScore: number
+  smallScore: number
+  delta: number
+  verdict: string
+  projectedSaveUsd30d: number
+}[] = []
 
 /* ------------------------------- Governance --------------------------------- */
 
-export const DECISIONS: Decision[] = [
-  { id: 'dec_2027_014', forum: 'Service governance board · 2027-02', at: daysAgo(4), owner: 'R. Castellano (Client Service Owner)', subject: 'Promote AC-31 to L3 Supervised on Application Development & Integration', inputs: ['promotion_pack pr_88', 'sampled_review 2026-Q4', 'incident_history air_0007'], decision: 'approved_with_condition', condition: 'Weekly sampled review for 8 weeks; automatic demotion on any Sev-attributable error', effective: 'policy PR #214 merged 2027-02-14', evidenceId: 'ev_dd41a2', followThrough: { text: 'Weekly sampled review', state: 'green', progress: 'week 1 of 8 · agreement 98.4%' } },
-  { id: 'dec_2027_013', forum: 'Service governance board · 2027-02', at: daysAgo(4), owner: 'R. Castellano (Client Service Owner)', subject: 'Allocate 380 capacity credits to ta_034 (Retire legacy IEM in favor of Concur)', inputs: ['transform_ledger 2027-Q1', 'run_simplification_score 0.71', 'demand_class dc_iem_ghost precedent'], decision: 'approved', effective: 'Transform Ledger updated 2027-02-14', evidenceId: 'ev_dd41a3', followThrough: { text: 'Delivery start gate', state: 'green', progress: 'kickoff 2027-02-24' } },
-  { id: 'dec_2027_012', forum: 'Joint innovation council · 2027-02', at: daysAgo(9), owner: 'E. Whitfield (CIO)', subject: 'Sponsor experiment: predictive jeopardy routing on Application Maintenance', inputs: ['innovation_register inv_0044', 'breach_pattern_analysis'], decision: 'approved', effective: 'Funded from innovation allowance', evidenceId: 'ev_dd41a4', followThrough: { text: '60-day verification against success criteria', state: 'amber', progress: 'day 9 · baseline still being measured' } },
-  { id: 'dec_2027_011', forum: 'Service governance board · 2027-01', at: daysAgo(35), owner: 'R. Castellano (Client Service Owner)', subject: 'Freeze credit allocation on Research & Analytics pending XLA recovery', inputs: ['xla_trust_bi 68.2 vs target 75', 'consumer_survey verbatims'], decision: 'approved', effective: 'Transform Ledger freeze flag set 2027-01-14', evidenceId: 'ev_dd41a5', followThrough: { text: 'Restore trust score ≥ 75 for two consecutive months', state: 'red', progress: 'month 2 · 68.2, not recovering' } },
-  { id: 'dec_2027_010', forum: 'Service governance board · 2027-01', at: daysAgo(35), owner: 'V. Marchetti (Security & Risk Lead)', subject: 'Reject L4 promotion for AC-58 on any tower', inputs: ['four_eyes_control_review', 'segregation-of-duties assessment'], decision: 'rejected', effective: 'Autonomy schedule annotated — AC-58 capped at L2 permanently', evidenceId: 'ev_dd41a6' },
-  { id: 'dec_2027_009', forum: 'Executive & commercial review · 2026-Q4', at: daysAgo(71), owner: 'E. Whitfield (CIO)', subject: 'Adopt 60/40 reinvest-to-price-reduction conversion for year 2', inputs: ['glidepath_attainment -14.6% vs -12% contracted', 'transform_yield ta_007 realised 214 vs 190 promised'], decision: 'approved', effective: 'Commercial schedule 4.2 amended', evidenceId: 'ev_dd41a7', followThrough: { text: 'Quarterly reconciliation of ledgers', state: 'green', progress: '2027-Q1 reconciled, zero restatements' } },
-  { id: 'dec_2027_008', forum: 'Service governance board · 2026-12', at: daysAgo(96), owner: 'S. Okafor (Data & Analytics Lead)', subject: 'Demote Custodian on AC-49 following contract-violating backfill', inputs: ['incident air_0011', 'verification_failure_analysis'], decision: 'approved', effective: 'Grade B → C for 21 days; DQ pack extended', evidenceId: 'ev_dd41a8', followThrough: { text: 'Re-pass stage gates before restoration', state: 'green', progress: 'restored 2027-01-08 after replay + shadow' } },
-]
+/**
+ * What the governance forums decided, what the contract obliges, and what has
+ * been proposed to improve the service.
+ *
+ * Eight decisions were written here, each with a forum, a date, a named
+ * client owner, the inputs it weighed, a condition and a follow-through
+ * state — minutes for meetings that never sat. Ten obligations carried an
+ * owner, a due date and a red/amber/green state. Eleven innovation items
+ * carried sponsors, hypotheses and realised value, including two that had
+ * 'failed' and one that returned $412,000.
+ *
+ * Decisions are written by the platform when a confirmation is taken, so the
+ * register fills itself. Obligations are the contract's and belong in the
+ * database beside the engagement's other terms, loaded the way the procedure
+ * areas are. Innovation items are raised, assessed, funded and verified
+ * through the recommendation flow.
+ */
+export const DECISIONS: Decision[] = []
 
-export const OBLIGATIONS: Obligation[] = [
-  { id: 'obl_001', title: 'Monthly governance pack delivered T-1 business day', owner: 'R. Venkatesh', dueAt: daysAhead(8), cadence: 'Monthly', evidenceRequirement: 'Signed extract hash + distribution log', state: 'green' },
-  { id: 'obl_002', title: 'SLA compliance & credits statement issued', owner: 'J. Whitcombe', dueAt: daysAhead(8), cadence: 'Monthly', evidenceRequirement: 'Signed extract, clock audits attached', state: 'green' },
-  { id: 'obl_003', title: 'SOC 2 Type II resilience control test', owner: 'D. Kowalski', dueAt: daysAhead(23), cadence: 'Half-yearly', evidenceRequirement: 'Game-day report + auditor annex', state: 'amber' },
-  { id: 'obl_004', title: 'Exit plan refresh (knowledge pack portability attestation)', owner: 'S. Iyer', dueAt: daysAhead(41), cadence: 'Yearly', evidenceRequirement: 'Export manifest + client countersignature', state: 'green' },
-  { id: 'obl_005', title: 'ISO 27001 surveillance audit evidence pack', owner: 'V. Marchetti', dueAt: daysAhead(12), cadence: 'Yearly', evidenceRequirement: 'Annex A control mapping + continuous evidence extract', state: 'amber' },
-  { id: 'obl_006', title: 'EU AI Act deployer register — AER inventory attestation', owner: 'L. Nakamura', dueAt: daysAhead(3), cadence: 'Quarterly', evidenceRequirement: 'AER inventory export + human-oversight documentation', state: 'red' },
-  { id: 'obl_007', title: 'Quarterly access recertification (platform + agent NHI)', owner: 'V. Marchetti', dueAt: daysAgo(2), cadence: 'Quarterly', evidenceRequirement: 'Recertification log with reviewer identities', state: 'red' },
-  { id: 'obl_008', title: 'Data-return commitment rehearsal', owner: 'S. Okafor', dueAt: daysAhead(88), cadence: 'Yearly', evidenceRequirement: 'Rehearsal report + volumes returned', state: 'green' },
-  { id: 'obl_009', title: 'Cyber insurance evidence refresh', owner: 'J. Whitcombe', dueAt: daysAhead(56), cadence: 'Yearly', evidenceRequirement: 'Certificate of currency', state: 'green' },
-  { id: 'obl_010', title: 'Model change-control report (router + model versions)', owner: 'L. Nakamura', dueAt: daysAhead(15), cadence: 'Quarterly', evidenceRequirement: 'Replay regression results per change', state: 'green' },
-]
+export const OBLIGATIONS: Obligation[] = []
 
-export const INNOVATION: InnovationItem[] = [
-  { id: 'inv_0051', title: 'Voice-channel intake for office operations', source: 'client', raisedAt: daysAgo(12), dimension: 'automation', sponsor: 'R. Castellano', valueClass: 'experience', stage: 'idea', hypothesis: 'Office staff raise 40% of EUC demand by phone; conversational intake removes the reformatting hop.' },
-  { id: 'inv_0050', title: 'Graph-derived change-risk score in the CAB pack', source: 'artizent', raisedAt: daysAgo(26), dimension: 'platform_capability', sponsor: 'R. Venkatesh', valueClass: 'risk', stage: 'assessed', hypothesis: 'Incident gravity plus dependency depth predicts change failure better than the current manual risk matrix.', projectedValueUsd: 74000 },
-  { id: 'inv_0044', title: 'Predictive jeopardy routing on Application Maintenance', source: 'agent', raisedAt: daysAgo(40), dimension: 'performance', sponsor: 'E. Whitfield', valueClass: 'cost', stage: 'funded', hypothesis: 'Routing at-risk P2s to senior resolvers 45 minutes earlier lifts attainment above 95% without added headcount.', projectedValueUsd: 118000, fundingSource: 'innovation_allowance', cycleDays: 9 },
-  { id: 'inv_0039', title: 'Shift-handover pack generated from board state', source: 'artizent', raisedAt: daysAgo(150), dimension: 'operational_efficiency', sponsor: 'M. Okonkwo', valueClass: 'experience', stage: 'verified', hypothesis: 'Auto-drafted handovers cut the 25-minute overlap to under 8 minutes with no loss of context.', projectedValueUsd: 62000, realisedValueUsd: 71400, verdict: 'verified', fundingSource: 'capacity_credits', cycleDays: 34, reuseCount: 3 },
-  { id: 'inv_0035', title: 'Self-service lockout recovery portal', source: 'client', raisedAt: daysAgo(300), dimension: 'automation', sponsor: 'P. Lindegaard', valueClass: 'cost', stage: 'scaled', hypothesis: 'A guided self-service path removes the majority of post-MFA lockout demand.', projectedValueUsd: 384000, realisedValueUsd: 412000, verdict: 'verified', fundingSource: 'capacity_credits', cycleDays: 52, reuseCount: 2 },
-  { id: 'inv_0031', title: 'LLM-scored sentiment on resolver comms', source: 'artizent', raisedAt: daysAgo(210), sponsor: 'R. Venkatesh', valueClass: 'experience', stage: 'verified', hypothesis: 'Language-model tone scoring correlates with CSAT strongly enough to act on between surveys.', projectedValueUsd: 40000, realisedValueUsd: 18000, verdict: 'partial', fundingSource: 'innovation_allowance', cycleDays: 61 },
-  { id: 'inv_0028', title: 'Auto-generated Terraform from drift findings', source: 'agent', raisedAt: daysAgo(70), dimension: 'automation', sponsor: 'P. Lindegaard', valueClass: 'cost', stage: 'delivered', hypothesis: 'Drift findings can be converted directly into reviewed IaC pull requests.', projectedValueUsd: 88000, fundingSource: 'capacity_credits', cycleDays: 40 },
-  { id: 'inv_0022', title: 'Federated agent marketplace with client-authored skills', source: 'council', raisedAt: daysAgo(260), dimension: 'platform_capability', sponsor: 'E. Whitfield', valueClass: 'capability', stage: 'verified', hypothesis: 'Kearney engineers can author and publish skills into the client golden repo without Artizent in the loop.', projectedValueUsd: 0, realisedValueUsd: 0, verdict: 'verified', fundingSource: 'innovation_allowance', cycleDays: 88, reuseCount: 6 },
-  { id: 'inv_0019', title: 'Predictive DR-failover rehearsal from graph topology', source: 'artizent', raisedAt: daysAgo(190), dimension: 'resilience', sponsor: 'D. Kowalski', valueClass: 'risk', stage: 'verified', hypothesis: 'Topology-derived rehearsal scenarios surface resilience gaps the scripted DR test misses.', projectedValueUsd: 96000, realisedValueUsd: 0, verdict: 'failed', fundingSource: 'innovation_allowance', cycleDays: 74 },
-  { id: 'inv_0014', title: 'Sentiment-triggered proactive outreach', source: 'artizent', raisedAt: daysAgo(240), sponsor: 'M. Okonkwo', valueClass: 'experience', stage: 'verified', hypothesis: 'Contacting requesters whose tone degrades mid-ticket reduces escalations.', projectedValueUsd: 34000, realisedValueUsd: 0, verdict: 'failed', fundingSource: 'innovation_allowance', cycleDays: 45 },
-  { id: 'inv_0009', title: 'Zero-touch catalog provisioning', source: 'client', raisedAt: daysAgo(330), dimension: 'automation', sponsor: 'P. Lindegaard', valueClass: 'cost', stage: 'scaled', hypothesis: 'Pre-approved catalog items need no human approval hop when the requester is in the entitled group.', projectedValueUsd: 196000, realisedValueUsd: 224000, verdict: 'verified', fundingSource: 'capacity_credits', cycleDays: 29, reuseCount: 4 },
-]
+export const INNOVATION: InnovationItem[] = []
 
 /* ------------------------------- Clock audit -------------------------------- */
 
@@ -222,26 +211,26 @@ export interface ClockEvent {
   evidence: string
 }
 
-/**
- * A worked SLA clock audit — the record a credit dispute is settled against.
- * Seeded, because it predates the simulated window; the totals shown on the
- * surface are computed from these events rather than restated beside them.
- */
-export const CLOCK_AUDIT: { workObjectRef: string; sla: string; targetMins: number; events: ClockEvent[] } = {
-  workObjectRef: 'INC0482874',
-  sla: 'P1 resolution, Digital Workplace Services',
-  targetMins: 60,
-  events: [
-    { at: '2027-02-14T08:12:00Z', event: 'clock_start', detail: 'Priority P1 validated by Sentinel; matrix v3 impact×urgency — a Kearney partner locked out ahead of a client meeting', evidence: 'ev_clk_0441' },
-    { at: '2027-02-14T08:24:00Z', event: 'pause', detail: 'awaiting_client — requester asked to confirm the device serial number tied to the locked account. Client acknowledgement recorded.', evidence: 'ev_clk_0442' },
-    { at: '2027-02-14T08:41:00Z', event: 'resume', detail: 'Client responded, and the pause sat within the cap agreed for this work object.', evidence: 'ev_clk_0443' },
-    { at: '2027-02-14T08:49:00Z', event: 'reclassify', detail: 'P1 → P1 (no change). Reclassification attempt logged and separately reported.', evidence: 'ev_clk_0444' },
-    { at: '2027-02-14T09:02:00Z', event: 'clock_stop', detail: 'Resolution confirmed by verification pack euc_checkin_v1.', evidence: 'ev_clk_0445' },
-  ],
+export interface ClockAudit {
+  workObjectRef: string
+  sla: string
+  targetMins: number
+  events: ClockEvent[]
 }
 
+/**
+ * The worked clock audit a credit dispute is settled against.
+ *
+ * Null until one has been produced. A five-event audit of INC0482874 used to
+ * sit here — validated, paused for the client, resumed, reclassified,
+ * resolved — and the SLA compliance drawer opened on it as the proof that the
+ * clock could be reconstructed. The arithmetic over those events was real;
+ * the incident was not.
+ */
+export const CLOCK_AUDIT: ClockAudit | null = null
+
 /** Running clock in minutes — wall time between start and stop, less every pause. */
-export function clockElapsedMins(audit = CLOCK_AUDIT): number {
+export function clockElapsedMins(audit: ClockAudit): number {
   const ms = (i: number) => new Date(audit.events[i].at).getTime()
   const start = audit.events.findIndex((e) => e.event === 'clock_start')
   const stop = audit.events.findIndex((e) => e.event === 'clock_stop')
@@ -260,7 +249,7 @@ export function clockElapsedMins(audit = CLOCK_AUDIT): number {
 }
 
 /** Total time the clock was stopped, in minutes. */
-export function clockPausedMins(audit = CLOCK_AUDIT): number {
+export function clockPausedMins(audit: ClockAudit): number {
   const ms = (i: number) => new Date(audit.events[i].at).getTime()
   let paused = 0
   let pausedAt: number | null = null

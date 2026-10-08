@@ -5,7 +5,7 @@ import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { followThroughRate } from '@/domain/metrics'
 import { PageHeader, EvidenceLink } from '@/ui/domain'
-import { Button, Card, Chip, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
+import { Button, Card, Chip, Empty, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
 import { cn, dateShort, pct, until } from '@/lib/format'
 import { FORUMS, RISKS } from '@/domain/governanceSeed'
 import { ProducedBy } from '@/ui/ProducedBy'
@@ -20,6 +20,7 @@ export function Registers() {
 
   const overdue = OBLIGATIONS.filter((o) => o.state === 'red')
   const openConditions = DECISIONS.filter((d) => d.followThrough && d.followThrough.state !== 'green')
+  const rate = followThroughRate()
 
   return (
     <>
@@ -43,7 +44,7 @@ export function Registers() {
         <Metric size="sm" label="Conditions tracked" value={DECISIONS.filter((d) => d.followThrough).length} />
         <Metric size="sm" label="Conditions off-track" value={openConditions.length} deltaTone={openConditions.length ? 'warn' : 'ok'} />
         <Metric size="sm" label="Obligations overdue" value={overdue.length} deltaTone={overdue.length ? 'crit' : 'ok'} />
-        <Metric size="sm" label="Follow-through on track" value={pct(followThroughRate(), 0)} deltaTone="ok" />
+        <Metric size="sm" label="Follow-through on track" value={rate === null ? '—' : pct(rate, 0)} deltaTone={rate === null ? undefined : 'ok'} />
       </div>
 
       <div className="shrink-0 border-b border-line bg-surface px-4 py-1.5">
@@ -61,7 +62,9 @@ export function Registers() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {tab === 'decisions' && (
-          <ul className="space-y-2.5">
+          <>
+            {!DECISIONS.length && <Empty title="No decisions recorded" />}
+            <ul className="space-y-2.5">
             {DECISIONS.map((d) => (
               <li key={d.id}>
                 <article className="rounded-md border border-line bg-surface">
@@ -108,7 +111,8 @@ export function Registers() {
                 </article>
               </li>
             ))}
-          </ul>
+            </ul>
+          </>
         )}
 
         {tab === 'obligations' && (
@@ -154,6 +158,7 @@ export function Registers() {
                 ))}
               </tbody>
             </Table>
+            {!OBLIGATIONS.length && <Empty title="No obligations loaded" />}
           </Card>
         )}
 

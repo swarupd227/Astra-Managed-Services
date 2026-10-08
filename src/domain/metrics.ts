@@ -72,12 +72,13 @@ export function volumeRemoved(): number {
  * closure history, and the surface label says so. A metric named for
  * something the data cannot show is the same defect as a fabricated one.
  */
-export function followThroughRate(): number {
+export function followThroughRate(): number | null {
   const tracked = [
     ...DECISIONS.filter((d) => d.followThrough).map((d) => d.followThrough!.state),
     ...OBLIGATIONS.map((o) => o.state),
   ]
-  if (!tracked.length) return 100
+  // Nothing tracked is not everything on track.
+  if (!tracked.length) return null
   return (tracked.filter((s) => s === 'green').length / tracked.length) * 100
 }
 

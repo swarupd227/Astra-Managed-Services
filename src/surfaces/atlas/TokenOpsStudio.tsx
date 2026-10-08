@@ -6,7 +6,7 @@ import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { OPERATIONAL } from '@/domain/metrics'
 import { PageHeader } from '@/ui/domain'
-import { Button, Card, Chip, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
+import { Button, Card, Chip, Empty, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
 import { Gauge, LineChart, StackedBars, CHART_COLORS } from '@/ui/charts'
 import { cn, dateShort, num, pct, usd } from '@/lib/format'
 import { BUDGETS, ANOMALIES } from '@/domain/tokenOpsSeed'
@@ -22,8 +22,12 @@ export function TokenOpsStudio() {
 
   const spend30 = TOKEN_SERIES.reduce((s, d) => s + d.frontierUsd + d.midUsd + d.smallUsd, 0)
   const displaced30 = TOKEN_SERIES.reduce((s, d) => s + d.displacedUsd, 0)
-  const ratio = (spend30 / displaced30) * 100
-  const cacheHit = TOKEN_SERIES[TOKEN_SERIES.length - 1].cacheHitPct
+  const ratio = displaced30 ? (spend30 / displaced30) * 100 : null
+  const cacheHit = TOKEN_SERIES.length ? TOKEN_SERIES[TOKEN_SERIES.length - 1].cacheHitPct : null
+  // The denominator is the work actually closed in the window. It used to be
+  // the constant 220, which made a cost-per-work-object curve out of spend
+  // alone.
+  const closed30 = useAstra((s) => Object.values(s.work).filter((w) => w.state === 'resolved' || w.state === 'learned').length)
 
   const labels = TOKEN_SERIES.map((d) => d.day.slice(5))
   const stacks = [
@@ -55,11 +59,11 @@ export function TokenOpsStudio() {
         <Metric
           size="sm"
           label="Spend vs. displaced"
-          value={pct(ratio, 2)}
-          deltaTone={ratio <= 6 ? 'ok' : 'warn'}
+          value={ratio === null ? '—' : pct(ratio, 2)}
+          deltaTone={ratio === null ? undefined : ratio <= 6 ? 'ok' : 'warn'}
           hint="target ≤ 4–6%"
         />
-        <Metric size="sm" label="Cache hit rate" value={pct(cacheHit)} deltaTone="ok" />
+        <Metric size="sm" label="Cache hit rate" value={cacheHit === null ? '—' : pct(cacheHit)} deltaTone={cacheHit === null ? undefined : 'ok'} />
         <Metric size="sm" label="Budget breaches, 30d" value={ANOMALIES.length} deltaTone="warn" />
       </div>
 
@@ -71,35 +75,42 @@ export function TokenOpsStudio() {
         {tab === 'economics' && (
           <>
             <Card title="Spend by model tier, 30 days" subtitle="By model tier">
-              <StackedBars labels={labels} stacks={stacks} height={210} yFormat={(n) => `$${Math.round(n)}`} />
-              <div className="mt-2 flex flex-wrap gap-3 text-2xs text-ink-3">
-                {stacks.map((s) => (
-                  <span key={s.key} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
-                ))}
-              </div>
+              {!labels.length ? <Empty title="No metered spend" /> : (
+                <>
+                  <StackedBars labels={labels} stacks={stacks} height={210} yFormat={(n) => `$${Math.round(n)}`} />
+                  <div className="mt-2 flex flex-wrap gap-3 text-2xs text-ink-3">
+                    {stacks.map((s) => (
+                      <span key={s.key} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
+                    ))}
+                  </div>
+                </>
+              )}
             </Card>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_340px]">
               <Card title="Cost per resolved work object" subtitle="Trailing 30 days">
-                <LineChart
-                  labels={labels}
-                  series={[
-                    { key: 'cost', label: 'Cost per resolved WO', color: CHART_COLORS.brand, values: TOKEN_SERIES.map((d) => (d.frontierUsd + d.midUsd + d.smallUsd) / 220), area: true },
-                    { key: 'cache', label: 'Cache hit rate ÷ 100', color: CHART_COLORS.ok, values: TOKEN_SERIES.map((d) => d.cacheHitPct / 100), dashed: true },
-                  ]}
-                  height={180}
-                  yFormat={(n) => n.toFixed(2)}
-                />
+                {!labels.length || !closed30 ? <Empty title="Nothing metered or nothing resolved" /> : (
+                  <LineChart
+                    labels={labels}
+                    series={[
+                      { key: 'cost', label: 'Cost per resolved WO', color: CHART_COLORS.brand, values: TOKEN_SERIES.map((d) => (d.frontierUsd + d.midUsd + d.smallUsd) / closed30), area: true },
+                      { key: 'cache', label: 'Cache hit rate ÷ 100', color: CHART_COLORS.ok, values: TOKEN_SERIES.map((d) => d.cacheHitPct / 100), dashed: true },
+                    ]}
+                    height={180}
+                    yFormat={(n) => n.toFixed(2)}
+                  />
+                )}
               </Card>
 
               <Card title="Efficiency" subtitle="Against design targets">
-                <div className="flex items-center justify-around">
-                  <Gauge value={ratio * 10} target={60} label="spend ratio ×10" />
-                  <Gauge value={cacheHit} target={45} label="cache hit %" />
-                </div>
+                {ratio === null || cacheHit === null ? <Empty title="Not metered" /> : (
+                  <div className="flex items-center justify-around">
+                    <Gauge value={ratio * 10} target={60} label="spend ratio ×10" />
+                    <Gauge value={cacheHit} target={45} label="cache hit %" />
+                  </div>
+                )}
                 <dl className="mt-3 space-y-1.5 border-t border-line pt-3 text-2xs">
                   <div className="flex justify-between gap-2"><dt className="text-ink-3">Context budget adherence</dt><dd className="tnum text-ok">{pct(OPERATIONAL.contextBudgetAdherence, 1)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt className="text-ink-3">Retrieval dedup savings</dt><dd className="tnum text-ink-2">{usd(412)} /mo</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-ink-3">Zero-retention enforced</dt><dd className="text-ok">all providers</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-ink-3">EU-only routing</dt><dd className="text-ok">enforced by policy</dd></div>
                 </dl>
@@ -139,9 +150,11 @@ export function TokenOpsStudio() {
                   ))}
                 </tbody>
               </Table>
+              {!ROUTING_TABLE.length && <Empty title="Routing not fitted" />}
             </Card>
 
             <Card title="Distillation candidates" subtitle="Flagged when the frontier-to-small quality delta clears threshold">
+              {!DISTILLATION_CANDIDATES.length && <Empty title="No candidates scored" />}
               <ul className="space-y-2">
                 {DISTILLATION_CANDIDATES.map((d) => (
                   <li key={d.skill} className={cn('rounded border p-3', d.verdict === 'ready' ? 'border-ok/40 bg-ok/[0.05]' : d.verdict === 'below_threshold' ? 'border-warn/35 bg-warn/[0.05]' : 'border-line bg-sunken')}>

@@ -182,7 +182,7 @@ export function Proposals() {
             <Metric
               size="sm"
               label="Initiative share"
-              value={pct(initiative.share * 100, 0)}
+              value={initiative.share === null ? '—' : pct(initiative.share * 100, 0)}
               hint={`${initiative.agentOriginated} of ${initiative.total} decision items`}
             />
             <Metric size="sm" label="Open" value={open.length} />
