@@ -115,7 +115,7 @@ export function ShiftBoard() {
             <div className="grid grid-cols-2 gap-3">
               <Metric size="sm" label="Open" value={open.length} />
               <Metric size="sm" label="Gated" value={open.filter((w) => w.state === 'gated').length} deltaTone="warn" />
-              <Metric size="sm" label="Agent-held" value={pct((totalAgent / Math.max(1, open.length)) * 100, 0)} />
+              <Metric size="sm" label="Agent-held" value={open.length ? pct((totalAgent / open.length) * 100, 0) : '—'} />
               <Metric size="sm" label="In jeopardy" value={open.filter((w) => w.breachProbability > 0.6).length} deltaTone="crit" />
             </div>
             <div className="mt-3 space-y-2 border-t border-line pt-3">
@@ -159,7 +159,7 @@ export function ShiftBoard() {
                         <span className="h-full bg-agent" style={{ width: `${(r.agent / Math.max(1, r.agent + r.human)) * 100}%` }} />
                         <span className="h-full bg-ink-3" style={{ width: `${(r.human / Math.max(1, r.agent + r.human)) * 100}%` }} />
                       </span>
-                      <span className="tnum text-2xs text-ink-3">{pct((r.agent / Math.max(1, r.agent + r.human)) * 100, 0)}</span>
+                      <span className="tnum text-2xs text-ink-3">{r.agent + r.human ? pct((r.agent / (r.agent + r.human)) * 100, 0) : '—'}</span>
                     </span>
                   </Td>
                   <Td>

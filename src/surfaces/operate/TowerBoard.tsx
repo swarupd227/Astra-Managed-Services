@@ -214,7 +214,7 @@ export function TowerBoard() {
       <div className="grid shrink-0 grid-cols-2 gap-4 border-b border-line bg-surface px-4 py-2.5 md:grid-cols-5">
         <Metric size="sm" label="Open work" value={openCount} hint={`${all.length} total in window`} />
         <Metric size="sm" label="In jeopardy" value={jeopardy} deltaTone={jeopardy ? 'crit' : 'ok'} hint="predicted breach > 60%" />
-        <Metric size="sm" label="Agent-held" value={pct((agentHeld / Math.max(1, all.length)) * 100, 0)} hint={`${agentHeld} of ${all.length} work objects`} />
+        <Metric size="sm" label="Agent-held" value={all.length ? pct((agentHeld / all.length) * 100, 0) : '—'} hint={`${agentHeld} of ${all.length} work objects`} />
         <Metric size="sm" label="Autonomy-eligible volume" value={pct(t?.autonomyEligibleVolume ?? 0, 1)} hint="coupling F1" />
         <div className="min-w-0">
           <div className="label-cap">Glidepath vs. contract</div>

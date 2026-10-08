@@ -268,10 +268,15 @@ export function readExit(settlements: Settlement[] = [], verifiedAssertions?: nu
   }
   base.obligations = EXIT_OBLIGATIONS.map((o) => {
     const { ready, note } = o.test(base)
+    // An obligation is discharged by records, so there has to be something to
+    // discharge: `every` over an empty list would mark the return and the
+    // destruction done before either had been asked for.
+    const returnable = holdings.filter((h) => h.returnable)
+    const destroyable = holdings.filter((h) => !h.mustKeep)
     const done = o.id === 'ex_return'
-      ? holdings.filter((h) => h.returnable).every((h) => h.returnRecord)
+      ? returnable.length > 0 && returnable.every((h) => h.returnRecord)
       : o.id === 'ex_destroy'
-        ? holdings.filter((h) => !h.mustKeep).every((h) => h.destroyRecord)
+        ? destroyable.length > 0 && destroyable.every((h) => h.destroyRecord)
         : false
     return { obligation: o, state: done ? 'done' : ready ? 'ready' : 'not_started', note }
   })

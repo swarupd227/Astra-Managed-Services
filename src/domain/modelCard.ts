@@ -99,8 +99,18 @@ export function agentCard(agent: Agent, ctx: CardContext = {}): ModelCard {
         title: 'Data handling',
         rows: [
           { label: 'Approved AI systems it may run on', value: approvedSystems.length ? approvedSystems.map((s) => `${s.vendor} ${s.model} (${s.hosting?.replace(/_/g, ' ')}, ${s.region})`).join('; ') : 'registry not loaded' },
-          { label: 'No training on customer data', value: approvedSystems.length ? (approvedSystems.every((s) => s.attestations?.noTrainingOnCustomerData) ? 'attested for every approved system' : 'NOT attested for every approved system') : '—', tone: approvedSystems.every((s) => s.attestations?.noTrainingOnCustomerData) ? 'ok' : 'crit' },
-          { label: 'Zero retention', value: approvedSystems.length ? (approvedSystems.every((s) => s.attestations?.zeroRetention) ? 'configured for every approved system' : 'not on every approved system') : '—', tone: approvedSystems.every((s) => s.attestations?.zeroRetention) ? 'ok' : 'warn' },
+          // The tone has to carry the same length guard as the value, or an
+          // empty registry reads as an em dash in green: attested by nobody.
+          {
+            label: 'No training on customer data',
+            value: approvedSystems.length ? (approvedSystems.every((s) => s.attestations?.noTrainingOnCustomerData) ? 'attested for every approved system' : 'NOT attested for every approved system') : '—',
+            tone: !approvedSystems.length ? 'neutral' : approvedSystems.every((s) => s.attestations?.noTrainingOnCustomerData) ? 'ok' : 'crit',
+          },
+          {
+            label: 'Zero retention',
+            value: approvedSystems.length ? (approvedSystems.every((s) => s.attestations?.zeroRetention) ? 'configured for every approved system' : 'not on every approved system') : '—',
+            tone: !approvedSystems.length ? 'neutral' : approvedSystems.every((s) => s.attestations?.zeroRetention) ? 'ok' : 'warn',
+          },
           { label: 'Residency', value: ctx.residency ? `${(ctx.residency.allowedRegions ?? []).join(', ') || 'any region'}${ctx.residency.zeroRetentionRequired ? ' · zero retention required' : ''}` : 'no rules configured' },
           { label: 'Evidence', value: 'Every decision, approval, action and verification is a sealed, hash-linked record' },
         ],

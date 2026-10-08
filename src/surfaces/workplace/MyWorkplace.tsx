@@ -47,7 +47,12 @@ export function MyWorkplace() {
         <Metric size="sm" label="Affecting your systems" value={issues.length} deltaTone={issues.length ? 'warn' : 'ok'} />
         <Metric size="sm" label="Raised by you" value={raisedTotal} hint={`${CONSUMER.raised.length} kinds`} />
         <Metric size="sm" label="Self-service available" value={`${available.length} / ${offers.length}`} deltaTone={available.length ? 'ok' : 'warn'} />
-        <Metric size="sm" label="Service against target" value={`${experience.filter((e) => e.meeting).length} / ${experience.length}`} deltaTone={experience.every((e) => e.meeting) ? 'ok' : 'warn'} />
+        <Metric
+          size="sm"
+          label="Service against target"
+          value={experience.length ? `${experience.filter((e) => e.meeting).length} / ${experience.length}` : '—'}
+          deltaTone={!experience.length ? undefined : experience.every((e) => e.meeting) ? 'ok' : 'warn'}
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

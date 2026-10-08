@@ -66,7 +66,7 @@ export function VerificationQueue() {
 
   const lessons = useAstra((s) => s.lessons)
   const verified = assertions.filter((a) => a.verification === 'human_verified').length
-  const unlocked = (verified / Math.max(1, assertions.length)) * 100
+  const unlocked = assertions.length ? (verified / assertions.length) * 100 : null
 
   return (
     <>
@@ -84,11 +84,11 @@ export function VerificationQueue() {
         <div className="min-w-0">
           <div className="label-cap">Your impact (coupling F1)</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="tnum font-display text-lg font-semibold leading-none text-ink">{pct(unlocked, 1)}</span>
-            <span className="text-2xs text-ink-3">of this slice unlocked for autonomy</span>
+            <span className="tnum font-display text-lg font-semibold leading-none text-ink">{unlocked === null ? '—' : pct(unlocked, 1)}</span>
+            <span className="text-2xs text-ink-3">{unlocked === null ? 'no assertions in this slice' : 'of this slice unlocked for autonomy'}</span>
           </div>
           <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-sunken">
-            <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${unlocked}%` }} />
+            <div className="h-full rounded-full bg-brand transition-[width] duration-500" style={{ width: `${unlocked ?? 0}%` }} />
           </div>
         </div>
       </div>

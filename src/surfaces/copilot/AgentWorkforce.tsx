@@ -51,7 +51,6 @@ function AgentCard({ agent }: { agent: Agent }) {
   const phase = live.state
 
   const displacedHrs = agent.economics.humanMinsDisplaced30d / 60
-  const ratio = agent.economics.costUsd30d / Math.max(1, displacedHrs * 78)
 
   return (
     <article

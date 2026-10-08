@@ -146,7 +146,10 @@ export const MEASURES: Record<string, Measure> = {
       if (!h) return unreadable('No ticket history ingested')
       const all = recurring(h)
       const owned = clustersWithCause(h)
-      const value = all.length ? (100 * owned.length) / all.length : 0
+      // No cluster repeats often enough to qualify: there is nothing to have
+      // named a cause for, which is not nought per cent coverage of it.
+      if (!all.length) return unreadable(`No phrasing recurs ${thresholdsFor(ENGAGEMENT.id).recurringClusterThreshold} times or more in the ingested history`)
+      const value = (100 * owned.length) / all.length
       return {
         value,
         display: `${owned.length}/${all.length}`,

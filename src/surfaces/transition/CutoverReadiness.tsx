@@ -27,7 +27,9 @@ export function CutoverReadiness() {
   const tower = TOWER_BY_ID.twr_claims
   const passing = checks.filter((c) => c.state === 'pass').length
   const failing = checks.filter((c) => c.state === 'fail').length
-  const gateOpen = failing === 0 && checks.every((c) => c.state === 'pass')
+  // A gate with no checks behind it is shut, not open: `every` is satisfied by
+  // an empty list, which would have opened a cutover on nothing having run.
+  const gateOpen = checks.length > 0 && failing === 0 && checks.every((c) => c.state === 'pass')
 
   const runChecks = () => {
     setRunning(true)

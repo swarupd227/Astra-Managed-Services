@@ -147,7 +147,10 @@ export function buildPack(ctx: PackContext): PackControl[] {
       figure: ctx.redTeam
         ? `${ctx.redTeam.results.filter((r) => r.pass).length} of ${ctx.redTeam.results.length} held · ${ctx.redTeam.at.slice(0, 10)}`
         : `${RED_TEAM_CASES.length} cases available, not run this period`,
-      state: ctx.redTeam ? (ctx.redTeam.results.every((r) => r.pass) ? 'evidenced' : 'gap') : 'not_exercised',
+      // A run that tested no cases evidences nothing, the same as no run.
+      state: ctx.redTeam?.results.length
+        ? (ctx.redTeam.results.every((r) => r.pass) ? 'evidenced' : 'gap')
+        : 'not_exercised',
       href: '/governance/assurance',
     },
     {

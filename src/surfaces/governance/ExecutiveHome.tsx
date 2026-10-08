@@ -92,7 +92,8 @@ export function ExecutiveHome() {
   const role = ROLE_BY_ID[roleId]
 
   const runTowers = TOWERS.filter((t) => t.state === 'S4')
-  const slaAtRisk = SLAS.filter((s) => s.kind === 'sla' && s.attainmentMtd < s.attainmentTarget)
+  const slas = SLAS.filter((s) => s.kind === 'sla')
+  const slaAtRisk = slas.filter((s) => s.attainmentMtd < s.attainmentTarget)
   const glidepathActual = runTowers.reduce((s, t) => s + t.glidepathActual * t.baselineHrsPerQtr, 0) / runTowers.reduce((s, t) => s + t.baselineHrsPerQtr, 0)
   const glidepathContracted = runTowers.reduce((s, t) => s + t.glidepathContracted * t.baselineHrsPerQtr, 0) / runTowers.reduce((s, t) => s + t.baselineHrsPerQtr, 0)
   const autonomyEligible = runTowers.reduce((s, t) => s + t.autonomyEligibleVolume, 0) / runTowers.length
@@ -339,14 +340,16 @@ export function ExecutiveHome() {
               <div className="grid gap-3 lg:grid-cols-5">
                 <Tile
                   label="Service"
-                  status={slaAtRisk.length ? `${slaAtRisk.length} SLA at risk` : 'all attaining'}
-                  statusTone={slaAtRisk.length ? 'warn' : 'ok'}
-                  headline={pct(SLAS.filter((s) => s.kind === 'sla').reduce((s, x) => s + x.attainmentMtd, 0) / SLAS.filter((s) => s.kind === 'sla').length)}
+                  status={!slas.length ? 'none measured' : slaAtRisk.length ? `${slaAtRisk.length} SLA at risk` : 'all attaining'}
+                  statusTone={!slas.length ? 'warn' : slaAtRisk.length ? 'warn' : 'ok'}
+                  headline={slas.length ? pct(slas.reduce((s, x) => s + x.attainmentMtd, 0) / slas.length) : '—'}
                   sub="SLA attainment MTD"
                   narrative={
-                    slaAtRisk.length
-                      ? `${slaAtRisk[0].name} below target, no headroom this month`
-                      : 'Every contracted service level attaining'
+                    !slas.length
+                      ? 'No service level has an attainment figure against it'
+                      : slaAtRisk.length
+                        ? `${slaAtRisk[0].name} below target, no headroom this month`
+                        : 'Every contracted service level attaining'
                   }
                   to="/governance/sla"
                   chart={<Sparkline data={[...HISTORY.slaAttainment]} tone="ok" showLast width={120} height={22} />}
