@@ -181,12 +181,16 @@ export function buildPack(ctx: PackContext): PackControl[] {
       id: 'ms_chain', fn: 'MEASURE', iso: '42001 §7.5.3 · control of documented information',
       control: 'The evidence chain is hash-linked; any edit to history invalidates every record after it.',
       evidence: 'Chain verification recomputing every digest from genesis.',
-      figure: ctx.verification
-        ? ctx.verification.valid
-          ? `intact · ${ctx.verification.checked.toLocaleString('en-GB')} records`
-          : `BROKEN from sequence ${ctx.verification.firstBreakSeq}`
-        : `${ctx.evidence.length.toLocaleString('en-GB')} records, not verified this period`,
-      state: ctx.verification ? (ctx.verification.valid ? 'evidenced' : 'gap') : 'not_exercised',
+      // A verification over an empty chain evidences nothing, so the control
+      // is not exercised rather than passed.
+      figure: !ctx.verification
+        ? `${ctx.evidence.length.toLocaleString('en-GB')} records, not verified this period`
+        : ctx.verification.empty
+          ? 'no records in the chain, so nothing to recompute'
+          : ctx.verification.valid
+            ? `intact · ${ctx.verification.checked.toLocaleString('en-GB')} records`
+            : `BROKEN from sequence ${ctx.verification.firstBreakSeq}`,
+      state: !ctx.verification || ctx.verification.empty ? 'not_exercised' : ctx.verification.valid ? 'evidenced' : 'gap',
       href: '/governance/evidence',
     },
 

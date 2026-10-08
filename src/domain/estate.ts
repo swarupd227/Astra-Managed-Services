@@ -259,7 +259,7 @@ export const AGENTS: Agent[] = [
     grants: { 'AC-05': 'A', 'AC-18': 'B', 'AC-80': 'C' }, ceiling: 'approve_first',
     evaluation: { suiteId: null, score: 0, replayN: 0, liveSuccess90d: 0, lastRun: null },
     economics: { costUsd30d: 0, costPerWo: 0, humanMinsDisplaced30d: 0 },
-    incidents: [], state: 'onboarding', promotionReview: null, createdAt: T(56), driftAlarm: true,
+    incidents: [], state: 'onboarding', promotionReview: null, createdAt: T(56), driftAlarm: false,
     trend: [],
   },
   {
@@ -320,7 +320,7 @@ export const AGENTS: Agent[] = [
     evaluation: { suiteId: null, score: 0, replayN: 0, liveSuccess90d: 0, lastRun: null },
     economics: { costUsd30d: 0, costPerWo: 0, humanMinsDisplaced30d: 0 },
     incidents: [],
-    state: 'onboarding', promotionReview: null, createdAt: T(41), driftAlarm: true,
+    state: 'onboarding', promotionReview: null, createdAt: T(41), driftAlarm: false,
     trend: [],
   },
   {

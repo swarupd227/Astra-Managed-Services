@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { FileDown, FlaskConical, RotateCcw, ShieldCheck, ShieldX, Link2 } from 'lucide-react'
+import { FileDown, FlaskConical, RotateCcw, ShieldCheck, ShieldQuestion, ShieldX, Link2 } from 'lucide-react'
 import { EVIDENCE_KIND_LABEL, GENESIS } from '@/domain/evidence'
 import { useAstra } from '@/domain/store'
 import { ROLE_BY_ID } from '@/domain/reference'
@@ -81,19 +81,26 @@ export function EvidenceExplorer() {
         <Metric
           size="sm"
           label="Chain state"
-          value={verification ? (verification.valid ? 'verified' : 'broken') : 'not checked'}
-          deltaTone={verification ? (verification.valid ? 'ok' : 'crit') : 'neutral'}
-          hint={verification ? `${verification.checked} records in ${verification.durationMs} ms` : 'not yet verified'}
+          value={!verification ? 'not checked' : verification.empty ? 'nothing to verify' : verification.valid ? 'verified' : 'broken'}
+          deltaTone={!verification || verification.empty ? 'neutral' : verification.valid ? 'ok' : 'crit'}
+          hint={verification ? (verification.empty ? 'no records in the chain' : `${verification.checked} records in ${verification.durationMs} ms`) : 'not yet verified'}
         />
         <Metric size="sm" label="Daily root anchored" value="external" />
         <Metric size="sm" label="Retrieval latency" value={`< ${OPERATIONAL.evidenceRetrievalSec} s`} />
       </div>
 
       {verification && (
-        <div className={cn('flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2', verification.valid ? 'border-ok/35 bg-ok/[0.06]' : 'border-crit/40 bg-crit/[0.07]')}>
-          {verification.valid ? <ShieldCheck size={14} className="shrink-0 text-ok" /> : <ShieldX size={14} className="shrink-0 text-crit" />}
+        <div className={cn('flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2', verification.empty ? 'border-line bg-sunken' : verification.valid ? 'border-ok/35 bg-ok/[0.06]' : 'border-crit/40 bg-crit/[0.07]')}>
+          {verification.empty ? <ShieldQuestion size={14} className="shrink-0 text-ink-3" /> : verification.valid ? <ShieldCheck size={14} className="shrink-0 text-ok" /> : <ShieldX size={14} className="shrink-0 text-crit" />}
           <span className="min-w-0 flex-1 text-2xs leading-relaxed text-ink-2">
-            {verification.valid ? (
+            {/* An empty chain passes every check vacuously. Saying so is the
+                whole point of the screen. */}
+            {verification.empty ? (
+              <>
+                Nothing to verify. The chain holds no records, so there is no link to recompute — it stands at genesis{' '}
+                <span className="font-mono text-ink-3">{GENESIS.slice(0, 8)}…</span>
+              </>
+            ) : verification.valid ? (
               <>
                 Chain intact. {num(verification.checked)} records recomputed in {verification.durationMs} ms, from genesis{' '}
                 <span className="font-mono text-ink-3">{GENESIS.slice(0, 8)}…</span> to root{' '}

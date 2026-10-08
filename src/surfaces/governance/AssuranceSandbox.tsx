@@ -86,8 +86,8 @@ export function AssuranceSandbox() {
           deltaTone={bias ? (bias.invariant ? 'ok' : 'crit') : undefined} hint={bias ? `${bias.pairs} matched pairs` : 'not run this session'}
         />
         <Metric
-          size="sm" label="Evidence chain" value={verification ? (verification.valid ? 'intact' : 'broken') : '—'}
-          deltaTone={verification ? (verification.valid ? 'ok' : 'crit') : undefined} hint={`${evidence.length.toLocaleString('en-GB')} records`}
+          size="sm" label="Evidence chain" value={!verification ? '—' : verification.empty ? 'nothing to verify' : verification.valid ? 'intact' : 'broken'}
+          deltaTone={!verification || verification.empty ? undefined : verification.valid ? 'ok' : 'crit'} hint={`${evidence.length.toLocaleString('en-GB')} records`}
         />
       </div>
 
@@ -193,10 +193,12 @@ export function AssuranceSandbox() {
                 </li>
               </ul>
               {verification && (
-                <p className={cn('mt-2 text-2xs leading-relaxed', verification.valid ? 'text-ok' : 'text-crit')}>
-                  {verification.valid
-                    ? `Chain intact — ${verification.checked.toLocaleString('en-GB')} records recomputed in ${verification.durationMs} ms, root ${verification.rootHash.slice(0, 12)}…`
-                    : `Chain broken from sequence ${verification.firstBreakSeq} — ${verification.brokenIds.length} record(s) affected.`}
+                <p className={cn('mt-2 text-2xs leading-relaxed', verification.empty ? 'text-ink-3' : verification.valid ? 'text-ok' : 'text-crit')}>
+                  {verification.empty
+                    ? 'Nothing to verify — the chain holds no records, so there is no link to recompute.'
+                    : verification.valid
+                      ? `Chain intact — ${verification.checked.toLocaleString('en-GB')} records recomputed in ${verification.durationMs} ms, root ${verification.rootHash.slice(0, 12)}…`
+                      : `Chain broken from sequence ${verification.firstBreakSeq} — ${verification.brokenIds.length} record(s) affected.`}
                 </p>
               )}
             </Card>

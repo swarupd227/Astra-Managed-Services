@@ -197,11 +197,15 @@ export const MEASURES: Record<string, Measure> = {
     needs: ['telemetry'], route: '/atlas/lifecycle',
     read: ({ fleet }) => {
       if (!fleet) return unreadable('Readiness not read on this request')
-      const rows = fleet.agents.filter((a) => a.stage === 'autonomous' && a.blockers.length > 0)
+      const autonomous = fleet.agents.filter((a) => a.stage === 'autonomous')
+      // With nothing in autonomous service the promise cannot be broken, which
+      // is not the same as keeping it. A zero here used to read as met.
+      if (!autonomous.length) return unreadable('No agent is in autonomous service, so there is nothing to hold to this')
+      const rows = autonomous.filter((a) => a.blockers.length > 0)
       return {
         value: rows.length,
         display: String(rows.length),
-        note: rows.length ? rows.map((r) => r.agent.name).join(', ') : `${fleet.agents.filter((a) => a.stage === 'autonomous').length} autonomous, every check passing`,
+        note: rows.length ? rows.map((r) => r.agent.name).join(', ') : `${autonomous.length} autonomous, every check passing`,
         basis: 'measured',
       }
     },
@@ -262,6 +266,7 @@ export const MEASURES: Record<string, Measure> = {
       // Proven means one of two things, tested now rather than at exit: it can
       // be handed back in a usable form, or there is a stated reason it stays.
       const r = readExit()
+      if (!r.holdings.length) return unreadable('No holding is registered, so there is no exit path to prove')
       const proven = r.holdings.filter((h) => h.returnable || h.mustKeep)
       const unproven = r.holdings.filter((h) => !h.returnable && !h.mustKeep)
       return {

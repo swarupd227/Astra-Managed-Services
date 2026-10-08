@@ -46,6 +46,16 @@ export function sealChain(records: Omit<EvidenceRecord, 'hash' | 'prevHash' | 't
 
 export interface ChainVerification {
   valid: boolean
+  /**
+   * Nothing was walked.
+   *
+   * An empty chain satisfies every check vacuously — no record contradicts its
+   * predecessor when there are no records — so `valid` comes back true and a
+   * surface reading it alone reports a chain intact. That is the most
+   * misleading screen the platform could draw: perfect assurance over nothing.
+   * Every reader must say there was nothing to verify instead.
+   */
+  empty: boolean
   checked: number
   firstBreakSeq: number | null
   brokenIds: string[]
@@ -80,6 +90,7 @@ export function verifyChain(records: EvidenceRecord[]): ChainVerification {
 
   return {
     valid: firstBreak === null,
+    empty: records.length === 0,
     checked: records.length,
     firstBreakSeq: firstBreak,
     brokenIds: broken,

@@ -42,7 +42,11 @@ export function FleetView() {
   const totalCost = all.reduce((s, a) => s + a.economics.costUsd30d, 0)
   const totalDisplaced = all.reduce((s, a) => s + a.economics.humanMinsDisplaced30d, 0)
   const displacedUsd = (totalDisplaced / 60) * 78
-  const attention = all.filter((a) => a.state !== 'active' || a.driftAlarm)
+  // What the label says: suspended, on probation, or drifting. An agent that
+  // has not started yet is not an agent in trouble, and reading "needing
+  // attention 14" off a fleet that is merely new is the same false alarm as a
+  // fabricated figure.
+  const attention = all.filter((a) => a.state === 'suspended' || a.state === 'probation' || a.driftAlarm)
 
   return (
     <>
