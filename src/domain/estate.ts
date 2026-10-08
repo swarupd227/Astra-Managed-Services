@@ -26,7 +26,7 @@ export const TOWERS: Tower[] = [
     owner: 'R. Castellano', sdm: 'R. Venkatesh',
     entities: 1240, assertions: 14200, verificationCoverage: 74.6,
     autonomyEligibleVolume: 18.4, baselineHrsPerQtr: 620,
-    glidepathContracted: -8.0, glidepathActual: -5.1,
+    glidepathContracted: -8.0, glidepathActual: 0,
     regulatory: ['SOC 2', 'GDPR'],
   },
   {
@@ -35,7 +35,7 @@ export const TOWERS: Tower[] = [
     owner: 'R. Castellano', sdm: 'R. Venkatesh',
     entities: 5860, assertions: 61400, verificationCoverage: 88.9,
     autonomyEligibleVolume: 31.5, baselineHrsPerQtr: 2960,
-    glidepathContracted: -10.0, glidepathActual: -7.8,
+    glidepathContracted: -10.0, glidepathActual: 0,
     regulatory: ['SOC 2', 'GDPR'],
   },
   {
@@ -44,7 +44,7 @@ export const TOWERS: Tower[] = [
     owner: 'S. Okafor', sdm: 'M. Okonkwo',
     entities: 3120, assertions: 28600, verificationCoverage: 79.4,
     autonomyEligibleVolume: 24.7, baselineHrsPerQtr: 1480,
-    glidepathContracted: -9.0, glidepathActual: -6.3,
+    glidepathContracted: -9.0, glidepathActual: 0,
     regulatory: ['GDPR', 'ISO 27701'],
   },
   {
@@ -53,7 +53,7 @@ export const TOWERS: Tower[] = [
     owner: 'P. Lindegaard', sdm: 'M. Okonkwo',
     entities: 7480, assertions: 54200, verificationCoverage: 86.1,
     autonomyEligibleVolume: 44.9, baselineHrsPerQtr: 2680,
-    glidepathContracted: -13.0, glidepathActual: -14.4,
+    glidepathContracted: -13.0, glidepathActual: 0,
     regulatory: ['SOC 2'],
   },
   {
@@ -62,7 +62,7 @@ export const TOWERS: Tower[] = [
     owner: 'P. Lindegaard', sdm: 'M. Okonkwo',
     entities: 9820, assertions: 41300, verificationCoverage: 92.7,
     autonomyEligibleVolume: 68.3, baselineHrsPerQtr: 3720,
-    glidepathContracted: -18.0, glidepathActual: -16.9,
+    glidepathContracted: -18.0, glidepathActual: 0,
     regulatory: [],
   },
   {
@@ -71,7 +71,7 @@ export const TOWERS: Tower[] = [
     owner: 'P. Lindegaard', sdm: 'D. Kowalski',
     entities: 2340, assertions: 17900, verificationCoverage: 81.2,
     autonomyEligibleVolume: 33.8, baselineHrsPerQtr: 1180,
-    glidepathContracted: -11.0, glidepathActual: -9.2,
+    glidepathContracted: -11.0, glidepathActual: 0,
     regulatory: ['SOC 2'],
   },
   {
@@ -80,7 +80,7 @@ export const TOWERS: Tower[] = [
     owner: 'V. Marchetti', sdm: 'D. Kowalski',
     entities: 4610, assertions: 33500, verificationCoverage: 83.6,
     autonomyEligibleVolume: 21.9, baselineHrsPerQtr: 2430,
-    glidepathContracted: -7.0, glidepathActual: -3.8,
+    glidepathContracted: -7.0, glidepathActual: 0,
     regulatory: ['ISO 27001', 'SOC 2', 'NIST AI RMF'],
   },
   {
@@ -89,7 +89,7 @@ export const TOWERS: Tower[] = [
     owner: 'E. Whitfield', sdm: 'L. Nakamura',
     entities: 780, assertions: 9640, verificationCoverage: 68.2,
     autonomyEligibleVolume: 14.1, baselineHrsPerQtr: 640,
-    glidepathContracted: -5.0, glidepathActual: -1.9,
+    glidepathContracted: -5.0, glidepathActual: 0,
     regulatory: ['EU AI Act', 'NIST AI RMF', 'ISO/IEC 42001'],
   },
   {

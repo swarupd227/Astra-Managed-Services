@@ -224,7 +224,7 @@ export function TowerBoard() {
               vs {(t?.glidepathContracted ?? 0).toFixed(1)}% contracted
             </span>
           </div>
-          <div className="mt-1"><Sparkline data={[...HISTORY.glidepathActual, t?.glidepathActual ?? HISTORY.glidepathActual[HISTORY.glidepathActual.length - 1]]} tone="ok" showLast /></div>
+          <div className="mt-1"><Sparkline data={HISTORY.glidepathActual.length ? [...HISTORY.glidepathActual, t?.glidepathActual ?? 0] : []} tone="ok" showLast /></div>
         </div>
       </div>
 

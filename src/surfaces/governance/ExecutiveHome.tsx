@@ -103,6 +103,7 @@ export function ExecutiveHome() {
   const credits = TRANSFORM.reduce((s, t) => s + (t.creditsAccrued + t.creditsCarriedIn - t.creditsConsumed), 0)
   const frozen = TRANSFORM.filter((t) => t.freezeState === 'frozen')
   const moves = autonomyMoves()
+  const delta = autonomyDelta()
 
   const quarters = [...HISTORY.quarters]
   const glideSeries = [
@@ -364,8 +365,8 @@ export function ExecutiveHome() {
 
                 <Tile
                   label="Autonomy"
-                  status="trajectory positive"
-                  statusTone="brand"
+                  status={delta === null ? 'no prior quarter' : delta >= 0 ? 'trajectory positive' : 'trajectory down'}
+                  statusTone={delta !== null && delta < 0 ? 'warn' : 'brand'}
                   headline={pct(autonomyEligible)}
                   sub="autonomy-eligible volume"
                   narrative={`${moves.promotions} promotion${moves.promotions === 1 ? '' : 's'} and ${moves.demotions} demotion${moves.demotions === 1 ? '' : 's'} recorded, each with countersigned evidence${moves.refused ? `; ${moves.refused} promotion refused outright` : ''}.`}
@@ -437,10 +438,10 @@ export function ExecutiveHome() {
                   <div className="mt-3 border-t border-line pt-3">
                     <div className="flex items-center gap-1.5"><Sparkles size={11} className="text-brand-ink" /><span className="label-cap">The flywheel, as reported numbers</span></div>
                     <ul className="mt-2 space-y-1.5 text-2xs leading-relaxed text-ink-3">
-                      <li className="flex justify-between gap-2"><span>F1 Knowledge → Autonomy</span><span className="tnum text-ok">{signedPct(autonomyDelta(), 1)} vs. last quarter</span></li>
-                      <li className="flex justify-between gap-2"><span>F2 Autonomy → Savings</span><span className="tnum text-ok">{num(bankedHours())} hrs banked</span></li>
-                      <li className="flex justify-between gap-2"><span>F3 Savings → Transform</span><span className="tnum text-ok">{num(credits)} credits available</span></li>
-                      <li className="flex justify-between gap-2"><span>F4 Transform → Simpler Run</span><span className="tnum text-ok">{classesRetired()} demand classes retired</span></li>
+                      <li className="flex justify-between gap-2"><span>F1 Knowledge → Autonomy</span><span className={cn('tnum', delta === null ? 'text-ink-3' : 'text-ok')}>{delta === null ? 'no prior quarter' : `${signedPct(delta, 1)} vs. last quarter`}</span></li>
+                      <li className="flex justify-between gap-2"><span>F2 Autonomy → Savings</span><span className={cn('tnum', bankedHours() ? 'text-ok' : 'text-ink-3')}>{num(bankedHours())} hrs banked</span></li>
+                      <li className="flex justify-between gap-2"><span>F3 Savings → Transform</span><span className={cn('tnum', credits ? 'text-ok' : 'text-ink-3')}>{num(credits)} credits available</span></li>
+                      <li className="flex justify-between gap-2"><span>F4 Transform → Simpler Run</span><span className={cn('tnum', classesRetired() ? 'text-ok' : 'text-ink-3')}>{classesRetired()} demand classes retired</span></li>
                     </ul>
                   </div>
                 </Card>

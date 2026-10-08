@@ -1,5 +1,4 @@
 import { Rng, digest } from './rng'
-import { sealChain } from './evidence'
 import { AGENTS, TOWERS, policyForTower } from './estate'
 import { AC } from './reference'
 import type {
@@ -403,36 +402,17 @@ export const RUNS: Run[] = [HERO_RUN, ...generated.runs]
 
 /* ------------------------------ Evidence chain ------------------------------ */
 
-function buildEvidence(): EvidenceRecord[] {
-  const raw: Omit<EvidenceRecord, 'hash' | 'prevHash' | 'tampered'>[] = []
-  let seq = 1
-
-  const push = (r: Omit<EvidenceRecord, 'hash' | 'prevHash' | 'tampered' | 'seq'>) => {
-    raw.push({ ...r, seq: seq++ })
-  }
-
-  const ordered = [...WORK_OBJECTS].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  )
-
-  for (const wo of ordered) {
-    const acs = wo.autonomy?.actionClasses ?? ['AC-05']
-    push({ id: `${wo.evidenceHead}-01`, at: wo.createdAt, kind: 'observation', workObjectId: wo.id, agentId: 'agt_sentinel', actor: 'Sentinel', summary: `Signal correlated and classified ${wo.demandClass}`, payload: { source: wo.source, confidence: wo.classificationConfidence, priority: wo.priority }, sealed: true })
-    push({ id: `${wo.evidenceHead}-02`, at: wo.createdAt, kind: 'clock', workObjectId: wo.id, actor: 'SLA engine', summary: `Clock started — target ${wo.slaTargetMins}m`, payload: { start: 'validated_priority_set', calendar: 'client_biz_hours(America/Chicago)', target: wo.slaTargetMins }, sealed: true })
-    if (wo.autonomy) {
-      push({ id: `${wo.evidenceHead}-03`, at: wo.createdAt, kind: 'decision', workObjectId: wo.id, runId: wo.runId, actionClass: acs[0], actor: 'Autonomy Policy Engine', summary: `Execution mode ${wo.autonomy.mode} under ${wo.autonomy.policyId} ${wo.autonomy.policyVersion}`, payload: { inputVector: { actionClasses: acs, blast: wo.autonomy.blastRadius, grades: wo.autonomy.agentGrades, confidence: wo.autonomy.planConfidence }, reasons: wo.autonomy.reasons, evaluatedInMs: wo.autonomy.evaluatedInMs }, sealed: true })
-    }
-    if (['executing', 'verifying', 'resolved', 'learned'].includes(wo.state)) {
-      push({ id: `${wo.evidenceHead}-04`, at: wo.createdAt, kind: 'approval', workObjectId: wo.id, runId: wo.runId, actor: wo.narrative.find((x) => x.actorKind === 'human')?.actor ?? 'R. Venkatesh', summary: 'Gated action approved', payload: { shown: ['diff', 'blast_radius', 'rollback_plan', 'agent_track_record'], channel: 'mobile' }, sealed: true })
-      push({ id: `${wo.evidenceHead}-05`, at: wo.createdAt, kind: 'action', workObjectId: wo.id, runId: wo.runId, agentId: wo.assigneeKind === 'agent' ? wo.assignee ?? undefined : 'agt_remedian', actionClass: acs[0], actor: 'Remedian', summary: `${AC[acs[0]]?.name ?? acs[0]} executed`, payload: { compensationHeld: true, targets: wo.affected }, sealed: true })
-    }
-    if (['resolved', 'learned'].includes(wo.state)) {
-      push({ id: `${wo.evidenceHead}-06`, at: wo.createdAt, kind: 'verification', workObjectId: wo.id, runId: wo.runId, actor: 'Verifier', summary: `${AC[acs[0]]?.verificationPack ?? 'health_probe_v4'} passed`, payload: { probes: ['slo_recovery', 'synthetic_txn'], result: 'green' }, sealed: true })
-      push({ id: `${wo.evidenceHead}-07`, at: wo.createdAt, kind: 'economic', workObjectId: wo.id, actor: 'Glidepath Ledger', summary: `Effort delta attributed (${wo.economics.attribution})`, payload: { estManualMins: wo.economics.estManualMins, actualAgentMins: wo.economics.actualAgentMins, tokensUsd: wo.economics.tokensUsd }, sealed: true })
-    }
-  }
-
-  return sealChain(raw)
-}
-
-export const EVIDENCE: EvidenceRecord[] = buildEvidence()
+/**
+ * The chain starts empty.
+ *
+ * It used to open on twelve hundred sealed records describing observations,
+ * approvals and verifications that had never happened — and the Proof screen
+ * invited an auditor to verify them, which it did, perfectly. A chain of
+ * fiction that passes its own arithmetic is worse than no chain at all.
+ *
+ * Every record in it is now one the platform actually wrote: a tool that
+ * changed something, a decision someone confirmed, a notice given. An empty
+ * chain on a fresh database is the true answer to "what has this platform
+ * done here", and the screens say so rather than filling the space.
+ */
+export const EVIDENCE: EvidenceRecord[] = []

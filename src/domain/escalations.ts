@@ -1,5 +1,4 @@
 import { AGENTS } from './estate'
-import { Rng } from './rng'
 import { NOW } from './workSeed'
 import type { ISO } from './types'
 
@@ -56,70 +55,26 @@ export interface Escalation {
   pickupMins?: number
 }
 
-/* --------------------------------- The seed --------------------------------- */
+/* -------------------------------- The register -------------------------------- */
 
-/** Runs each agent took in the window, so an escalation rate means something. */
-export const RUNS_30D: Record<string, number> = {
-  agt_sentinel: 13_400, agt_diagnost: 6_010, agt_remedian: 1_670, agt_forge: 444,
-  agt_sentryq: 402, agt_custodian: 1_544, agt_prospect: 2_695, agt_bursar: 772,
-  agt_warden: 2_314, agt_archivist: 2_366, agt_herald: 823, agt_concierge: 10_680,
-  agt_cl_procure: 136, agt_cl_kyc: 0,
-}
+/**
+ * Runs each agent took in the window, and the hand-backs themselves.
+ *
+ * Both start empty, and both are filled by the runtime: an agent that runs
+ * writes a run, and an agent that stops writes an escalation. There was a
+ * profile here — a per-agent escalation rate multiplied by an invented run
+ * count — which produced 764 hand-backs across 43,256 runs, each with a
+ * reason, a named picker-up and a pick-up time. Not one had happened. The
+ * reason mix is the most diagnostic figure the fleet produces, so inventing
+ * it taught a client to read a knowledge gap or a governance gap that was
+ * nothing but a seed.
+ *
+ * The vocabulary above stays: the reasons an agent may stop, and what each
+ * one says needs fixing, are platform design rather than observation.
+ */
+export const RUNS_30D: Record<string, number> = {}
 
-/** How often each agent escalates, and what it escalates about. */
-const PROFILE: Record<string, { rate: number; reasons: EscalationReason[]; about: string[] }> = {
-  agt_sentinel: { rate: 0.004, reasons: ['unknown_signature', 'low_confidence'], about: ['an alert pattern with no match', 'a record with no usable description'] },
-  agt_diagnost: { rate: 0.012, reasons: ['unknown_signature', 'no_owner', 'low_confidence'], about: ['a failure signature first seen this month', 'a component with no recorded owner'] },
-  agt_remedian: { rate: 0.031, reasons: ['missing_runbook', 'outside_class'], about: ['a host outside its named runbooks', 'a restart on an unlisted service'] },
-  agt_forge: { rate: 0.058, reasons: ['missing_runbook', 'low_confidence'], about: ['a change with no test pattern', 'a specification it could not resolve'] },
-  agt_sentryq: { rate: 0.042, reasons: ['missing_runbook', 'unknown_signature'], about: ['a vendor release with no regression pack', 'a failing case it could not classify'] },
-  agt_custodian: { rate: 0.047, reasons: ['missing_runbook', 'no_owner', 'unapproved_data'], about: ['a pipeline with no recorded owner', 'a dataset with no contract to verify against', 'a store holding personal data it may not read'] },
-  agt_prospect: { rate: 0.009, reasons: ['low_confidence', 'no_owner'], about: ['a cluster it could not attribute', 'a demand class with no owner'] },
-  agt_bursar: { rate: 0.018, reasons: ['no_owner', 'low_confidence'], about: ['a workload with no cost owner', 'a spend change it could not explain'] },
-  agt_warden: { rate: 0.021, reasons: ['outside_class', 'missing_runbook'], about: ['a patch wave outside its window', 'an endpoint with no rollback procedure'] },
-  agt_archivist: { rate: 0.036, reasons: ['no_owner', 'unapproved_data'], about: ['a workspace nobody claims', 'a store it has no approval to index'] },
-  agt_herald: { rate: 0.006, reasons: ['low_confidence'], about: ['a figure it could not resolve to a source'] },
-  agt_concierge: { rate: 0.026, reasons: ['outside_class', 'unapproved_data', 'low_confidence'], about: ['a request with no entitlement rule', 'a licence request for an unapproved tool', 'an approver it could not identify'] },
-  agt_cl_procure: { rate: 0.11, reasons: ['no_owner', 'outside_class'], about: ['a submission with no named owner', 'an action it has no class for'] },
-  agt_cl_kyc: { rate: 0, reasons: ['low_confidence'], about: [] },
-}
-
-const PICKUP_BY: Record<string, string> = {
-  agt_sentinel: 'Shift lead', agt_diagnost: 'Resolver on shift', agt_remedian: 'Resolver on shift',
-  agt_forge: 'Application lead', agt_sentryq: 'Application lead', agt_custodian: 'Data platform engineer',
-  agt_prospect: 'Service delivery manager', agt_bursar: 'Commercial manager', agt_warden: 'Security lead',
-  agt_archivist: 'Transition lead', agt_herald: 'Service delivery manager', agt_concierge: 'Service desk lead',
-  agt_cl_procure: 'Finance Operations', agt_cl_kyc: 'Marketing Operations',
-}
-
-function build(): Escalation[] {
-  const rng = new Rng(9_310)
-  const out: Escalation[] = []
-  for (const a of AGENTS) {
-    const p = PROFILE[a.id]
-    const runs = RUNS_30D[a.id] ?? 0
-    if (!p || !runs || !p.about.length) continue
-    const n = Math.max(0, Math.round(runs * p.rate))
-    for (let i = 0; i < n; i++) {
-      const minsAgo = rng.int(20, 30 * 24 * 60)
-      // The most recent few are still waiting; a queue with nothing open would be a fiction.
-      const waiting = minsAgo < 240 && rng.next() < 0.5
-      const pickup = rng.int(3, 180)
-      out.push({
-        id: `esc_${a.id.slice(4)}_${i}`,
-        agentId: a.id,
-        at: new Date(NOW.getTime() - minsAgo * 60_000).toISOString(),
-        reason: p.reasons[rng.int(0, p.reasons.length - 1)],
-        about: p.about[rng.int(0, p.about.length - 1)],
-        pickedUpBy: waiting ? undefined : PICKUP_BY[a.id],
-        pickupMins: waiting ? undefined : pickup,
-      })
-    }
-  }
-  return out.sort((x, y) => Date.parse(y.at) - Date.parse(x.at))
-}
-
-export const ESCALATIONS: Escalation[] = build()
+export const ESCALATIONS: Escalation[] = []
 
 /* --------------------------------- Readings --------------------------------- */
 
@@ -165,7 +120,8 @@ export function readEscalations(agentId: string, nowMs = NOW.getTime()): Escalat
 export interface FleetEscalations {
   total: number
   runs: number
-  ratePct: number
+  /** Null until the fleet has run: no runs is not a zero rate. */
+  ratePct: number | null
   waiting: number
   medianPickupMins: number | null
   byReason: { reason: EscalationReason; count: number; agents: number; fix: string }[]
@@ -187,7 +143,7 @@ export function escalationSummary(nowMs = NOW.getTime()): FleetEscalations {
   return {
     total,
     runs,
-    ratePct: runs ? Math.round((total / runs) * 1000) / 10 : 0,
+    ratePct: runs ? Math.round((total / runs) * 1000) / 10 : null,
     waiting: ESCALATIONS.filter((e) => !e.pickedUpBy).length,
     medianPickupMins: median(ESCALATIONS.filter((e) => e.pickupMins !== undefined).map((e) => e.pickupMins!)),
     byReason: [...counts.entries()]

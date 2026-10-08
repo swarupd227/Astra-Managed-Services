@@ -7,7 +7,7 @@ import {
 import { REASON_LABEL } from '@/domain/escalations'
 import { MODE_LABEL } from '@/domain/reference'
 import { useFleetEscalations, useReadiness } from '../readiness'
-import { Bar, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
+import { Bar, Card, Chip, Empty, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
 import { cn, dateShort, num } from '@/lib/format'
 import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
 
@@ -33,7 +33,7 @@ function LifecycleMetrics({ size }: CardProps) {
   const f = useReadiness()
   const page = size === 'page'
   const e = useFleetEscalations()
-  const esc = { total: e.total, waiting: e.waiting, ofRunsPctLabel: `${e.ratePct}%` }
+  const esc = { total: e.total, waiting: e.waiting, ofRunsPctLabel: e.ratePct === null ? '—' : `${e.ratePct}%` }
   const live = f.byStage.supervised + f.byStage.autonomous
   return (
     <Band size={size} cols={6}>
@@ -250,7 +250,15 @@ function LifecycleBody({ props, size }: CardProps) {
         </div>
       )}
 
-      <Card className="mt-4" title="Why agents escalate" subtitle={`${num(fleetEsc.total)} escalations · ${fleetEsc.ratePct}% of ${num(fleetEsc.runs)} runs · median pick-up ${fleetEsc.medianPickupMins ?? '—'} min`} right={<Hand size={13} className="text-ink-3" />}>
+      <Card
+        className="mt-4"
+        title="Why agents escalate"
+        subtitle={fleetEsc.ratePct === null
+          ? 'No runs recorded'
+          : `${num(fleetEsc.total)} escalations · ${fleetEsc.ratePct}% of ${num(fleetEsc.runs)} runs · median pick-up ${fleetEsc.medianPickupMins ?? '—'} min`}
+        right={<Hand size={13} className="text-ink-3" />}
+      >
+        {!fleetEsc.byReason.length ? <Empty title="No hand-backs recorded" /> : (
         <Table>
           <thead><tr><Th>Reason</Th><Th align="right">Times</Th><Th align="right">Agents</Th><Th>What would fix it</Th></tr></thead>
           <tbody>
@@ -264,6 +272,7 @@ function LifecycleBody({ props, size }: CardProps) {
             ))}
           </tbody>
         </Table>
+        )}
       </Card>
 
       {f.commonGaps.length > 0 && (

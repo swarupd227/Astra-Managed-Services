@@ -118,10 +118,13 @@ export function classesRetired(): number {
   return DEMAND_CLASSES.filter((d) => d.eliminationState === 'eliminated').length
 }
 
-/** Movement in autonomy-eligible volume against the last recorded quarter (coupling F1). */
-export function autonomyDelta(): number {
+/**
+ * Movement in autonomy-eligible volume against the last recorded quarter
+ * (coupling F1). Null until a quarter has been recorded to move against.
+ */
+export function autonomyDelta(): number | null {
   const prior = HISTORY.autonomyEligible[HISTORY.autonomyEligible.length - 1]
-  return autonomyEligible() - prior
+  return prior === undefined ? null : autonomyEligible() - prior
 }
 
 /* --------------------------------- Seeded ---------------------------------- */
@@ -155,31 +158,45 @@ export const OPERATIONAL = {
 } as const
 
 /**
- * Historical series that predate the simulated window. The store's own clock
- * starts at NOW, so anything showing a trend before that has to be seeded —
- * these are the ledger's recorded history, not decoration.
+ * The recorded history behind every trend the platform draws.
+ *
+ * The axes are calendar and contract: which quarters the schedule runs over,
+ * what reduction each one commits to, which releases were evaluated, which
+ * hours a shift covers. Those are known in advance.
+ *
+ * The series measured against them start empty. Each one used to carry a
+ * hand-written curve — a delivery line that beat its contract in every
+ * quarter, seven months of SLA attainment, six quarters of innovation value
+ * rising to $380k, a shift profile peaking at noon, four releases of
+ * evaluation pass rates. A chart drawn from those is indistinguishable from
+ * one drawn from records, which is exactly why none may be drawn until there
+ * are records: a sparkline is the most persuasive and least examined thing on
+ * a screen.
+ *
+ * Every reader here handles an empty series by drawing nothing.
  */
 export const HISTORY = {
   quarters: ['26-Q1', '26-Q2', '26-Q3', '26-Q4', '27-Q1'],
-  /** Glidepath, % reduction against baseline, by quarter. */
+  /** Glidepath, % reduction against baseline, by quarter. Contracted: the schedule. */
   glidepathContracted: [-2, -5, -8, -10, -12],
-  glidepathActual: [-2.4, -6.1, -9.8, -12.4, -14.6],
-  /** SLA attainment, last seven months. */
-  slaAttainment: [95.1, 96.2, 95.8, 96.9, 96.4, 96.1, 96.8],
-  /** Autonomy-eligible volume, last six quarters. Current value appended at use. */
-  autonomyEligible: [21, 26, 29, 33, 36, 39],
+  /** Delivered against it, by quarter. Filled from the banked glidepath ledger. */
+  glidepathActual: [] as number[],
+  /** SLA attainment by month, from the service records. */
+  slaAttainment: [] as number[],
+  /** Autonomy-eligible volume by quarter. Current value appended at use. */
+  autonomyEligible: [] as number[],
   /** Verified innovation value, thousands USD, by quarter. */
-  innovationValueK: [40, 96, 140, 210, 280, 380],
+  innovationValueK: [] as number[],
   /** Estate verification coverage, %, by month of transition. */
-  verificationCoverage: [12, 18, 24, 29, 33, 38],
+  verificationCoverage: [] as number[],
   /** Resolution volume by execution kind, across a shift's eight hours. */
   shiftHours: ['00', '03', '06', '09', '12', '15', '18', '21'],
-  shiftAgentExecuted: [38, 52, 61, 88, 74, 66, 58, 49],
-  shiftAgentAssisted: [12, 16, 19, 24, 21, 18, 15, 13],
-  shiftHumanOnly: [6, 7, 9, 11, 10, 8, 7, 6],
-  /** Evaluation suite pass rate by model tier, last four releases. */
+  shiftAgentExecuted: [] as number[],
+  shiftAgentAssisted: [] as number[],
+  shiftHumanOnly: [] as number[],
+  /** Evaluation suite pass rate by model tier, by release. */
   evalReleases: ['4.15', '4.16', '4.17', '4.18'],
-  evalFrontier: [0.944, 0.946, 0.948, 0.948],
-  evalMid: [0.958, 0.964, 0.971, 0.962],
-  evalSmall: [0.921, 0.938, 0.951, 0.958],
+  evalFrontier: [] as number[],
+  evalMid: [] as number[],
+  evalSmall: [] as number[],
 } as const

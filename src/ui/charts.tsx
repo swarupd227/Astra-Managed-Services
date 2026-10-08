@@ -95,6 +95,9 @@ export function LineChart({
   const iw = Math.max(80, w - padL - padR)
   const ih = height - padT - padB
   const all = series.flatMap((s) => s.values)
+  // A chart with nothing recorded draws nothing: axes alone read as a
+  // measurement that happened to be flat.
+  if (!all.length) return null
   const lo = yMin ?? Math.min(...all, zeroLine ? 0 : Infinity)
   const hi = yMax ?? Math.max(...all, zeroLine ? 0 : -Infinity)
   const span = hi - lo || 1
@@ -209,8 +212,10 @@ export function StackedBars({
   }, [])
   const iw = Math.max(60, w - padL - padR)
   const ih = height - padT - padB
-  const bw = Math.max(2, (iw / labels.length) * 0.66)
+  const bw = Math.max(2, (iw / Math.max(1, labels.length)) * 0.66)
   const ticks = niceTicks(0, max, 3)
+  // Nothing recorded: see the note in LineChart.
+  if (!labels.length || !totals.some((t) => t > 0)) return null
 
   return (
     <div ref={ref} className={cn('relative w-full', className)}>

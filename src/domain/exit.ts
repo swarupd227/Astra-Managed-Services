@@ -180,7 +180,8 @@ export interface HoldingReading {
 
 export interface BenchmarkPack {
   /** Quarters the platform can evidence from its own ledger. */
-  quarters: { quarter: string; contractedPct: number; actualPct: number }[]
+  /** Null where the quarter has no delivered figure recorded against it. */
+  quarters: { quarter: string; contractedPct: number; actualPct: number | null }[]
   baselineHrsPerYear: number | null
   serviceLevels: { id: string; name: string; attainmentMtd: number; target: number }[]
   bankedHrs: number
@@ -214,7 +215,7 @@ export interface ExitReading {
 function benchmarkPack(): BenchmarkPack {
   return {
     quarters: HISTORY.quarters.map((quarter, i) => ({
-      quarter, contractedPct: HISTORY.glidepathContracted[i], actualPct: HISTORY.glidepathActual[i],
+      quarter, contractedPct: HISTORY.glidepathContracted[i], actualPct: HISTORY.glidepathActual[i] ?? null,
     })),
     baselineHrsPerYear: ENGAGEMENT.contract.baselineHrsPerYear,
     serviceLevels: SLAS.map((s) => ({ id: s.id, name: s.name, attainmentMtd: s.attainmentMtd, target: s.attainmentTarget })),

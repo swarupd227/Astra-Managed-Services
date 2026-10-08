@@ -181,6 +181,9 @@ export const MEASURES: Record<string, Measure> = {
     needs: ['telemetry'], route: '/atlas/lifecycle',
     read: () => {
       const e = escalationSummary()
+      // No runs is not a zero escalation rate, and a fleet that has not run
+      // yet cannot have a rate read off it.
+      if (e.ratePct === null) return unreadable('No agent has run in the window')
       return {
         value: e.ratePct,
         display: pct(e.ratePct),

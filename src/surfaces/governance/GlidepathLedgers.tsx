@@ -4,7 +4,7 @@ import { GLIDEPATH, TRANSFORM, bankedHours, verifyingHours } from '@/domain/ledg
 import { TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { useAstra } from '@/domain/store'
 import { PageHeader, EvidenceLink } from '@/ui/domain'
-import { Button, Card, Chip, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
+import { Button, Card, Chip, Empty, Metric, Table, Tabs, Td, Th, Tr } from '@/ui/primitives'
 import { LineChart, StackedBars, CHART_COLORS } from '@/ui/charts'
 import { cn, ago, num, pct, signedPct, usd } from '@/lib/format'
 import type { GlidepathEntry } from '@/domain/types'
@@ -39,12 +39,19 @@ export function GlidepathLedgers() {
     hours: banked.filter((e) => e.attribution === a).reduce((s, e) => s + e.hoursSaved, 0),
   }))
 
-  const quarters = ['26-Q1', '26-Q2', '26-Q3', '26-Q4', '27-Q1']
-  const decomposition = byAttrib.map((a, i) => ({
+  // Each banked claim lands in the quarter it was banked in. The shape used to
+  // be modelled — total hours spread across five quarters on a rising curve —
+  // which drew a believable ramp out of a single number.
+  const quarterOf = (iso: string) => {
+    const d = new Date(iso)
+    return `${String(d.getUTCFullYear()).slice(2)}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`
+  }
+  const quarters = [...new Set(banked.map((e) => quarterOf(e.at)))].sort()
+  const decomposition = byAttrib.map((a) => ({
     key: a.key,
     label: a.label,
     color: a.color,
-    values: quarters.map((_, q) => Math.round((a.hours / 5) * (0.55 + q * 0.22) * (1 - i * 0.06))),
+    values: quarters.map((q) => banked.filter((e) => e.attribution === a.key && quarterOf(e.at) === q).reduce((s, e) => s + e.hoursSaved, 0)),
   }))
 
   const totalCredits = TRANSFORM.reduce((s, t) => s + t.creditsAccrued + t.creditsCarriedIn, 0)
@@ -91,12 +98,16 @@ export function GlidepathLedgers() {
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
               <Card title="Banked savings by cause, per quarter" subtitle="By attribution">
-                <StackedBars labels={quarters} stacks={decomposition} height={200} yFormat={(n) => `${n}h`} />
-                <div className="mt-2 flex flex-wrap gap-3 text-2xs text-ink-3">
-                  {decomposition.map((s) => (
-                    <span key={s.key} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
-                  ))}
-                </div>
+                {quarters.length ? (
+                  <>
+                    <StackedBars labels={quarters} stacks={decomposition} height={200} yFormat={(n) => `${n}h`} />
+                    <div className="mt-2 flex flex-wrap gap-3 text-2xs text-ink-3">
+                      {decomposition.map((s) => (
+                        <span key={s.key} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}</span>
+                      ))}
+                    </div>
+                  </>
+                ) : <Empty title="Nothing banked" />}
               </Card>
 
               <Card title="Banked by attribution">
@@ -159,6 +170,8 @@ export function GlidepathLedgers() {
                 </tbody>
               </Table>
 
+              {!entries.length && <Empty title="No claims in the ledger" />}
+
               {rejected.length > 0 && (
                 <div className="mt-3 rounded border border-crit/35 bg-crit/[0.05] p-3">
                   <p className="mt-1 text-2xs leading-relaxed text-ink-2">
@@ -180,6 +193,7 @@ export function GlidepathLedgers() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {!TRANSFORM.length && <Empty title="No credits accrued" />}
             <div className="space-y-3">
               {TRANSFORM.map((t) => {
                 const tw = TOWER_BY_ID[t.tower]

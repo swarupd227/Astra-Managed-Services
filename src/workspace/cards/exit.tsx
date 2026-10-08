@@ -7,7 +7,7 @@ import {
 import { ENGAGEMENT } from '@/domain/engagement'
 import { useAstra } from '@/domain/store'
 import { Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
-import { dateShort, num, pct } from '@/lib/format'
+import { cn, dateShort, num, pct } from '@/lib/format'
 import { Band, More, limit, type ArtifactView, type CardProps } from './frame'
 
 /* ==========================================================================
@@ -141,7 +141,9 @@ function ExitBody({ props, size }: CardProps) {
                 <Tr key={q.quarter}>
                   <Td className="text-2xs text-ink">{q.quarter}</Td>
                   <Td align="right" className="tnum text-2xs text-ink-2">{pct(q.contractedPct, 1)}</Td>
-                  <Td align="right" className={q.actualPct <= q.contractedPct ? 'tnum text-2xs text-ok' : 'tnum text-2xs text-warn'}>{pct(q.actualPct, 1)}</Td>
+                  <Td align="right" className={cn('tnum text-2xs', q.actualPct === null ? 'text-ink-3' : q.actualPct <= q.contractedPct ? 'text-ok' : 'text-warn')}>
+                    {q.actualPct === null ? '—' : pct(q.actualPct, 1)}
+                  </Td>
                 </Tr>
               ))}
             </tbody>

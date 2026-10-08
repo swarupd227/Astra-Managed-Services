@@ -27,7 +27,12 @@ export interface Tower {
   verificationCoverage: number
   autonomyEligibleVolume: number
   baselineHrsPerQtr: number
+  /** The reduction this tower's schedule commits to. Contract. */
   glidepathContracted: number
+  /**
+   * The reduction actually banked against it — a platform record, so it is
+   * zero until the glidepath ledger has a claim that survived its window.
+   */
   glidepathActual: number
   regulatory: string[]
 }

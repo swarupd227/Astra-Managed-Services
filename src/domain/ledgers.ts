@@ -12,20 +12,20 @@ const daysAhead = (d: number) => new Date(NOW.getTime() + d * 86400000).toISOStr
 /* ------------------------------ Demand classes ------------------------------ */
 
 const CURATED_CLASSES: DemandClassRec[] = [
-  { id: 'dc_cert_expiry', name: 'Certificate expiry incidents', tower: 'twr_payments', volumeYr: 31, hoursYr: 47, trend: -0.88, cause: 'No certificate lifecycle automation across the Mulesoft/FOCUS legacy VM estate (210 graph nodes)', eliminationState: 'verifying', projectedRemoval: 0.92, npv36m: 41000, effortDays: 6, observedDecay: -0.88, verifyDay: 22, proposalType: 'automation' },
+  { id: 'dc_cert_expiry', name: 'Certificate expiry incidents', tower: 'twr_payments', volumeYr: 31, hoursYr: 47, trend: -0.88, cause: 'No certificate lifecycle automation across the Mulesoft/FOCUS legacy VM estate (210 graph nodes)', eliminationState: 'candidate', projectedRemoval: 0.92, npv36m: 41000, effortDays: 6, proposalType: 'automation' },
   { id: 'dc_mulesoft_soleowner', name: 'Mulesoft single-owner bridge risk', tower: 'twr_payments', volumeYr: 18, hoursYr: 54, trend: -0.05, cause: 'The Salesforce ↔ SAP integration hub has exactly one named user; the bridge runs unmonitored whenever they are unavailable', eliminationState: 'candidate', projectedRemoval: 0.55, npv36m: 96000, effortDays: 28, proposalType: 'engineering_fix' },
   { id: 'dc_iem_ghost', name: 'IEM still live despite "retired" status', tower: 'twr_payments', volumeYr: 658, hoursYr: 410, trend: -0.03, cause: 'IEM is marked replaced by Concur in the client\'s own application inventory, but consultants still submit time through it — the highest-volume live app in the tower', eliminationState: 'candidate', projectedRemoval: 0.5, npv36m: 168000, effortDays: 45, proposalType: 'modernisation' },
   { id: 'dc_batch_overrun', name: 'Core batch window overrun', tower: 'twr_core', volumeYr: 62, hoursYr: 165, trend: -0.12, cause: 'Contention between the SAP S/4HANA nightly close and the PeopleSoft → Workday migration extract', eliminationState: 'candidate', projectedRemoval: 0.7, npv36m: 96000, effortDays: 21, proposalType: 'engineering_fix' },
   { id: 'dc_workday_migration', name: 'PeopleSoft → Workday migration defects', tower: 'twr_core', volumeYr: 84, hoursYr: 224, trend: 0.06, cause: 'PeopleSoft HCM retires August 2027; mapping errors surface on every wave of the Workday cutover', eliminationState: 'candidate', projectedRemoval: 0.4, npv36m: 118000, effortDays: 60, proposalType: 'modernisation' },
-  { id: 'dc_mq_depth', name: 'Integration queue depth alarms', tower: 'twr_core', volumeYr: 204, hoursYr: 112, trend: -0.44, cause: 'Static alarm thresholds on the SAP ↔ ServiceNow bridge unrelated to the client\'s business calendar', eliminationState: 'approved', projectedRemoval: 0.8, npv36m: 61000, effortDays: 7, proposalType: 'policy_change' },
-  { id: 'dc_pipeline_fail', name: 'Pipeline failure — upstream schema drift', tower: 'twr_dataplat', volumeYr: 156, hoursYr: 288, trend: -0.52, cause: 'No enforced data contract on the Azure Data Factory customer/HCM feed', eliminationState: 'verifying', projectedRemoval: 0.78, npv36m: 148000, effortDays: 18, observedDecay: -0.61, verifyDay: 44, proposalType: 'engineering_fix' },
+  { id: 'dc_mq_depth', name: 'Integration queue depth alarms', tower: 'twr_core', volumeYr: 204, hoursYr: 112, trend: -0.44, cause: 'Static alarm thresholds on the SAP ↔ ServiceNow bridge unrelated to the client\'s business calendar', eliminationState: 'candidate', projectedRemoval: 0.8, npv36m: 61000, effortDays: 7, proposalType: 'policy_change' },
+  { id: 'dc_pipeline_fail', name: 'Pipeline failure — upstream schema drift', tower: 'twr_dataplat', volumeYr: 156, hoursYr: 288, trend: -0.52, cause: 'No enforced data contract on the Azure Data Factory customer/HCM feed', eliminationState: 'candidate', projectedRemoval: 0.78, npv36m: 148000, effortDays: 18, proposalType: 'engineering_fix' },
   { id: 'dc_dq_null_ratio', name: 'Data-quality null-ratio breaches', tower: 'twr_dataplat', volumeYr: 87, hoursYr: 131, trend: -0.19, cause: 'DQ rules authored per-report rather than per-asset across the datamart and downstream gold tables', eliminationState: 'candidate', projectedRemoval: 0.65, npv36m: 54000, effortDays: 12, proposalType: 'automation' },
   { id: 'dc_oracle_blindspot', name: 'Oracle datamart blind spot', tower: 'twr_dataplat', volumeYr: 40, hoursYr: 60, trend: 0.2, cause: 'A Tier-1, 7,000-user Oracle datamart carries zero incident telemetry; nothing can be root-caused against it today', eliminationState: 'candidate', projectedRemoval: 0.3, npv36m: 42000, effortDays: 15, proposalType: 'automation' },
-  { id: 'dc_node_pressure', name: 'Azure VM memory pressure', tower: 'twr_cloud', volumeYr: 240, hoursYr: 160, trend: -0.71, cause: 'Absent autoscaling on workloads mid-migration out of the Chicago DC', eliminationState: 'eliminated', projectedRemoval: 0.9, npv36m: 88000, effortDays: 5, observedDecay: -0.9, verifyDay: 90, proposalType: 'automation' },
-  { id: 'dc_tf_drift', name: 'Terraform state drift findings', tower: 'twr_cloud', volumeYr: 312, hoursYr: 208, trend: -0.28, cause: 'Console changes outside the pipeline during the Chicago DC → Azure exit', eliminationState: 'approved', projectedRemoval: 0.75, npv36m: 74000, effortDays: 10, proposalType: 'policy_change' },
+  { id: 'dc_node_pressure', name: 'Azure VM memory pressure', tower: 'twr_cloud', volumeYr: 240, hoursYr: 160, trend: -0.71, cause: 'Absent autoscaling on workloads mid-migration out of the Chicago DC', eliminationState: 'candidate', projectedRemoval: 0.9, npv36m: 88000, effortDays: 5, proposalType: 'automation' },
+  { id: 'dc_tf_drift', name: 'Terraform state drift findings', tower: 'twr_cloud', volumeYr: 312, hoursYr: 208, trend: -0.28, cause: 'Console changes outside the pipeline during the Chicago DC → Azure exit', eliminationState: 'candidate', projectedRemoval: 0.75, npv36m: 74000, effortDays: 10, proposalType: 'policy_change' },
   { id: 'dc_pwd_reset', name: 'Password / MFA lockout resets', tower: 'twr_euc', volumeYr: 2484, hoursYr: 745, trend: -0.2, cause: 'No self-service path for post-MFA-re-enrolment lockouts — the largest single incident subcategory across 9,817 endpoints', eliminationState: 'candidate', projectedRemoval: 0.75, npv36m: 312000, effortDays: 18, proposalType: 'self_service' },
   { id: 'dc_onedrive_sync', name: 'OneDrive / M365 sync failures', tower: 'twr_euc', volumeYr: 926, hoursYr: 540, trend: 0.18, cause: 'OneDrive sync breaks following Cisco Zero-Trust re-enrolment; 926 incidents/year and rising', eliminationState: 'candidate', projectedRemoval: 0.5, npv36m: 121000, effortDays: 20, proposalType: 'engineering_fix' },
-  { id: 'dc_sw_provision', name: 'Catalog software provisioning', tower: 'twr_euc', volumeYr: 2140, hoursYr: 784, trend: -0.83, cause: 'Manual approval hop for pre-approved catalog items', eliminationState: 'eliminated', projectedRemoval: 0.88, npv36m: 196000, effortDays: 8, observedDecay: -0.83, verifyDay: 90, proposalType: 'automation' },
+  { id: 'dc_sw_provision', name: 'Catalog software provisioning', tower: 'twr_euc', volumeYr: 2140, hoursYr: 784, trend: -0.83, cause: 'Manual approval hop for pre-approved catalog items', eliminationState: 'candidate', projectedRemoval: 0.88, npv36m: 196000, effortDays: 8, proposalType: 'automation' },
   { id: 'dc_zta_sync_break', name: 'Zero-Trust rollout friction', tower: 'twr_network', volumeYr: 2362, hoursYr: 890, trend: 0.22, cause: 'Cisco Zero-Trust/SASE enrolment breaks OneDrive and PowerPoint sync immediately after rollout — causally linked to 4 of the top 10 open problem records', eliminationState: 'candidate', projectedRemoval: 0.45, npv36m: 142000, effortDays: 30, proposalType: 'engineering_fix' },
   { id: 'dc_bgp_flap', name: 'BGP peer flap', tower: 'twr_network', volumeYr: 64, hoursYr: 128, trend: -0.08, cause: 'Carrier-side instability; damping not tuned', eliminationState: 'candidate', projectedRemoval: 0.45, npv36m: 31000, effortDays: 6, proposalType: 'policy_change' },
   { id: 'dc_triple_av', name: 'Endpoint security agents contend for CPU', tower: 'twr_secops', volumeYr: 41, hoursYr: 96, trend: 0.3, cause: 'Cisco AMP, Trellix ePO and a third EDR run concurrently on the same fleet, contending for CPU — the consultant feels it as a slow laptop the night before a steering committee', eliminationState: 'candidate', projectedRemoval: 0.85, npv36m: 168000, effortDays: 25, proposalType: 'engineering_fix' },
@@ -78,58 +78,22 @@ export const DEMAND_CLASSES: DemandClassRec[] = [...CURATED_CLASSES, ...sampledC
 
 /* ---------------------------- Glidepath ledger ------------------------------ */
 
-function buildGlidepath(): GlidepathEntry[] {
-  const out: GlidepathEntry[] = []
-  const attribs: GlidepathEntry['attribution'][] = ['automation', 'elimination', 'acceleration', 'avoidance']
-  // Built from population classes only. A sampled class has no measured
-  // baseline to bank hours against — and iterating the same classes in the
-  // same order keeps every seeded draw exactly as it was.
-  CURATED_CLASSES.forEach((dc, i) => {
-    const n = dc.eliminationState === 'eliminated' ? 4 : dc.eliminationState === 'verifying' ? 2 : 1
-    for (let k = 0; k < n; k++) {
-      const attribution = dc.eliminationState === 'eliminated' ? (k === 0 ? 'elimination' : 'automation') : attribs[(i + k) % 4]
-      const banked = dc.eliminationState === 'eliminated' || (dc.eliminationState === 'verifying' && k === 0 && (dc.verifyDay ?? 0) > 60)
-      const window = attribution === 'avoidance' ? 90 : 60
-      out.push({
-        id: `gp_${String(out.length + 1).padStart(4, '0')}`,
-        at: daysAgo(rng.int(10, 300)),
-        tower: dc.tower,
-        demandClass: dc.id,
-        attribution,
-        hoursSaved: Math.round((dc.hoursYr * (dc.projectedRemoval ?? 0.5)) / (n * (attribution === 'avoidance' ? 2.4 : 1))),
-        verifiedDays: banked ? window : dc.verifyDay ?? rng.int(8, 55),
-        verificationWindow: window,
-        state: banked ? 'banked' : 'verifying',
-        evidenceId: `ev_gp_${String(out.length + 1).padStart(4, '0')}`,
-        narrative:
-          attribution === 'elimination'
-            ? `Class volume decayed ${Math.round(Math.abs(dc.observedDecay ?? 0.5) * 100)}% against trailing mean after ${dc.proposalType?.replace(/_/g, ' ')}.`
-            : attribution === 'avoidance'
-              ? 'Counterfactual-modelled prevented incidents, discounted 60% per contract schedule.'
-              : attribution === 'acceleration'
-                ? 'Human-assisted resolution; measured time delta against the shadow-period standard.'
-                : 'Agent-executed resolution replacing the measured manual path.',
-      })
-    }
-  })
-  // One visibly rejected claim — the ledger must be able to say no.
-  out.push({
-    id: 'gp_9001',
-    at: daysAgo(64),
-    tower: 'twr_core',
-    demandClass: 'dc_batch_overrun',
-    attribution: 'elimination',
-    hoursSaved: 96,
-    verifiedDays: 60,
-    verificationWindow: 60,
-    state: 'rejected',
-    evidenceId: 'ev_gp_9001',
-    narrative: 'Claimed elimination not confirmed: class volume fell 9% against a 70% projection. Not banked. Root cause re-opened as a transform candidate.',
-  })
-  return out
-}
-
-export const GLIDEPATH: GlidepathEntry[] = buildGlidepath()
+/**
+ * Every hour the platform claims to have taken out of the baseline.
+ *
+ * It starts empty, and the only thing that fills it is a verified claim: a
+ * demand class whose volume actually decayed, measured against its trailing
+ * mean, over a verification window that actually elapsed. There were 83
+ * entries here, derived from each class's *projected* removal — a projection
+ * dressed as a bank. Thirteen per cent of the baseline read as delivered and
+ * the executive sparkline climbed, on nothing but arithmetic over an
+ * assumption.
+ *
+ * A claim has to survive its window before it may be banked, so an empty
+ * ledger is the correct state at the start of a contract: nothing has had
+ * time to be true yet.
+ */
+export const GLIDEPATH: GlidepathEntry[] = []
 
 export const bankedHours = (tower?: string) =>
   GLIDEPATH.filter((g) => g.state === 'banked' && (!tower || g.tower === tower)).reduce((s, g) => s + g.hoursSaved, 0)
@@ -139,55 +103,21 @@ export const verifyingHours = (tower?: string) =>
 
 /* ---------------------------- Transform ledgers ----------------------------- */
 
-export const TRANSFORM: TransformLedger[] = [
-  {
-    tower: 'twr_payments', quarter: '2027-Q1',
-    bankedSavingsHrs: 1240, reinvestPct: 60, priceReductionPct: 40,
-    creditsAccrued: 744, creditsCarriedIn: 121, creditsConsumed: 505, freezeState: 'none',
-    allocations: [
-      { id: 'ta_007', title: 'Automate certificate rotation on the Mulesoft/FOCUS VM estate', objectiveId: 'obj_ai_ops', credits: 300, approvedIn: 'gov_2026_11', state: 'delivered', yieldPromised: 190, yieldRealised: 214 },
-      { id: 'ta_031', title: 'Draft the missing Mulesoft integration runbook', objectiveId: 'obj_ai_ops', credits: 260, approvedIn: 'gov_2027_02', state: 'executing', yieldPromised: 140 },
-      { id: 'ta_034', title: 'Retire legacy IEM in favor of Concur', objectiveId: 'obj_modernization', credits: 380, approvedIn: 'gov_2027_02', state: 'approved', yieldPromised: 175 },
-    ],
-  },
-  {
-    tower: 'twr_cloud', quarter: '2027-Q1',
-    bankedSavingsHrs: 1610, reinvestPct: 60, priceReductionPct: 40,
-    creditsAccrued: 966, creditsCarriedIn: 88, creditsConsumed: 640, freezeState: 'none',
-    allocations: [
-      { id: 'ta_012', title: 'Autoscaling across workloads exiting the Chicago DC', objectiveId: 'obj_modernization', credits: 180, approvedIn: 'gov_2026_10', state: 'delivered', yieldPromised: 130, yieldRealised: 158 },
-      { id: 'ta_028', title: 'Pipeline-only change enforcement (kill console drift)', objectiveId: 'obj_ai_ops', credits: 460, approvedIn: 'gov_2027_01', state: 'verifying', yieldPromised: 205 },
-      { id: 'ta_040', title: 'Self-healing probes for tier-2 workloads ahead of the DC exit', objectiveId: 'obj_modernization', credits: 220, approvedIn: 'gov_2027_02', state: 'approved', yieldPromised: 96 },
-    ],
-  },
-  {
-    tower: 'twr_euc', quarter: '2027-Q1',
-    bankedSavingsHrs: 2340, reinvestPct: 60, priceReductionPct: 40,
-    creditsAccrued: 1404, creditsCarriedIn: 210, creditsConsumed: 980, freezeState: 'none',
-    allocations: [
-      { id: 'ta_019', title: 'Self-service lockout recovery portal', objectiveId: 'obj_employee_experience', credits: 420, approvedIn: 'gov_2026_09', state: 'delivered', yieldPromised: 1200, yieldRealised: 1388 },
-      { id: 'ta_036', title: 'Zero-touch catalog provisioning', objectiveId: 'obj_employee_experience', credits: 560, approvedIn: 'gov_2027_01', state: 'delivered', yieldPromised: 620, yieldRealised: 690 },
-      { id: 'ta_044', title: 'Consolidate three endpoint-security agents onto one', objectiveId: 'obj_employee_experience', credits: 300, approvedIn: 'gov_2027_02', state: 'executing', yieldPromised: 268 },
-    ],
-  },
-  {
-    tower: 'twr_dataplat', quarter: '2027-Q1',
-    bankedSavingsHrs: 780, reinvestPct: 60, priceReductionPct: 40,
-    creditsAccrued: 468, creditsCarriedIn: 34, creditsConsumed: 120, freezeState: 'frozen',
-    freezeReason: 'XLA trust score breached target for Research & Analytics consumers — new credit allocation frozen until service is restored (§12.5).',
-    allocations: [
-      { id: 'ta_022', title: 'Enforce data contracts on the Azure Data Factory customer feed', objectiveId: 'obj_ai_ops', credits: 120, approvedIn: 'gov_2026_12', state: 'verifying', yieldPromised: 224 },
-    ],
-  },
-  {
-    tower: 'twr_core', quarter: '2027-Q1',
-    bankedSavingsHrs: 610, reinvestPct: 60, priceReductionPct: 40,
-    creditsAccrued: 366, creditsCarriedIn: 0, creditsConsumed: 210, freezeState: 'none',
-    allocations: [
-      { id: 'ta_025', title: 'Business-calendar-aware integration alarm thresholds', objectiveId: 'obj_ai_ops', credits: 210, approvedIn: 'gov_2027_01', state: 'executing', yieldPromised: 90 },
-    ],
-  },
-]
+/**
+ * Reinvestment credits: banked savings turned into funded work.
+ *
+ * The credit arithmetic is the contract's (a reinvest/price-reduction split
+ * per tower), but the inputs are measurements — hours banked, credits
+ * accrued, credits consumed, and the yield each allocation actually
+ * returned. Five towers of those were written here, down to a frozen
+ * allocation with a clause reference and thirteen funded items reporting
+ * yields against their promises. None of it had been earned, allocated or
+ * returned.
+ *
+ * A tower appears once it has banked something in the glidepath ledger,
+ * which is the only thing a credit can be struck from.
+ */
+export const TRANSFORM: TransformLedger[] = []
 
 /* ---------------------------------- SLAs ------------------------------------ */
 
