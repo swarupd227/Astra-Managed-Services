@@ -12,7 +12,7 @@ import { runLoad, type Fault, type LoadResult } from './dataLoad'
 import { DATA_ITEM_BY_ID } from './dataEstate'
 import { type PublishRecord } from './publication'
 import { REPORT_BY_ID } from './finance'
-import { classify, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
+import { classify, handoffFor, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
 import { chainFrom, managerOf } from './escalation'
 import { runPack } from './verification'
 import { DEMAND_CLASSES } from './ledgers'
@@ -20,7 +20,7 @@ import { knowledgeFor, knowledgeSummary, type WorkKnowledge } from './workContex
 import { loadedRecords, recordEngagementId, recordEpoch, setRecordEpoch } from './config'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
-import { AGENTS, TOWER_BY_ID } from './estate'
+import { AGENTS, AGENT_BY_ID, TOWER_BY_ID } from './estate'
 import { AC, ROLE_BY_ID } from './reference'
 import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiIncidentSignal, type OversightAudit } from './aiIncident'
 import type { RedTeamResult } from './redTeam'
@@ -1987,13 +1987,28 @@ export const useAstra = create<State>((set, get) => ({
       payload: { category: ticket.category, subCategory: ticket.subCategory, priority: ticket.priority, configurationItems: ticket.configurationItems, unresolved },
       sealed: true,
     })
+    // Who does each part of the intake, read from the grants on this tower
+    // rather than named. Attributing a classification to an agent that is not
+    // deployed there is a fabricated audit trail.
+    const handoff = handoffFor(tower ?? '', route.attempt ? [route.agentId] : [])
+    const [triage, diagnosis] = handoff
+    const named = (id: string | null, fallback: string) => (id ? AGENT_BY_ID[id]?.name ?? id : fallback)
+
     const classified = appendRecord([...s.evidence, arrival], {
       id: `ev_${digest('cls' + ticket.externalRef).slice(0, 10)}`,
-      at, kind: 'observation', agentId: 'agt_sentinel', actor: 'Sentinel',
+      at, kind: 'observation',
+      ...(triage.agentId ? { agentId: triage.agentId } : {}),
+      actor: named(triage.agentId, 'Resolver on shift'),
       summary: classification.demandClass
         ? `Classified ${ticket.externalRef} as ${classification.demandClass} at ${Math.round(classification.confidence * 100)}%`
         : `${ticket.externalRef} could not be classified against the ingested history`,
-      payload: { classification, blastRadius: knowledge.blast.dependents, mostCriticalTier: knowledge.blast.maxTier, route },
+      payload: {
+        classification,
+        blastRadius: knowledge.blast.dependents,
+        mostCriticalTier: knowledge.blast.maxTier,
+        route,
+        handoff: handoff.map((h) => ({ did: h.did, needs: h.needs, by: h.agentId ?? 'a person', because: h.because })),
+      },
       sealed: true,
     })
 
@@ -2011,16 +2026,21 @@ export const useAstra = create<State>((set, get) => ({
       assignee: route.attempt ? route.agentId : ROLE_BY_ID[route.toRole]?.person ?? route.toRole,
       assigneeKind: route.attempt ? 'agent' : 'human',
       evidenceHead: classified.id,
+      // Three hands on it before anybody decides anything, each attributed to
+      // whatever actually holds the grant on this tower.
       narrative: [
         entry('system', ticket.system, `Signal received from ${ticket.system} · ${ticket.externalRef}`, arrival.id),
-        entry('agent', 'Sentinel', classification.demandClass
-          ? `Classified as ${classification.demandClass} at ${Math.round(classification.confidence * 100)}% — matched on ${classification.evidence.map((e) => e.on.replace(/_/g, '-')).join(' and ')} in the client's own history. ${knowledgeSummary(knowledge)}`
+        entry(triage.agentId ? 'agent' : 'human', named(triage.agentId, 'Resolver on shift'), classification.demandClass
+          ? `Classified as ${classification.demandClass} at ${Math.round(classification.confidence * 100)}% — matched on ${classification.evidence.map((e) => e.on.replace(/_/g, '-')).join(' and ')} in the client's own history. ${triage.because}.`
           : `Could not classify: ${classification.refusal} Held for a person rather than guessed.`, classified.id),
-        entry('agent', 'Sentinel', route.attempt
-          ? `Routed to an agent: ${route.because}`
-          : `Routed to a person: ${route.because}`, classified.id),
+        entry(diagnosis.agentId ? 'agent' : 'human', named(diagnosis.agentId, 'Resolver on shift'),
+          `${knowledgeSummary(knowledge)} Blast radius walked from the graph: ${knowledge.blast.dependents} dependent${knowledge.blast.dependents === 1 ? '' : 's'}, most critical tier ${knowledge.blast.maxTier}. ${diagnosis.because}.`,
+          classified.id),
+        entry(triage.agentId ? 'agent' : 'human', named(triage.agentId, 'Resolver on shift'), route.attempt
+          ? `Handed to ${AGENT_BY_ID[route.agentId]?.name ?? route.agentId}: ${route.because}`
+          : `Handed to a person: ${route.because}`, classified.id),
         ...(unresolved.length
-          ? [entry('agent', 'Sentinel', `${unresolved.join(', ')} ${unresolved.length === 1 ? 'is' : 'are'} not in the estate graph, so nothing downstream of ${unresolved.length === 1 ? 'it' : 'them'} could be assessed.`)]
+          ? [entry(diagnosis.agentId ? 'agent' : 'human', named(diagnosis.agentId, 'Resolver on shift'), `${unresolved.join(', ')} ${unresolved.length === 1 ? 'is' : 'are'} not in the estate graph, so nothing downstream of ${unresolved.length === 1 ? 'it' : 'them'} could be assessed.`)]
           : []),
       ],
     }

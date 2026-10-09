@@ -306,6 +306,64 @@ export function towerForItems(nodeIds: string[]): string | null {
   return byTier[0].tower
 }
 
+/* ------------------------------- The handoff -------------------------------- */
+
+/**
+ * Which agent does each part of taking a ticket in, read from the grants.
+ *
+ * Three agents touch a ticket before anybody decides anything, and which
+ * three depends entirely on the tower: an agent can only classify where it
+ * holds the classification grant and is deployed. The intake named Sentinel
+ * directly, which is right on seven towers and wrong on the rest — there is no
+ * Sentinel on security operations, and attributing a classification to an
+ * agent that is not there is a fabricated audit trail.
+ *
+ * Where no agent on the tower holds the grant, the step is a person's. Saying
+ * so is the point: a tower where nothing can be classified unattended is a
+ * coverage gap, and it should read as one rather than quietly borrowing an
+ * agent from somewhere else.
+ */
+export interface HandoffStep {
+  /** What this part of the intake does. */
+  did: string
+  /** The action class it needs. */
+  needs: string
+  /** The agent that holds it on this tower, or null where none does. */
+  agentId: string | null
+  /** Why this agent, or why nobody. */
+  because: string
+}
+
+export function handoffFor(tower: string, exclude: string[] = []): HandoffStep[] {
+  const holder = (ac: string, not: string[]) =>
+    AGENTS.find((a) => a.grants[ac] && a.towers.includes(tower) && !not.includes(a.id)) ?? null
+
+  const classifier = holder('AC-08', [])
+  // Deliberately a different agent where one exists: the plan is assembled by
+  // something other than the thing that classified, so a misclassification is
+  // not confirmed by its own author.
+  const diagnoser = holder('AC-05', [...exclude, ...(classifier ? [classifier.id] : [])]) ?? holder('AC-05', exclude)
+
+  return [
+    {
+      did: 'Correlate the signals and classify the ticket',
+      needs: 'AC-08',
+      agentId: classifier?.id ?? null,
+      because: classifier
+        ? `${classifier.name} holds AC-08 at grade ${classifier.grants['AC-08']} on this tower`
+        : `No agent deployed on this tower holds AC-08, so a person classifies it`,
+    },
+    {
+      did: 'Assemble the decision context and scope the blast radius',
+      needs: 'AC-05',
+      agentId: diagnoser?.id ?? null,
+      because: diagnoser
+        ? `${diagnoser.name} holds AC-05 on this tower${classifier && diagnoser.id !== classifier.id ? ', and is not the agent that classified it' : ''}`
+        : 'No agent deployed on this tower holds AC-05, so a person assembles it',
+    },
+  ]
+}
+
 /* ---------------------------- Behind the connector --------------------------- */
 
 /**
