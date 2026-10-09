@@ -40,6 +40,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'R. Venkatesh',
     home: '/copilot',
     description: 'Owns tower delivery. Holds the approval pen for gated runs and the escalation path.',
+    escalatesTo: 'serviceowner',
   },
   {
     id: 'resolver',
@@ -48,6 +49,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'A. Fernandes',
     home: '/copilot',
     description: 'Works a queue where agents have already triaged, enriched and often drafted the fix.',
+    escalatesTo: 'shiftlead',
   },
   {
     id: 'shiftlead',
@@ -56,6 +58,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'M. Okonkwo',
     home: '/operate/shift',
     description: 'Queue health, SLA burn-down, human/agent load split, handover generation.',
+    escalatesTo: 'sdm',
   },
   {
     id: 'mim',
@@ -64,6 +67,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'D. Kowalski',
     home: '/operate/mim',
     description: 'Declares and runs major incidents. Autonomy auto-caps to Advise while an MI is open.',
+    escalatesTo: 'sdm',
   },
   {
     id: 'transition',
@@ -72,6 +76,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'S. Iyer',
     home: '/transition/coverage',
     description: 'Runs estate ingestion through cutover; owns the §10.3 handover acceptance checks.',
+    escalatesTo: 'sdm',
   },
   {
     id: 'sme',
@@ -80,6 +85,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'A. Ferreira',
     home: '/transition/verify',
     description: 'One assertion at a time: claim, provenance, evidence — approve, correct or reject.',
+    escalatesTo: 'transition',
   },
   {
     id: 'aieng',
@@ -88,6 +94,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'L. Nakamura',
     home: '/atlas/fleet',
     description: 'Agent lifecycle, evaluation harnesses, policy authoring and simulation, TokenOps.',
+    escalatesTo: 'sdm',
   },
   {
     id: 'exec',
@@ -104,6 +111,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'R. Castellano',
     home: '/governance/sla',
     description: 'Tower SLA clocks, obligations register, credit position, improvement backlog.',
+    escalatesTo: 'exec',
   },
   {
     id: 'commercial',
@@ -112,6 +120,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'J. Whitcombe',
     home: '/governance/glidepath',
     description: 'Glidepath and Transform ledgers, credit worksheets, signed extracts for invoicing.',
+    escalatesTo: 'exec',
   },
   {
     id: 'auditor',
@@ -128,6 +137,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'K. Mehta',
     home: '/operate/resolver',
     description: 'Same queues and knowledge as Artizent engineers — capability transfer as a product feature.',
+    escalatesTo: 'serviceowner',
   },
   {
     /**
@@ -142,6 +152,7 @@ const ROLE_RECORDS: Omit<Role, 'surfaces' | 'canApprove' | 'readOnly'>[] = [
     person: 'H. Dalgleish',
     home: '/workplace',
     description: 'Sees what affects the systems they use and what the service can do about it. Nothing about the estate, and no second set of figures.',
+    escalatesTo: 'clientteam',
   },
 ]
 

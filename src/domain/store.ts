@@ -12,13 +12,14 @@ import { runLoad, type Fault, type LoadResult } from './dataLoad'
 import { DATA_ITEM_BY_ID } from './dataEstate'
 import { type PublishRecord } from './publication'
 import { classify, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
+import { chainFrom, managerOf } from './escalation'
 import { DEMAND_CLASSES } from './ledgers'
 import { knowledgeFor, knowledgeSummary, type WorkKnowledge } from './workContext'
 import { loadedRecords, recordEngagementId } from './config'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
 import { AGENTS, TOWER_BY_ID } from './estate'
-import { ROLE_BY_ID } from './reference'
+import { AC, ROLE_BY_ID } from './reference'
 import { auditOversight, clocksFor, oversightSignal, type AiIncident, type AiIncidentSignal, type OversightAudit } from './aiIncident'
 import type { RedTeamResult } from './redTeam'
 import type { BiasResult } from './biasSuite'
@@ -457,6 +458,9 @@ export const useAstra = create<State>((set, get) => ({
       const offset = s.clockOffsetMins + 1
       const work = { ...s.work }
       const runs = { ...s.runs }
+      // Gates whose timeout elapsed this tick, recorded after the walk so the
+      // evidence and the timeline are written once rather than per field.
+      const timedOut: { id: string; from: string; to: string; waitedMins: number }[] = []
       const open: WorkState[] = ['detected', 'triaged', 'planned', 'gated', 'executing', 'verifying']
 
       for (const id of Object.keys(work)) {
@@ -468,6 +472,32 @@ export const useAstra = create<State>((set, get) => ({
         const burn = elapsed / wo.slaTargetMins
         const bp = Math.min(0.98, Math.max(0.02, burn * (0.7 + (wo.priority === 'P1' ? 0.5 : wo.priority === 'P2' ? 0.3 : 0.1))))
         work[id] = { ...wo, slaElapsedMins: elapsed, breachProbability: bp }
+
+        // A gate carries a timeout. Nothing enforced it, so "escalates after
+        // 10 minutes" was a decoration on the card. The workflow moves it
+        // itself now, which is the half of an escalation path that does not
+        // depend on somebody noticing.
+        const gate = work[id].autonomy?.gates[0]
+        if (wo.state === 'gated' && gate?.timeoutSec) {
+          const waitedSec = (work[id].gateWaitedMins ?? 0) * 60 + 60
+          const waitedMins = waitedSec / 60
+          if (waitedSec >= gate.timeoutSec) {
+            const up = managerOf(gate.role)
+            if (up) {
+              timedOut.push({ id, from: gate.role, to: up.to.id, waitedMins })
+              work[id] = {
+                ...work[id],
+                gateWaitedMins: 0,
+                autonomy: { ...work[id].autonomy!, gates: work[id].autonomy!.gates.map((g, i) => (i === 0 ? { ...g, role: up.to.id, escalatesTo: up.to.escalatesTo ?? '' } : g)) },
+              }
+            } else {
+              // Top of the chain: the clock keeps running and it stays here.
+              work[id] = { ...work[id], gateWaitedMins: waitedMins }
+            }
+          } else {
+            work[id] = { ...work[id], gateWaitedMins: waitedMins }
+          }
+        }
       }
 
       // Advance a deterministic slice of non-gated work each tick.
@@ -506,7 +536,34 @@ export const useAstra = create<State>((set, get) => ({
         }
       }
 
-      return { tick: t, clockOffsetMins: offset, work, runs }
+      // A timeout escalation is a decision the platform took, so it is sealed
+      // and narrated like one a person took. Written here, after the walk, so
+      // the chain is appended to once per tick rather than per work object.
+      let evidence = s.evidence
+      for (const e of timedOut) {
+        const wo = work[e.id]
+        const from = ROLE_BY_ID[e.from]
+        const to = ROLE_BY_ID[e.to]
+        const at = nowIso(offset)
+        const record = appendRecord(evidence, {
+          id: `ev_${digest('gto' + e.id + t).slice(0, 10)}`,
+          at, kind: 'decision', workObjectId: e.id, actor: 'Policy engine',
+          summary: `Gate timed out after ${Math.round(e.waitedMins)} min — moved from ${from?.title ?? e.from} to ${to?.title ?? e.to}`,
+          payload: { from: e.from, to: e.to, waitedMins: Math.round(e.waitedMins), clock: 'continues to run' },
+          sealed: true,
+        })
+        evidence = [...evidence, record]
+        work[e.id] = {
+          ...wo,
+          narrative: [...wo.narrative, {
+            id: `t_${t}_gto`, at, actorKind: 'system', actor: 'Policy engine',
+            text: `No decision in ${Math.round(e.waitedMins)} minutes, so the gate moved itself: ${to?.title ?? e.to} (${to?.person ?? '—'}) now holds it. The clock continues to run.`,
+            evidenceId: record.id, level: 'warn',
+          }],
+        }
+      }
+
+      return { tick: t, clockOffsetMins: offset, work, runs, ...(timedOut.length ? { evidence } : {}) }
     }),
 
   /* ------------------------------- approvals ------------------------------ */
@@ -516,6 +573,25 @@ export const useAstra = create<State>((set, get) => ({
     const wo = s.work[woId]
     if (!wo) return
     const at = nowIso(s.clockOffsetMins)
+
+    // Four eyes means two people, and the register already says which classes
+    // require it: AC-58 and AC-71. The engine added a second gate for them and
+    // nothing checked that a different person cleared it, so one person
+    // approving twice satisfied a control that exists to stop exactly that.
+    const classes = wo.autonomy?.actionClasses ?? []
+    const needsFourEyes = classes.filter((c) => AC[c]?.fourEyes)
+    if (needsFourEyes.length) {
+      const already = s.evidence.filter((e) => e.kind === 'approval' && e.workObjectId === woId)
+      if (already.some((e) => e.actor === who)) {
+        get().pushToast({
+          title: 'Second approval refused',
+          body: `${needsFourEyes.join(', ')} requires four eyes, and ${who} has already approved this. It needs a different approver.`,
+          tone: 'crit',
+        })
+        return
+      }
+    }
+
     const record = appendRecord(s.evidence, {
       id: `ev_${digest(woId + 'approve' + s.tick).slice(0, 10)}`,
       at,
@@ -602,18 +678,63 @@ export const useAstra = create<State>((set, get) => ({
     const wo = s.work[woId]
     if (!wo) return
     const at = nowIso(s.clockOffsetMins)
-    const to = wo.autonomy?.gates[0]?.escalatesTo ?? 'duty manager'
+
+    // The gate's own role, not the person who happens to be looking at it.
+    const gate = wo.autonomy?.gates[0]
+    const holder = gate?.role ?? s.roleId
+    const up = managerOf(holder)
+
+    if (!up) {
+      // An escalation of last resort. Refusing is the honest answer: writing a
+      // record that reads like a hand-off, which is what this used to do, left
+      // everyone believing somebody else had it.
+      const record = appendRecord(s.evidence, {
+        id: `ev_${digest(woId + 'escnone' + s.tick).slice(0, 10)}`,
+        at, kind: 'decision', workObjectId: woId, actor: who,
+        summary: `Escalation refused — nothing above ${ROLE_BY_ID[holder]?.title ?? holder} holds an approval right`,
+        payload: { from: holder, chain: chainFrom(holder).map((r) => r.id) }, sealed: true,
+      })
+      const entry: TimelineEntry = {
+        id: `t_${s.tick}_e0`, at, actorKind: 'human', actor: who,
+        text: `Not escalated: ${ROLE_BY_ID[holder]?.title ?? holder} is the end of the approval chain, so there is nobody above to take it. The gate stays here and the clock keeps running.`,
+        evidenceId: record.id, level: 'crit',
+      }
+      set({ evidence: [...s.evidence, record], work: { ...s.work, [woId]: { ...wo, narrative: [...wo.narrative, entry] } } })
+      get().pushToast({ title: 'Escalation refused', body: `${wo.ref} · ${ROLE_BY_ID[holder]?.title ?? holder} is the end of the chain`, tone: 'crit', evidenceId: record.id })
+      return
+    }
+
+    const skipped = up.skipped.length
+      ? ` ${up.skipped.map((r) => r.title).join(' and ')} ${up.skipped.length === 1 ? 'was' : 'were'} passed over, holding no approval right.`
+      : ''
     const record = appendRecord(s.evidence, {
       id: `ev_${digest(woId + 'esc' + s.tick).slice(0, 10)}`,
       at, kind: 'decision', workObjectId: woId, actor: who,
-      summary: `Approval escalated to ${to}`, payload: { from: who, to }, sealed: true,
+      summary: `Approval moved from ${up.from.title} to ${up.to.title} (${up.to.person})`,
+      payload: { from: up.from.id, to: up.to.id, skipped: up.skipped.map((r) => r.id), clock: 'continues to run' },
+      sealed: true,
     })
     const entry: TimelineEntry = {
       id: `t_${s.tick}_e`, at, actorKind: 'human', actor: who,
-      text: `Escalated to ${to}. Gate remains open; the clock continues to run.`, evidenceId: record.id, level: 'warn',
+      text: `Escalated to ${up.to.title} — ${up.to.person} now holds the gate.${skipped} The clock continues to run.`,
+      evidenceId: record.id, level: 'warn',
     }
-    set({ evidence: [...s.evidence, record], work: { ...s.work, [woId]: { ...wo, narrative: [...wo.narrative, entry] } } })
-    get().pushToast({ title: `Escalated to ${to}`, body: `${wo.ref} · response-time commitment applies`, tone: 'warn', evidenceId: record.id })
+
+    // The gate moves. That is the whole difference: the approver changes, so
+    // the inbox it appears in changes with it.
+    const gates = (wo.autonomy?.gates ?? []).map((g, i) => (i === 0 ? { ...g, role: up.to.id, escalatesTo: up.to.escalatesTo ?? '' } : g))
+    set({
+      evidence: [...s.evidence, record],
+      work: {
+        ...s.work,
+        [woId]: {
+          ...wo,
+          ...(wo.autonomy ? { autonomy: { ...wo.autonomy, gates } } : {}),
+          narrative: [...wo.narrative, entry],
+        },
+      },
+    })
+    get().pushToast({ title: `Escalated to ${up.to.title}`, body: `${wo.ref} · ${up.to.person} holds the gate; the clock keeps running`, tone: 'warn', evidenceId: record.id })
   },
 
   modifyPlan: (woId, who, param, value) => {

@@ -164,6 +164,12 @@ export interface WorkObject {
     tokensUsd: number
     attribution: 'automation' | 'elimination' | 'acceleration' | 'avoidance' | 'pending' | 'none'
   }
+  /**
+   * How long the current gate has waited, in minutes. Reset when the gate
+   * moves, so the next approver gets their own timeout rather than inheriting
+   * the remainder of somebody else's.
+   */
+  gateWaitedMins?: number
   evidenceHead: string
   narrative: TimelineEntry[]
   source: { system: string; ref: string }
@@ -475,6 +481,15 @@ export interface Role {
   readOnly?: boolean
   /** Holds the client's own rights over the agent workforce: capping and stopping. */
   holdsClientRights?: boolean
+  /**
+   * The role a decision this one cannot take goes up to. A role id, so an
+   * escalation resolves to somebody with a name and an approval right rather
+   * than to the string "duty manager", which is what it used to be.
+   *
+   * Absent at the top of a chain: there is nobody above an escalation of last
+   * resort, and the platform says so instead of pretending to escalate.
+   */
+  escalatesTo?: string
 }
 
 /** A contract bundle: the unit a client buys a group of towers under. */

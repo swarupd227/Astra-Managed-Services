@@ -4,6 +4,7 @@ import { ArrowRight, GitBranch, ShieldCheck, Undo2 } from 'lucide-react'
 import { AC } from '@/domain/reference'
 import { AGENT_BY_ID, TOWER_BY_ID } from '@/domain/estate'
 import { useAstra } from '@/domain/store'
+import { managerOf } from '@/domain/escalation'
 import { ROLE_BY_ID } from '@/domain/reference'
 import { AgentChip, AutonomyChip, EvidenceLink, GradeChip, PriorityChip, SlaClock } from '@/ui/domain'
 import { Button, Chip, Field, inputClass, selectClass } from '@/ui/primitives'
@@ -42,7 +43,17 @@ export function ApprovalCard({ wo, onDone, compactMode }: { wo: WorkObject; onDo
   const agentId = wo.assigneeKind === 'agent' ? wo.assignee! : 'agt_remedian'
   const agent = AGENT_BY_ID[agentId]
   const gate = a.gates[0]
-  const timeoutRemaining = Math.max(0, (gate?.timeoutSec ?? 600) / 60 - (wo.slaElapsedMins % ((gate?.timeoutSec ?? 600) / 60)))
+  // Whose gate this is, and how long it has actually waited — the wait is
+  // recorded on the work object now rather than inferred from the SLA clock,
+  // which reset the countdown every time the modulus wrapped.
+  const holder = gate?.role ? ROLE_BY_ID[gate.role] : null
+  const up = gate?.role ? managerOf(gate.role) : null
+  const waited = wo.gateWaitedMins ?? 0
+  const timeoutRemaining = Math.max(0, (gate?.timeoutSec ?? 600) / 60 - waited)
+  // Holding the pen is not the same as holding this gate. Before the chain
+  // existed every approver could clear every gate, which made moving one
+  // pointless.
+  const mine = Boolean(role.canApprove) && (!holder || holder.id === roleId)
   const tower = TOWER_BY_ID[wo.tower]
 
   const Row = ({ k, children }: { k: string; children: React.ReactNode }) => (
@@ -187,17 +198,17 @@ export function ApprovalCard({ wo, onDone, compactMode }: { wo: WorkObject; onDo
       <footer className="flex flex-wrap items-center gap-1.5 border-t border-line bg-raised px-3 py-2">
         <Button
           variant="primary"
-          disabled={!role.canApprove}
+          disabled={!mine}
           title={role.canApprove ? undefined : `${role.title} does not hold the approval pen for this gate`}
           onClick={() => { approve(wo.id, role.person); onDone?.() }}
         >
           Approve
         </Button>
-        <Button variant="default" disabled={!role.canApprove} onClick={() => setMode('modify')}>Modify…</Button>
-        <Button variant="default" disabled={!role.canApprove} onClick={() => setMode('reject')}>Reject</Button>
-        <Button variant="ghost" disabled={!role.canApprove} onClick={() => { escalate(wo.id, role.person); onDone?.() }}>Escalate</Button>
+        <Button variant="default" disabled={!mine} onClick={() => setMode('modify')}>Modify…</Button>
+        <Button variant="default" disabled={!mine} onClick={() => setMode('reject')}>Reject</Button>
+        <Button variant="ghost" disabled={!mine || !up} title={up ? `Moves the gate to ${up.to.title}` : 'Nothing above this role holds an approval right'} onClick={() => { escalate(wo.id, role.person); onDone?.() }}>Escalate</Button>
         <span className="ml-auto text-2xs text-ink-3">
-          escalates to {gate?.escalatesTo} in <span className="tnum text-warn">{clock(timeoutRemaining)}</span> if unactioned
+          held by {holder?.title ?? '—'}{up ? ` · escalates to ${up.to.title} in ` : ' · no one above'}{up ? <span className="tnum text-warn">{clock(timeoutRemaining)}</span> : null}
         </span>
       </footer>
     </article>
