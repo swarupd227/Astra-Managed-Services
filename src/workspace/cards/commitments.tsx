@@ -51,13 +51,14 @@ function useLedger(engagementId: string): Ledger {
   const privacyLog = useAstra((s) => s.privacyLog)
   const notices = useAstra((s) => s.incidentNotices)
   const exitLog = useAstra((s) => s.exitLog)
+  const experiments = useAstra((s) => s.experiments)
   const audience = useClientSide() ? 'client' : 'all'
   return React.useMemo(
     () => commitmentLedger({
       engagementId, audience, fleet, remedies, packExports,
-      procedures: { loads, reviews }, privacy: { log: privacyLog, notices }, exitLog,
+      procedures: { loads, reviews }, privacy: { log: privacyLog, notices }, exitLog, experiments,
     }),
-    [engagementId, audience, fleet, remedies, packExports, loads, reviews, privacyLog, notices, exitLog],
+    [engagementId, audience, fleet, remedies, packExports, loads, reviews, privacyLog, notices, exitLog, experiments],
   )
 }
 

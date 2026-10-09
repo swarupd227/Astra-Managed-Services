@@ -16,6 +16,8 @@ import { ORIGIN_LABEL as PROVENANCE_ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor,
 import {
   DIMENSION_BY_ID, ORIGIN_LABEL, PROGRESS_LABEL, readRecommendations, type Recommendation,
 } from '@/domain/recommendations'
+import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } from '@/domain/experiments'
+import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
@@ -339,6 +341,7 @@ export const EXECUTORS: Record<string, Executor> = {
       procedures: { loads: useAstra.getState().areaLoads, reviews: useAstra.getState().procedureReviews },
       privacy: { log: useAstra.getState().privacyLog, notices: useAstra.getState().incidentNotices },
       exitLog: useAstra.getState().exitLog,
+      experiments: useAstra.getState().experiments,
     })
     const status = str(input.status)
     const rows = (status ? l.rows.filter((r) => r.status === status) : l.rows).map((r) => ({
@@ -425,7 +428,7 @@ export const EXECUTORS: Record<string, Executor> = {
       throw new ToolError(`No engagement has the id "${engagementId}". Engagements: ${ENGAGEMENTS.map((e) => e.id).join(', ')}.`)
     }
     const windowDays = typeof input.window_days === 'number' ? input.window_days : undefined
-    const r = readRecommendations({ engagementId, windowDays })
+    const r = readRecommendations({ engagementId, windowDays, experiments: useAstra.getState().experiments })
     const describe = (x: Recommendation) => ({
       id: x.id,
       recommendation: x.title,
@@ -471,6 +474,86 @@ export const EXECUTORS: Record<string, Executor> = {
         recommendations: r.all.map(describe),
       },
       artifacts: [card('recommendations', `${r.engagement.client} · recommendations`, { engagement: engagementId }, '/governance/recommendations')],
+    }
+  },
+
+  fund_recommendation: (input) => {
+    const id = str(input.recommendation_id)
+    const f = estateFindings().find((x) => x.id.toLowerCase() === id.toLowerCase())
+    if (!f) throw new ToolError(`No standing recommendation has the id "${id}". Read the recommendations to see what the watches derive today.`)
+
+    const st = useAstra.getState()
+    if (st.experiments.some((x) => x.findingId === f.id)) {
+      throw new ToolError(`${f.id} has already been funded. Read the experiments to see where it stands.`)
+    }
+    const hypothesis = str(input.hypothesis)
+    const criterion = str(input.success_criterion)
+    if (!hypothesis) throw new ToolError('An experiment needs a hypothesis: what is expected to happen if it works.')
+    if (!criterion) throw new ToolError('An experiment needs a success criterion, or there is nothing to judge it against later.')
+    const windowDays = typeof input.window_days === 'number' && input.window_days > 0 ? Math.round(input.window_days) : 60
+    const fundingSource = (str(input.funding_source) || 'innovation_allowance') as FundingSource
+
+    const rec = st.fundRecommendation({
+      findingId: f.id, dimensionId: f.dimensionId, title: f.title, baselineCount: f.count,
+      hypothesis, successCriterion: criterion, windowDays, fundedBy: person(), fundingSource,
+    })
+    if (!rec) throw new ToolError(`${f.id} has already been funded as an experiment.`)
+
+    return {
+      payload: {
+        experiment: rec.id,
+        recommendation: f.id,
+        dimension: DIMENSION_BY_ID[f.dimensionId]?.name ?? f.dimensionId,
+        // The whole basis of the later measurement.
+        conditionHoldsForNow: f.count,
+        readFrom: f.readFrom,
+        hypothesis,
+        successCriterion: criterion,
+        windowDays,
+        outcomeReadAfter: new Date(NOW.getTime() + windowDays * 86_400_000).toISOString().slice(0, 10),
+        fundingSource: FUNDING_LABEL[fundingSource] ?? fundingSource,
+        fundedBy: person(),
+        measuredHow: 'The same count re-derived after the window: cleared, moved, or no movement. No currency figure is recorded.',
+        evidenceId: rec.evidenceId ?? null,
+      },
+      artifacts: [card('recommendations', `${ENGAGEMENT.client} · recommendations`, { engagement: ENGAGEMENT.id }, '/governance/recommendations')],
+    }
+  },
+
+  get_experiments: () => {
+    const st = useAstra.getState()
+    const l = readExperiments(st.experiments, NOW.getTime())
+    return {
+      payload: {
+        totals: {
+          funded: l.readings.length,
+          inFlight: l.inFlight,
+          conditionCleared: l.resolved,
+          movedNotCleared: l.moved,
+          concludedWithNoMovement: l.noMovement,
+          concluded: l.concluded,
+          movedSharePct: l.movedSharePct === null ? null : Math.round(l.movedSharePct),
+          notYetConcluded: l.concluded ? null : 'No experiment has reached the end of its window, so there is no rate to report',
+        },
+        experiments: l.readings.map((r) => ({
+          id: r.experiment.id,
+          recommendation: r.experiment.title,
+          dimension: DIMENSION_BY_ID[r.experiment.dimensionId]?.name ?? r.experiment.dimensionId,
+          state: OUTCOME_LABEL[r.outcome],
+          conditionWhenFunded: r.experiment.baselineCount,
+          conditionNow: r.currentCount,
+          movement: r.movement,
+          hypothesis: r.experiment.hypothesis,
+          successCriterion: r.experiment.successCriterion,
+          fundedBy: r.experiment.fundedBy,
+          fundingSource: FUNDING_LABEL[r.experiment.fundingSource] ?? r.experiment.fundingSource,
+          fundedAt: r.experiment.fundedAt,
+          daysElapsed: r.daysElapsed,
+          daysLeft: r.daysLeft,
+          readFrom: r.readFrom,
+        })),
+      },
+      artifacts: [card('recommendations', `${ENGAGEMENT.client} · recommendations`, { engagement: ENGAGEMENT.id }, '/governance/recommendations')],
     }
   },
 

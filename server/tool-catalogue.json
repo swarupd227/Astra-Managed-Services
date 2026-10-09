@@ -131,6 +131,28 @@
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
     },
     {
+      "name": "fund_recommendation", "agent": "agt_prospect", "surfaces": ["governance", "transform"], "mutating": true, "approval": true, "canApprove": true,
+      "description": "Fund a recommendation as an experiment, so that what it returns can be measured rather than claimed. Records the count the condition currently holds for, the hypothesis, what would count as success, and how long it gets before the outcome is read. The outcome is then the same count re-derived after the window: the condition is cleared, moved, or did not budge. Deliberately records no currency figure — the registers behind these findings count datasets, applications and hours of recorded demand, and a dollar value derived from those would be asserted rather than measured. Funding the same finding twice is refused.",
+      "describe": "Fund {recommendation_id} as an experiment over {window_days} days, against the condition as it stands today.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "recommendation_id": { "type": "string", "description": "The recommendation to fund, e.g. sec_over_retained" },
+          "hypothesis": { "type": "string", "description": "What is expected to happen, in the funder's own words" },
+          "success_criterion": { "type": "string", "description": "What would count as having worked" },
+          "window_days": { "type": "integer", "description": "Days before the outcome is read. Defaults to 60." },
+          "funding_source": { "type": "string", "enum": ["capacity_credits", "innovation_allowance", "client_funded"], "description": "Where the funding comes from" }
+        },
+        "required": ["recommendation_id", "hypothesis", "success_criterion"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_experiments", "agent": "agt_prospect", "surfaces": ["governance", "transform"],
+      "description": "Every recommendation funded as an experiment and what it has returned so far, measured by re-deriving the condition it was struck against. Per experiment: the finding, the count when it was funded, the count now, how far it moved, the hypothesis and success criterion, who funded it and from where, and whether it is in flight, cleared its condition, moved it without clearing it, or concluded with no movement at all. The share that moved is out of those whose window has passed, and is null until one has — nothing tried is not a nil success rate. An experiment that returned nothing keeps its place in the register.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
       "name": "get_recommendations", "agent": "agt_prospect", "surfaces": ["governance", "transform", "run"],
       "description": "What the service proposed without being asked, read across both registers — agents' unprompted proposals about the estate and the innovation register — against the improvement dimensions the client's contract names. Per dimension: how many recommendations in the cadence window, how many in total, how long since the last one, the value realised, and whether it has gone silent. Per recommendation: what it is, who raised it and whether they were asked, when, what it projected and what it actually returned, and whether it is open, accepted, delivered, realised, declined or expired without anyone deciding. Also the two figures that cut both ways: dimensions nothing has been raised on, which is the supplier's to answer for, and recommendations that expired undecided, which is the client's. An engagement whose contract files no dimensions is not scored for cadence.",
       "input_schema": {

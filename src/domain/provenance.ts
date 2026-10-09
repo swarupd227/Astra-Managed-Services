@@ -244,6 +244,13 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
+    id: 'ds_experiments', name: 'Recommendations funded as experiments, and what they moved', origin: 'platform_record',
+    source: 'Written when somebody funds a recommendation: the count the condition held for at the time, the hypothesis, the success criterion and the window. The outcome is that same count re-derived afterwards',
+    routes: ['/governance/recommendations'],
+    caution: 'The outcome is movement in the condition, not a currency figure — the registers behind these findings count items, applications and hours, and a value derived from them would be asserted. An experiment that moved nothing keeps its place',
+    maturity: 'live',
+  },
+  {
     id: 'ds_obligations', name: 'What the contract obliges, recurring', origin: 'client_extract',
     source: 'Read from the engagement database at start-up: what is owed, how often, what evidence discharges it, the clause, and the date it first fell due',
     routes: ['/governance/registers'],

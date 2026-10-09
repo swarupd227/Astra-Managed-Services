@@ -1,4 +1,5 @@
 import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement } from './engagement'
+import { readExperiments, type Experiment, type ExperimentLedger, type ExperimentReading, type Outcome } from './experiments'
 import { estateFindings, type Finding } from './watches'
 import { AGENT_BY_ID } from './estate'
 import { INNOVATION } from './ledgers'
@@ -78,6 +79,13 @@ export interface Recommendation {
   id: string
   origin: Origin
   title: string
+  /**
+   * Where a recommendation was funded as an experiment: the condition it was
+   * struck against, where it stands now, and what remains of its window. This
+   * is the measured answer to "what did it return", and it is a movement
+   * rather than a currency figure — see `src/domain/experiments.ts`.
+   */
+  movement?: { baseline: number; current: number | null; daysLeft: number | null; outcome: Outcome }
   /**
    * A condition that holds rather than an idea somebody had: re-stated for as
    * long as it is true, and gone when it is fixed.
@@ -187,6 +195,45 @@ function fromWatch(f: Finding, nowMs: number): Recommendation {
   }
 }
 
+/**
+ * A finding somebody funded as an experiment.
+ *
+ * It replaces the standing finding it was struck from rather than sitting
+ * beside it: the condition has not stopped holding because somebody decided
+ * to act on it, and counting both would report the same thing twice — once as
+ * a suggestion nobody has answered and once as work in flight.
+ */
+function fromExperiment(r: ExperimentReading, nowMs: number): Recommendation {
+  const e = r.experiment
+  const progress: Progress =
+    r.outcome === 'in_flight' ? 'accepted'
+      : r.outcome === 'resolved' ? 'realised'
+        : r.outcome === 'moved' ? 'delivered'
+          : r.outcome === 'no_movement' ? 'failed'
+            : 'accepted'
+  return {
+    id: e.id,
+    origin: 'innovation',
+    title: e.title,
+    readFrom: r.readFrom,
+    fix: e.successCriterion,
+    movement: { baseline: e.baselineCount, current: r.currentCount, daysLeft: r.daysLeft, outcome: r.outcome },
+    dimensionId: e.dimensionId,
+    raisedBy: e.fundedBy,
+    // The finding behind it was raised unprompted; the decision to try it was
+    // somebody's, and that is what this record is.
+    unprompted: false,
+    raisedAt: e.fundedAt,
+    ageDays: age(e.fundedAt, nowMs),
+    progress,
+    // Movement in the condition, not a currency figure. See experiments.ts.
+    projectedUsd: null,
+    realisedUsd: null,
+    expiresAt: null,
+    route: '/governance/recommendations',
+  }
+}
+
 /* --------------------------------- Readings ---------------------------------- */
 
 export interface DimensionReading {
@@ -227,21 +274,30 @@ export interface RecommendationLedger {
   realisedVsProjectedPct: number | null
   /** Standard dimensions the contract does not name. Ours, not theirs. */
   notInContract: StandardDimension[]
+  /** What has been funded as an experiment, and what it has moved so far. */
+  experiments: ExperimentLedger
 }
 
 
 export function readRecommendations(
-  opts: { engagementId?: string; nowMs?: number; windowDays?: number } = {},
+  opts: { engagementId?: string; nowMs?: number; windowDays?: number; experiments?: Experiment[] } = {},
 ): RecommendationLedger {
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
   const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
   const nowMs = opts.nowMs ?? NOW.getTime()
   const windowDays = opts.windowDays ?? thresholdsFor(engagementId).recommendationWindowDays
 
+  // The watches run once and both readers use the result: the findings
+  // themselves, and the experiments measured against what they now derive.
+  const findings = estateFindings()
+  const funded = readExperiments(opts.experiments ?? [], nowMs, findings)
+
   const all = [
     ...PROPOSALS.map((p) => fromProposal(p, nowMs)),
     ...INNOVATION.map((i) => fromInnovation(i, nowMs)),
-    ...estateFindings().map((f) => fromWatch(f, nowMs)),
+    ...funded.readings.map((r) => fromExperiment(r, nowMs)),
+    // A finding somebody funded is carried as the experiment, not twice.
+    ...findings.filter((f) => !funded.fundedFindingIds.has(f.id)).map((f) => fromWatch(f, nowMs)),
   ].sort((a, b) => (b.raisedAt ?? '').localeCompare(a.raisedAt ?? ''))
 
   const inWindow = (r: Recommendation) => r.ageDays !== null && r.ageDays <= windowDays
@@ -283,5 +339,6 @@ export function readRecommendations(
     realisedUsd: all.reduce((n, r) => n + (r.realisedUsd ?? 0), 0),
     realisedVsProjectedPct: promised ? (100 * returned) / promised : null,
     notInContract: STANDARD_DIMENSIONS.filter((s) => !named.has(s.id)),
+    experiments: funded,
   }
 }

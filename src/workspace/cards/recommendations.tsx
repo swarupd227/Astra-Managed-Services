@@ -35,7 +35,8 @@ const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-
 
 function useLedger(props: CardProps['props']): RecommendationLedger {
   const engagementId = String(props.engagement ?? '') || undefined
-  return React.useMemo(() => readRecommendations({ engagementId }), [engagementId])
+  const experiments = useAstra((s) => s.experiments)
+  return React.useMemo(() => readRecommendations({ engagementId, experiments }), [engagementId, experiments])
 }
 
 /* The band answers "what is being suggested and what needs me", in that order. */
@@ -51,11 +52,19 @@ function RecommendationMetrics({ props, size }: CardProps) {
         size="sm" label="Nobody answered" value={r.expiredUndecided.length}
         deltaTone={r.expiredUndecided.length ? 'crit' : 'ok'} hint="the decision window closed"
       />
-      <Metric size="sm" label="Value delivered" value={usd(r.realisedUsd)} hint={`${usd(r.projectedUsd)} was projected`} />
+      {/* What was tried, and what it moved. Not a currency figure: the
+          registers behind these findings count items, not money. */}
       <Metric
-        size="sm" label="Against what we promised"
-        value={r.realisedVsProjectedPct === null ? '—' : `${r.realisedVsProjectedPct.toFixed(0)}%`}
-        deltaTone={r.realisedVsProjectedPct !== null && r.realisedVsProjectedPct >= 100 ? 'ok' : 'warn'}
+        size="sm" label="Funded as experiments" value={r.experiments.readings.length}
+        hint={r.experiments.inFlight ? `${r.experiments.inFlight} still inside their window` : 'none in flight'}
+      />
+      <Metric
+        size="sm" label="Moved the condition"
+        value={r.experiments.movedSharePct === null ? '—' : `${r.experiments.movedSharePct.toFixed(0)}%`}
+        deltaTone={r.experiments.movedSharePct === null ? undefined : r.experiments.movedSharePct >= 50 ? 'ok' : 'warn'}
+        hint={r.experiments.concluded
+          ? `${r.experiments.resolved} cleared, ${r.experiments.moved} moved, ${r.experiments.noMovement} did not`
+          : 'none has reached the end of its window'}
       />
       <Metric
         size="sm" label="Areas with nothing suggested"

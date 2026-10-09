@@ -21,6 +21,9 @@ export const KINDS = {
   packExports: (r) => r.id,
   areaLoads: (r) => `${r.engagementId}:${r.at}`,
   procedureReviews: (r) => `${r.procedureId}:${r.at}`,
+  // One experiment per finding: the key is the finding so a second funding of
+  // the same condition converges rather than doubling.
+  experiments: (r) => r.findingId,
   evidenceTail: (r) => r.id,
 }
 

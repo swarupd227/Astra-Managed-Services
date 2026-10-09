@@ -64,7 +64,7 @@ export function groundedOpeners(roleId: string): string[] {
       const l = commitmentLedger({
         remedies: s.commitmentLog, packExports: s.packExports,
         procedures: { loads: s.areaLoads, reviews: s.procedureReviews },
-        privacy: { log: s.privacyLog, notices: s.incidentNotices }, exitLog: s.exitLog,
+        privacy: { log: s.privacyLog, notices: s.incidentNotices }, exitLog: s.exitLog, experiments: s.experiments,
       })
       if (l.byStatus.missed) return { text: `${l.byStatus.missed} commitment${l.byStatus.missed === 1 ? ' is past its' : 's are past their'} date — which, and what happens now?`, weight: 92 }
       if (l.unanswered) return { text: `${l.unanswered} commitments are behind with nothing decided, ${l.chargeAtRiskPct}% of the charge at risk — show me`, weight: 88 }
@@ -74,9 +74,14 @@ export function groundedOpeners(roleId: string): string[] {
 
   if (has('get_recommendations')) {
     attempt(out, () => {
-      const r = readRecommendations()
-      const standing = r.all.filter((x) => x.standing).length
-      if (standing) return { text: `${standing} data-quality defects are standing in the estate — what do you suggest we do?`, weight: 86 }
+      const r = readRecommendations({ experiments: s.experiments })
+      const x = r.experiments
+      // An experiment that concluded without moving anything outranks
+      // everything else here: it is the one finding nobody else would report.
+      if (x.noMovement) return { text: `${x.noMovement} funded experiment${x.noMovement === 1 ? '' : 's'} reached the end of the window without moving anything — what happened?`, weight: 87 }
+      const standing = r.all.filter((y) => y.standing).length
+      if (standing) return { text: `${standing} standing defects across the ${r.dimensions.length} areas your contract names — what do you suggest we do?`, weight: 86 }
+      if (x.resolved) return { text: `${x.resolved} experiment${x.resolved === 1 ? ' has' : 's have'} cleared the condition they were struck against — show me what moved`, weight: 72 }
       if (r.expiredUndecided.length) return { text: `${r.expiredUndecided.length} recommendation${r.expiredUndecided.length === 1 ? '' : 's'} expired with nobody deciding — show me`, weight: 80 }
       return { text: 'What are you recommending we improve?', weight: 45 }
     })

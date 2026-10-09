@@ -7,6 +7,7 @@ import type { Settlement } from './exit'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, sealChain, verifyChain, type ChainVerification } from './evidence'
+import { type Experiment } from './experiments'
 import { loadedRecords, recordEngagementId } from './config'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
@@ -87,6 +88,8 @@ interface State {
   areaLoads: AreaLoad[]
   /** Procedure reviews recorded this session. */
   procedureReviews: Review[]
+  /** Recommendations funded as experiments, each with the count it was struck against. */
+  experiments: Experiment[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -205,6 +208,11 @@ interface State {
   recordRecipientNotice: (requestId: string, recipientId: string, by: string, reference: string) => void
   /** A person records the notice given to the client of a data incident, which stops the contractual clock. */
   recordIncidentNotice: (incidentId: string, by: string, reference: string) => void
+  /**
+   * Funds a recommendation as an experiment. Returns the record, or null where
+   * that finding has already been funded.
+   */
+  fundRecommendation: (e: Omit<Experiment, 'id' | 'fundedAt' | 'evidenceId'>) => Experiment | null
 
   /** D8 — record a correction and compute what it reaches. Returns the lesson. */
   teach: (kind: LessonKind, targetId: string, by: string, correction: string) => Lesson | null
@@ -256,13 +264,14 @@ interface SessionRecords {
   packExports: PackExport[]
   areaLoads: AreaLoad[]
   procedureReviews: Review[]
+  experiments: Experiment[]
   /** Appended since the seeded backbone, without their hashes. */
   evidenceTail: Omit<EvidenceRecord, 'hash' | 'prevHash' | 'tampered'>[]
 }
 
 const EMPTY_SESSION: SessionRecords = {
   privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
-  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], evidenceTail: [],
+  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], experiments: [], evidenceTail: [],
 }
 
 /**
@@ -358,6 +367,7 @@ export const useAstra = create<State>((set, get) => ({
   packExports: SESSION.packExports,
   areaLoads: SESSION.areaLoads,
   procedureReviews: SESSION.procedureReviews,
+  experiments: SESSION.experiments,
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1577,6 +1587,29 @@ export const useAstra = create<State>((set, get) => ({
     set({ privacyLog: [...get().privacyLog, { requestId, itemId: recipientId, outcome: 'notified', by, at, evidenceId }] })
   },
 
+  /**
+   * Funds a recommendation as an experiment.
+   *
+   * The count the condition currently holds for is recorded with it, because
+   * that is the only thing the outcome can later be measured against. Funding
+   * the same finding twice is refused rather than duplicated: the second
+   * record would have a baseline already moved by the first.
+   */
+  fundRecommendation: (e) => {
+    const s = get()
+    if (s.experiments.some((x) => x.findingId === e.findingId)) return null
+    const at = nowIso(s.clockOffsetMins)
+    const id = `exp_${digest(e.findingId + at).slice(0, 8)}`
+    const evidenceId = get().logEvidence(
+      'decision', e.fundedBy,
+      `Experiment ${id} funded against ${e.findingId}`,
+      { findingId: e.findingId, baselineCount: e.baselineCount, windowDays: e.windowDays, fundingSource: e.fundingSource, successCriterion: e.successCriterion },
+    )
+    const record: Experiment = { ...e, id, fundedAt: at, evidenceId }
+    set({ experiments: [...s.experiments, record] })
+    return record
+  },
+
   recordIncidentNotice: (incidentId, by, reference) => {
     const s = get()
     if (s.incidentNotices.some((n) => n.incidentId === incidentId)) return
@@ -1691,7 +1724,7 @@ export const useOpenWork = () =>
  */
 const SAVED_KEYS = [
   'privacyLog', 'incidentNotices', 'exitLog', 'commitmentLog',
-  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews',
+  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'experiments',
 ] as const
 
 let lastSaved: Record<string, unknown> = Object.fromEntries(
@@ -1779,7 +1812,7 @@ export async function clearSessionRecords(): Promise<number> {
   lastEvidenceLength = PRISTINE_EVIDENCE.length
   useAstra.setState({
     privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
-    clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [],
+    clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], experiments: [],
     evidence: PRISTINE_EVIDENCE,
   })
   return removed

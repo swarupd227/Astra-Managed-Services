@@ -3,6 +3,7 @@ import { reliabilitySummary } from './dataReliability'
 import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement, type Ingested, type StageId } from './engagement'
 import { escalationSummary } from './escalations'
 import { readExit, type Settlement } from './exit'
+import { type Experiment } from './experiments'
 import { inventorySummary } from './inventory'
 import { DEMAND_CLASSES, TRANSFORM } from './ledgers'
 import { glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './metrics'
@@ -69,6 +70,12 @@ export interface MeasureCtx {
   privacy?: { log: LoggedAction[]; notices: IncidentNotice[] }
   /** Holdings returned or destroyed, for the commitment that the exit path is proven. */
   exitLog?: Settlement[]
+  /**
+   * Recommendations funded as experiments. Passed so the cadence measure reads
+   * the same register the recommendation card does: a funded finding is
+   * carried as the experiment rather than counted again as a suggestion.
+   */
+  experiments?: Experiment[]
 }
 
 export interface MeasureReading {
@@ -302,8 +309,8 @@ export const MEASURES: Record<string, Measure> = {
   recommendation_cadence: {
     id: 'recommendation_cadence', name: 'Improvement dimensions with a recommendation this quarter', unit: 'pct',
     needs: ['contract'], route: '/governance/recommendations',
-    read: ({ nowMs }) => {
-      const r = readRecommendations({ nowMs })
+    read: ({ nowMs, experiments }) => {
+      const r = readRecommendations({ nowMs, experiments })
       if (!r.reference) return unreadable('The contract files no improvement dimensions, so cadence is not scored')
       const covered = r.dimensions.length - r.silentDimensions.length
       return {
@@ -431,8 +438,8 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
   successor_pack_produced: () => [
     { what: 'Produce the successor pack and hand it over — every part builds today', owner: 'serviceowner', route: '/governance/successor-pack' },
   ],
-  recommendation_cadence: ({ nowMs }) => {
-    const r = readRecommendations({ nowMs })
+  recommendation_cadence: ({ nowMs, experiments }) => {
+    const r = readRecommendations({ nowMs, experiments })
     return [
       ...r.silentDimensions.map((d) => ({
         what: `Nothing raised on “${d.name}” in ${r.windowDays} days${d.silentDays === null ? ' — not once, ever' : `; the last was ${d.silentDays} days ago`}`,
@@ -804,6 +811,7 @@ export function commitmentLedger(
     procedures?: { loads: AreaLoad[]; reviews: Review[] }
     privacy?: { log: LoggedAction[]; notices: IncidentNotice[] }
     exitLog?: Settlement[]
+    experiments?: Experiment[]
     nowMs?: number
   } = {},
 ): Ledger {
@@ -812,7 +820,7 @@ export function commitmentLedger(
   const ctx: MeasureCtx = {
     nowMs: opts.nowMs ?? NOW.getTime(),
     fleet: opts.fleet, remedies: opts.remedies, packExports: opts.packExports, procedures: opts.procedures,
-    privacy: opts.privacy, exitLog: opts.exitLog,
+    privacy: opts.privacy, exitLog: opts.exitLog, experiments: opts.experiments,
   }
   const rows = COMMITMENTS
     .filter((c) => c.engagementId === engagementId)
