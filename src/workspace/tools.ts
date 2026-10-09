@@ -13,7 +13,9 @@ import {
   type ContractArea, type ProcedureReading,
 } from '@/domain/procedures'
 import { draftProcedure, type ProcedureDraft } from '@/domain/procedureDrafts'
-import { INBOUND, classify, resolveItems, routeFor, towerForItems } from '@/domain/intake'
+import { classify, resolveItems, routeFor, towerForItems } from '@/domain/intake'
+import { fetchInbound, fetchTicketByRef } from '@/domain/tickets'
+import { feedFor } from '@/domain/ticketFeed'
 import { knowledgeFor } from '@/domain/workContext'
 import { thresholdsFor } from '@/domain/thresholds'
 import { ORIGIN_LABEL as PROVENANCE_ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
@@ -26,6 +28,10 @@ import { PUBLISH_LABEL, publicationSummary } from '@/domain/publication'
 import { buildBoardDeck } from '@/domain/boardDeck'
 import { CAUSE_LABEL, KIND_LABEL, REPORTS, REPORT_BY_ID, explainDifference, financeClients } from '@/domain/finance'
 import { digest } from '@/domain/rng'
+import {
+  DIRECTORY, PRODUCTS, REQUEST_LABEL, RULE_DEFAULTS, RULE_META, SEATS_HELD_AT_TAKEOVER,
+  decide, personByName, readLicenceRequest, seatsFree,
+} from '@/domain/entitlement'
 import type { Priority } from '@/domain/types'
 import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
@@ -589,6 +595,83 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
+  request_licence: (input) => {
+    const text = str(input.text)
+    if (!text) throw new ToolError('A licence request needs the words the person actually wrote.')
+    const read = readLicenceRequest(text)
+
+    const product = read.product
+      ?? PRODUCTS.find((p) => p.name.toLowerCase() === str(input.product).toLowerCase())
+      ?? PRODUCTS.find((p) => p.id === str(input.product).toLowerCase())
+    const months = read.months ?? (typeof input.months === 'number' ? Math.round(input.months) : null)
+
+    // One question, not an assumption — and only where the answer is needed:
+    // an install holds no seat for a period, so its duration is not asked for.
+    const needsDuration = read.type === 'new' || read.type === 'renewal' || read.type === 'extension'
+    if (!product || (needsDuration && months === null)) {
+      return {
+        payload: {
+          read: { type: REQUEST_LABEL[read.type], matchedOn: read.on, product: product?.name ?? null, months },
+          needsOneAnswer: !product ? 'Which product is it for?' : 'How long is it needed for?',
+          note: 'Not assumed: a licence granted for a duration nobody asked for is still granted wrongly.',
+        },
+        artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+      }
+    }
+
+    const who = str(input.requester) || text
+    const subject = personByName(who) ?? DIRECTORY.find((p) => text.toLowerCase().includes(p.name.toLowerCase().split(/\s+/).pop()!.toLowerCase())) ?? null
+    const st = useAstra.getState()
+    const d = decide({ product, person: subject, type: read.type, months: months ?? 0, assigned: st.seatAssignments })
+
+    const assigned = d.verdict === 'granted' ? st.assignSeat(d, person()) : null
+
+    return {
+      payload: {
+        readAs: REQUEST_LABEL[d.type],
+        matchedOn: read.on.length ? read.on : ['nothing specific — read as a new request'],
+        requester: d.person ? `${d.person.name}, ${d.person.role}, ${d.person.practice}${d.person.contractor ? ' (contractor)' : ''}` : null,
+        product: d.product.name,
+        months: d.months,
+        decision: d.verdict,
+        // Everything checked, passes included.
+        checks: d.checks.map((c) => `${c.passed ? '✓' : '✗'} ${c.detail}`),
+        decidedBy: d.decidedBy ? d.decidedBy.detail : 'Every check passed',
+        ...(d.verdict === 'granted'
+          ? { seatAssigned: assigned?.id ?? null, seatsFreeAfter: d.seatsFreeAfter, evidenceId: assigned?.evidenceId ?? null }
+          : {}),
+        ...(d.verdict === 'needs_approval' ? { approver: d.approver, whyTheyMustDecide: RULE_META[d.decidedBy?.rule as keyof typeof RULE_META]?.because ?? null } : {}),
+        ...(d.verdict === 'refused' ? { noApprovalCanFixThis: d.decidedBy?.detail ?? null } : {}),
+      },
+      artifacts: [card('entitlement', `${d.product.name} · seats and policy`, {}, '/operate/work')],
+    }
+  },
+
+  get_entitlements: () => {
+    const st = useAstra.getState()
+    return {
+      payload: {
+        products: PRODUCTS.map((p) => ({
+          product: p.name,
+          seats: p.seatsTotal,
+          heldBeforeTakeover: SEATS_HELD_AT_TAKEOVER[p.id] ?? 0,
+          assignedByThePlatform: st.seatAssignments.filter((a) => a.productId === p.id).length,
+          free: seatsFree(p.id, st.seatAssignments),
+          eligibleRoles: p.eligibleRoles,
+          annualCostPerSeat: p.annualCost,
+        })),
+        rules: (Object.keys(RULE_DEFAULTS) as (keyof typeof RULE_DEFAULTS)[]).map((k) => ({
+          rule: RULE_META[k].label,
+          value: RULE_DEFAULTS[k],
+          why: RULE_META[k].because,
+          // Until a contract files its own, these are ours and say so.
+          statedBy: 'The platform’s standard policy; this contract files none',
+        })),
+      },
+      artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+    }
+  },
+
   get_blast_radius: (input) => {
     const item = findData(str(input.item))
     const upstream = str(input.direction) === 'upstream'
@@ -1010,15 +1093,30 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
-  get_inbound: () => {
+  get_inbound: async (input) => {
     const st = useAstra.getState()
-    const admitted = new Set(Object.values(st.work).map((w) => w.source?.ref).filter(Boolean))
-    const waiting = INBOUND.filter((t) => !admitted.has(t.externalRef))
+    const feed = feedFor()
+    if (!feed) {
+      throw new ToolError('No incident feed is configured for this engagement. Upload a dump from the client’s ticketing system and confirm how it should be read.')
+    }
+    const admitted = new Set(Object.values(st.work).map((w) => w.source?.ref).filter(Boolean) as string[])
+    const page = await fetchInbound({
+      limit: Math.min(Number(input.limit) || 12, 50),
+      subCategory: str(input.sub_category) || undefined,
+      q: str(input.matching) || undefined,
+      excludeRefs: admitted,
+    })
+    const waiting = page.tickets
     return {
       payload: {
-        connector: 'The client’s ticketing system. The payloads are a connector sample until the feed is wired; everything computed about them below is read from the registers.',
-        waiting: waiting.length,
-        alreadyAdmitted: INBOUND.length - waiting.length,
+        connector: `${feed.system}, as loaded from ${feed.source}. The arrivals are the client’s own; everything computed about them below is read from the registers.`,
+        arrivalsInTheFeed: page.total,
+        showing: waiting.length,
+        // Named rather than quietly filtered: an arrival the feed cannot give
+        // a resolution target is a gap in the configuration, not an absence.
+        withheld: page.withheld.length
+          ? { count: page.withheld.length, because: [...new Set(page.withheld.map((w) => w.because))] }
+          : null,
         tickets: waiting.map((t) => {
           const c = classify(t)
           const { resolved, unresolved } = resolveItems(t.configurationItems)
@@ -1045,18 +1143,35 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
-  receive_ticket: (input) => {
+  receive_ticket: async (input) => {
     const want = str(input.reference)
     const st = useAstra.getState()
-    const admitted = new Set(Object.values(st.work).map((w) => w.source?.ref).filter(Boolean))
-    const ticket = want
-      ? INBOUND.find((t) => t.externalRef.toLowerCase() === want.toLowerCase())
-      : INBOUND.find((t) => !admitted.has(t.externalRef))
+    const feed = feedFor()
+    if (!feed) {
+      throw new ToolError('No incident feed is configured for this engagement. Upload a dump from the client’s ticketing system and confirm how it should be read.')
+    }
+    const admitted = new Set(Object.values(st.work).map((w) => w.source?.ref).filter(Boolean) as string[])
+
+    // A named reference is looked up across the whole feed rather than only
+    // the page on screen: somebody asking for a specific ticket means that
+    // ticket, wherever it sits in the client’s twelve months.
+    let ticket = null
+    let withheld = null
+    if (want) {
+      const found = await fetchTicketByRef(want)
+      ticket = found.ticket
+      withheld = found.withheld
+    } else {
+      const page = await fetchInbound({ limit: 1, excludeRefs: admitted })
+      ticket = page.tickets[0] ?? null
+      withheld = page.withheld[0] ?? null
+    }
 
     if (!ticket) {
+      if (withheld) throw new ToolError(`${withheld.externalRef} is in the feed but cannot be taken in: ${withheld.because}.`)
       throw new ToolError(want
-        ? `Nothing with reference "${want}" is waiting behind the ticketing connector. Read the inbound queue to see what is.`
-        : 'Nothing is waiting behind the ticketing connector — every sample has been admitted.')
+        ? `Nothing with reference "${want}" is in the ${feed.system} feed for this engagement. Read the inbound queue to see what is waiting.`
+        : 'Nothing in the feed is still waiting — every arrival on the queue has been admitted.')
     }
 
     const result = st.admitTicket(ticket)

@@ -12,6 +12,7 @@ import { runLoad, type Fault, type LoadResult } from './dataLoad'
 import { DATA_ITEM_BY_ID } from './dataEstate'
 import { type PublishRecord } from './publication'
 import { REPORT_BY_ID } from './finance'
+import { PRODUCT_BY_ID, decide, seatsFree, type Decision, type Person, type RequestType, type SeatAssignment } from './entitlement'
 import { classify, handoffFor, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
 import { chainFrom, managerOf } from './escalation'
 import { runPack } from './verification'
@@ -103,6 +104,8 @@ interface State {
   experiments: Experiment[]
   /** When a report was refreshed on request, and by whom. */
   reportRefreshes: { reportId: string; at: string; by: string; evidenceId?: string }[]
+  /** Seats this platform has assigned, on top of what the vendor already held. */
+  seatAssignments: SeatAssignment[]
   /** What the publish gate decided about each load it saw. */
   publishLog: PublishRecord[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
@@ -250,6 +253,11 @@ interface State {
    * time it now stands at, or null where no such report exists.
    */
   refreshReport: (reportId: string, by: string) => { at: string; evidenceId: string } | null
+  /**
+   * Assigns a seat against a decision that granted one. Returns the
+   * assignment, or null where the decision did not grant.
+   */
+  assignSeat: (d: Decision, by: string) => SeatAssignment | null
   /** Writes a drafted procedure into the register, as a draft for review. */
   writeProcedureDraft: (
     p: Omit<Procedure, 'id' | 'state' | 'version' | 'lastReviewedAt'>,
@@ -309,6 +317,8 @@ interface SessionRecords {
   experiments: Experiment[]
   /** When a report was refreshed on request, and by whom. */
   reportRefreshes: { reportId: string; at: string; by: string; evidenceId?: string }[]
+  /** Seats this platform has assigned, on top of what the vendor already held. */
+  seatAssignments: SeatAssignment[]
   /** What the publish gate decided about each load it saw. */
   publishLog: PublishRecord[]
   /** Appended since the seeded backbone, without their hashes. */
@@ -318,7 +328,7 @@ interface SessionRecords {
 const EMPTY_SESSION: SessionRecords = {
   privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
   clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
-  reportRefreshes: [], publishLog: [], evidenceTail: [],
+  reportRefreshes: [], publishLog: [], seatAssignments: [], evidenceTail: [],
 }
 
 /**
@@ -417,6 +427,7 @@ export const useAstra = create<State>((set, get) => ({
   procedures: SESSION.procedures,
   experiments: SESSION.experiments,
   reportRefreshes: SESSION.reportRefreshes,
+  seatAssignments: SESSION.seatAssignments,
   publishLog: SESSION.publishLog,
   lessons: [],
 
@@ -1824,6 +1835,34 @@ export const useAstra = create<State>((set, get) => ({
   },
 
   /**
+   * Assigns a seat, and only where the decision granted one.
+   *
+   * The decision is passed in rather than recomputed so the seat that moves
+   * is the one the person approved, not one decided again a moment later
+   * against a pool that may have changed underneath them.
+   */
+  assignSeat: (d, by) => {
+    if (d.verdict !== 'granted' || !d.person) return null
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const evidenceId = get().logEvidence(
+      'action', by,
+      `${d.product.name} seat assigned to ${d.person.name}`,
+      {
+        productId: d.product.id, personId: d.person.id, months: d.months, type: d.type,
+        checks: d.checks.map((c) => `${c.rule}: ${c.passed ? 'passed' : 'failed'} — ${c.detail}`),
+        seatsFreeAfter: d.seatsFreeAfter,
+      },
+    )
+    const record: SeatAssignment = {
+      id: `seat_${digest(d.product.id + d.person.id + at).slice(0, 8)}`,
+      productId: d.product.id, personId: d.person.id, at, by, months: d.months, evidenceId,
+    }
+    set({ seatAssignments: [...get().seatAssignments, record] })
+    return record
+  },
+
+  /**
    * Refreshes one report, so it can see what has been booked since it last
    * looked.
    *
@@ -2204,7 +2243,7 @@ export const useOpenWork = () =>
  */
 const SAVED_KEYS = [
   'privacyLog', 'incidentNotices', 'exitLog', 'commitmentLog',
-  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments', 'publishLog', 'reportRefreshes',
+  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments', 'publishLog', 'reportRefreshes', 'seatAssignments',
 ] as const
 
 let lastSaved: Record<string, unknown> = Object.fromEntries(
@@ -2245,7 +2284,7 @@ function adoptReset(epoch?: number) {
   useAstra.setState({
     privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
     clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
-    reportRefreshes: [], publishLog: [],
+    reportRefreshes: [], publishLog: [], seatAssignments: [],
     evidence: PRISTINE_EVIDENCE,
   })
   useAstra.getState().pushToast({
@@ -2330,7 +2369,7 @@ export async function clearSessionRecords(): Promise<number> {
   useAstra.setState({
     privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
     clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
-    reportRefreshes: [], publishLog: [],
+    reportRefreshes: [], publishLog: [], seatAssignments: [],
     evidence: PRISTINE_EVIDENCE,
   })
   return removed

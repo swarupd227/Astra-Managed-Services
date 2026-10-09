@@ -18,6 +18,7 @@ import { publicationView } from './publication'
 import { boardDeckView } from './boardDeck'
 import { differenceView } from './difference'
 import { lineageView } from './lineage'
+import { entitlementView } from './entitlement'
 import { recommendationsView } from './recommendations'
 import { successorPackView } from './successorPack'
 import { releasesView } from './releases'
@@ -58,6 +59,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   boardDeck: boardDeckView,
   difference: differenceView,
   lineage: lineageView,
+  entitlement: entitlementView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },
