@@ -1,5 +1,5 @@
-import { dataQualityFindings, type DataQualityFinding } from './dataQualityWatch'
 import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement } from './engagement'
+import { estateFindings, type Finding } from './watches'
 import { AGENT_BY_ID } from './estate'
 import { INNOVATION } from './ledgers'
 import { PROPOSALS, proposalValue, type Proposal } from './proposals'
@@ -159,11 +159,11 @@ function fromInnovation(i: InnovationItem, nowMs: number): Recommendation {
 }
 
 /**
- * Custodian's standing findings about data quality. They are dated now
- * because the watch ran now and the condition holds now — not because
- * somebody chose today to mention it.
+ * A standing finding from one of the estate watches. Dated now because the
+ * watch ran now and the condition holds now — not because somebody chose
+ * today to mention it.
  */
-function fromWatch(f: DataQualityFinding, nowMs: number): Recommendation {
+function fromWatch(f: Finding, nowMs: number): Recommendation {
   return {
     id: f.id,
     origin: 'watch',
@@ -171,19 +171,19 @@ function fromWatch(f: DataQualityFinding, nowMs: number): Recommendation {
     standing: true,
     readFrom: f.readFrom,
     fix: f.fix,
-    exposure: { consumers: f.consumersExposed, largestAudience: f.largestAudience },
-    dimensionId: 'data_quality',
-    raisedBy: AGENT_BY_ID.agt_custodian?.name ?? 'Custodian',
+    exposure: f.exposure,
+    dimensionId: f.dimensionId,
+    raisedBy: AGENT_BY_ID[f.agentId]?.name ?? f.agentId,
     unprompted: true,
     raisedAt: new Date(nowMs).toISOString(),
     ageDays: 0,
     progress: 'open',
-    // No currency figure: the estate register counts items and readers, and a
-    // value derived from those would be asserted rather than measured.
+    // No currency figure: the registers behind these count items, hours and
+    // readers, and a value derived from those would be asserted, not measured.
     projectedUsd: null,
     realisedUsd: null,
     expiresAt: null,
-    route: '/operate/data',
+    route: f.route,
   }
 }
 
@@ -241,7 +241,7 @@ export function readRecommendations(
   const all = [
     ...PROPOSALS.map((p) => fromProposal(p, nowMs)),
     ...INNOVATION.map((i) => fromInnovation(i, nowMs)),
-    ...dataQualityFindings().map((f) => fromWatch(f, nowMs)),
+    ...estateFindings().map((f) => fromWatch(f, nowMs)),
   ].sort((a, b) => (b.raisedAt ?? '').localeCompare(a.raisedAt ?? ''))
 
   const inWindow = (r: Recommendation) => r.ageDays !== null && r.ageDays <= windowDays

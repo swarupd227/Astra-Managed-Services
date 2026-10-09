@@ -223,9 +223,9 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_recommendations', name: 'Recommendations raised, and what they returned', origin: 'platform_record',
-    source: 'Two demonstration registers and one live watch, read as one: six unprompted agent proposals, eleven innovation items with realised figures, and Custodian’s standing data-quality findings computed from the estate register itself',
+    source: 'Three books read as one: the proposals agents raise, the innovation register, and a standing watch per improvement dimension. Each watch derives its findings from a register the platform already reads — the estate for data quality and security, the demand ledger for automation, the reliability reader for performance, the provenance register and the extract’s own stated limits for platform capabilities, and the ticket history, escalation log and live queue for operational efficiency',
     routes: ['/governance/recommendations', '/governance/proposals'],
-    caution: 'The recommendations are seeded; the cadence window, the expiry clocks and the realised-against-projected arithmetic are computed',
+    caution: 'A finding is a condition that holds, re-stated while it is true and gone when it is fixed, and it names what it was read from so it can be checked. None carries a currency figure: the registers behind them count items, hours and readers, and a value derived from those would be asserted. A dimension with no watch, or whose register is empty, stays silent and is counted as silent',
     maturity: 'live',
   },
   {
