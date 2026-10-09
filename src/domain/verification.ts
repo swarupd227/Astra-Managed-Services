@@ -72,35 +72,61 @@ function dataItemsFor(nodeIds: string[]) {
  */
 const PACKS: Record<string, (nodeIds: string[], context: { confidence?: number; engagementId?: string }) => Probe[]> = {
   health_probe_v4: (nodeIds) => {
-    // Health lives in two different registers depending on what was acted on:
-    // an application's observability is recorded in the inventory, a data
-    // item's in the estate. Looking only in the estate — which is what this
-    // did — made every application action unverifiable.
-    const data = dataItemsFor(nodeIds)
+    // Health lives in a different register depending on what kind of thing was
+    // acted on, and for one kind it lives nowhere. Saying which is the whole
+    // value of the probe: "nothing is in the inventory" sent an operator to
+    // look in the wrong place, because an application listing was never going
+    // to hold a subnet.
+    const kinds = nodeIds.map((id) => ({ id, node: BY_ID.get(id) }))
     const apps = INVENTORY.filter((a) => nodeIds.includes(a.nodeId ?? '') || nodeIds.includes(a.id))
+    const data = dataItemsFor(nodeIds)
+    const infra = kinds.filter((k) => k.node && ['InfraResource', 'Interface'].includes(k.node.type))
+    const unknownToGraph = kinds.filter((k) => !k.node)
+
     const observedApps = apps.filter((a) => a.observed !== 'not_observed')
     const observedData = data.filter((i) => i.own !== 'unobserved')
-    const covered = apps.length + data.length
+    const readable = apps.length + data.length
     const observed = observedApps.length + observedData.length
 
-    return [
-      {
-        what: 'The thing acted on reports its own health',
-        outcome: !covered ? 'unknown' : observed === covered ? 'pass' : 'unknown',
-        readFrom: covered
-          ? `${observed} of ${covered} acted-on items are observable (${apps.length} in the application inventory, ${data.length} in the data estate)`
-          : 'Nothing acted on is in the application inventory or the data estate, so no health signal can be read',
-      },
-      {
-        what: 'Nothing acted on is failing its own checks',
-        outcome: !observed
-          ? 'unknown'
-          : observedData.some((i) => isBreach(i.own)) ? 'fail' : 'pass',
+    const probes: Probe[] = []
+
+    // Infrastructure first, because it is the gap rather than a reading.
+    if (infra.length) {
+      probes.push({
+        what: 'The infrastructure acted on reports its own health',
+        outcome: 'unknown',
+        readFrom: `${infra.map((k) => k.node!.name).join(', ')} ${infra.length === 1 ? 'is an' : 'are'} ${infra.length === 1 ? 'infrastructure resource' : 'infrastructure resources'}, and the platform holds no health register for infrastructure — only the application inventory and the data estate.`,
+      })
+    }
+    if (unknownToGraph.length) {
+      probes.push({
+        what: 'Everything acted on is known to the estate',
+        outcome: 'unknown',
+        readFrom: `${unknownToGraph.map((k) => k.id).join(', ')} ${unknownToGraph.length === 1 ? 'is' : 'are'} not in the graph at all`,
+      })
+    }
+    if (readable) {
+      probes.push({
+        what: 'What can be observed is reporting',
+        outcome: observed === readable ? 'pass' : 'unknown',
+        readFrom: `${observed} of ${readable} observable items reporting (${apps.length} in the application inventory, ${data.length} in the data estate)`,
+      })
+      probes.push({
+        what: 'Nothing observed is failing its own checks',
+        outcome: !observed ? 'unknown' : observedData.some((i) => isBreach(i.own)) ? 'fail' : 'pass',
         readFrom: observedData.length
           ? `${observedData.filter((i) => isBreach(i.own)).length} of ${observedData.length} observed data items in breach`
-          : `${observedApps.length} applications observable; the inventory records no failing check of its own`,
-      },
-    ]
+          : `${observedApps.length} application${observedApps.length === 1 ? '' : 's'} observable, none recording a failed check`,
+      })
+    }
+    if (!probes.length) {
+      probes.push({
+        what: 'The thing acted on reports its own health',
+        outcome: 'unknown',
+        readFrom: 'Nothing was named for this action, so there is nothing to check',
+      })
+    }
+    return probes
   },
 
   euc_checkin_v1: (nodeIds) => {

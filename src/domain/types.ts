@@ -170,6 +170,16 @@ export interface WorkObject {
    * the remainder of somebody else's.
    */
   gateWaitedMins?: number
+  /**
+   * A verification that did not pass, recorded once.
+   *
+   * Without it the hold is a loop: the work goes back to a person, the
+   * lifecycle walks it forward again, the pack fails again and another record
+   * is sealed — four hundred of them a minute, all saying the same thing. A
+   * verification failure is a standing state until somebody acts on it, not
+   * an event that recurs.
+   */
+  verificationHeld?: { at: ISO; result: 'amber' | 'red'; summary: string }
   evidenceHead: string
   narrative: TimelineEntry[]
   source: { system: string; ref: string }

@@ -17,7 +17,7 @@ import { chainFrom, managerOf } from './escalation'
 import { runPack } from './verification'
 import { DEMAND_CLASSES } from './ledgers'
 import { knowledgeFor, knowledgeSummary, type WorkKnowledge } from './workContext'
-import { loadedRecords, recordEngagementId } from './config'
+import { loadedRecords, recordEngagementId, recordEpoch, setRecordEpoch } from './config'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
 import { AGENTS, TOWER_BY_ID } from './estate'
@@ -532,6 +532,11 @@ export const useAstra = create<State>((set, get) => ({
         // failure sends the work to a person rather than closing it — which is
         // the branch the lifecycle never had, because verification could only
         // ever pass.
+        // Already held on a verification: it waits for a person, and the pack
+        // is not run again. Re-running it is what wrote the same record over
+        // and over.
+        if (wo.verificationHeld) continue
+
         if (wo.state === 'verifying') {
           const classes = wo.autonomy?.actionClasses ?? []
           // A verification exists to catch a bad change. An action that only
@@ -619,6 +624,7 @@ export const useAstra = create<State>((set, get) => ({
           state: 'triaged',
           assigneeKind: 'human',
           assignee: ROLE_BY_ID.resolver?.person ?? 'Resolver on shift',
+          verificationHeld: { at, result: hd.result, summary: hd.summary },
           narrative: [...wo.narrative, {
             id: `t_${t}_vf`, at, actorKind: 'system', actor: 'Verification pack',
             text: `${hd.summary} Not closed — it goes to a person with the failing probe attached.`,
@@ -738,7 +744,7 @@ export const useAstra = create<State>((set, get) => ({
     }
     set({
       evidence: [...s.evidence, record],
-      work: { ...s.work, [woId]: { ...wo, state: 'triaged', awaitingApproval: false, assigneeKind: 'human', assignee: who, narrative: [...wo.narrative, entry] } },
+      work: { ...s.work, [woId]: { ...wo, state: 'triaged', awaitingApproval: false, assigneeKind: 'human', assignee: who, verificationHeld: undefined, narrative: [...wo.narrative, entry] } },
     })
     // Rejecting a plan is teaching (D8) — the lesson replaces the generic
     // toast, because what the correction reaches is the useful half.
@@ -2203,6 +2209,32 @@ function evidenceTail(evidence: EvidenceRecord[]) {
  */
 let saving: Promise<void> = Promise.resolve()
 
+/**
+ * Someone reset this engagement while this browser was holding records.
+ *
+ * The records go, because writing them back is exactly what the generation
+ * exists to prevent — but the person is told, because a screen that empties
+ * itself with no explanation is worse than the bug this fixes. Their own
+ * unsaved work is gone either way; the honest thing is to say so rather than
+ * let them discover it from a figure that moved.
+ */
+function adoptReset(epoch?: number) {
+  if (typeof epoch === 'number') setRecordEpoch(epoch)
+  lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, [] as unknown]))
+  lastEvidenceLength = PRISTINE_EVIDENCE.length
+  useAstra.setState({
+    privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
+    clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
+    reportRefreshes: [], publishLog: [],
+    evidence: PRISTINE_EVIDENCE,
+  })
+  useAstra.getState().pushToast({
+    tone: 'warn',
+    title: 'The records were reset elsewhere',
+    body: 'Another session cleared this engagement. What this one was holding has been dropped rather than written back over the reset.',
+  })
+}
+
 function persist(state: State) {
   const registers = {
     ...Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]])),
@@ -2218,9 +2250,16 @@ function persist(state: State) {
         registers,
         by: role?.person ?? 'unknown',
         role: state.roleId,
+        // Which generation these records came from. A save from before a
+        // reset is refused rather than merged back over it.
+        epoch: recordEpoch(),
       }),
     }))
     .then(async (res) => {
+      if (res.status === 409) {
+        const body = (await res.json().catch(() => ({}))) as { epoch?: number }
+        return adoptReset(body.epoch)
+      }
       if (!res.ok) throw new Error(`the gateway answered ${res.status}`)
     })
     .catch((err: unknown) => {
@@ -2260,7 +2299,11 @@ export async function clearSessionRecords(): Promise<number> {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.detail ?? body.error ?? `the gateway answered ${res.status}`)
   }
-  const { removed } = (await res.json()) as { removed: number }
+  // The clear moved the generation on. This browser adopts it immediately,
+  // or its own next save would be refused as stale against a reset it asked
+  // for itself.
+  const { removed, epoch } = (await res.json()) as { removed: number; epoch?: number }
+  if (typeof epoch === 'number') setRecordEpoch(epoch)
 
   lastSaved = Object.fromEntries(SAVED_KEYS.map((k) => [k, [] as unknown]))
   lastEvidenceLength = PRISTINE_EVIDENCE.length
