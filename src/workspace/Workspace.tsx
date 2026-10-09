@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowUp, Bot, Maximize2, SquareArrowOutUpRight, Square, X } from 'lucide-react'
+import { ArrowUp, Bot, Maximize2, Mic, MicOff, SquareArrowOutUpRight, Square, Volume2, VolumeX, X } from 'lucide-react'
 import { buildBrief, briefHeadline, readLastSeen } from '@/domain/brief'
 import { AGENT_BY_ID, BUNDLE_BY_ID, TOWERS } from '@/domain/estate'
 import { ROLE_BY_ID } from '@/domain/reference'
@@ -9,6 +9,7 @@ import { Button, Chip, Dot } from '@/ui/primitives'
 import { cn } from '@/lib/format'
 import { ArtifactBody } from './cards/view'
 import { TOOL_BY_NAME, agentName, roleHolds, toolLabel } from './catalogue'
+import { speak, startDictation, stopDictation, stopSpeaking, supportsDictation, supportsSpeaking } from '@/lib/speech'
 import {
   matches, matchesMention, mentionedIn, mentionsFor, parse, typing, typingMention, utteranceFor,
   type Command, type Mention,
@@ -321,13 +322,71 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
 
   const lastAgent = [...messages].reverse().find((m) => m.author === 'agent')
 
+  /* ------------------------------- voice ---------------------------------- */
+
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const [listening, setListening] = React.useState(false)
+  const [heard, setHeard] = React.useState<string | null>(null)
+  const [readAloud, setReadAloud] = React.useState(false)
+  const canDictate = React.useMemo(supportsDictation, [])
+  const canSpeak = React.useMemo(supportsSpeaking, [])
+  // What was in the box before dictation started, so speech adds to a
+  // half-typed line rather than replacing it.
+  const base = React.useRef('')
+
+  const hold = () => {
+    if (listening || pending) return
+    base.current = input ? `${input.trimEnd()} ` : ''
+    setHeard(null)
+    const ok = startDictation({
+      onText: (text) => setInput(base.current + text),
+      onEnd: (reason) => { setListening(false); if (reason) setHeard(reason) },
+    })
+    if (ok) setListening(true)
+    else setHeard('The microphone could not be started.')
+  }
+
+  const release = () => {
+    if (!listening) return
+    stopDictation()
+    setListening(false)
+    // Deliberately not sent. What the recogniser thinks it heard is an
+    // unverified fact, and this is where the person checks it.
+    textareaRef.current?.focus()
+  }
+
+  // Reads the agent's own sentences once a turn has finished, never the cards
+  // beside them: a table read aloud is noise.
+  const spokenRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!readAloud || running || !lastAgent?.text) return
+    if (spokenRef.current === lastAgent.id) return
+    spokenRef.current = lastAgent.id
+    speak(lastAgent.text)
+  }, [readAloud, running, lastAgent?.id, lastAgent?.text])
+
+  React.useEffect(() => () => { stopDictation(); stopSpeaking() }, [])
+
   return (
       <section className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid={compact ? 'thread-panel' : 'workspace-thread'}>
         <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-surface px-4">
           {!compact && <span className="min-w-0 truncate text-xs font-medium text-ink">{def.title}</span>}
           {running && <Chip><Dot tone="brand" pulse />working</Chip>}
           {pending && !running && <Chip tone="warn">awaiting confirmation</Chip>}
+          {listening && <Chip tone="brand"><Dot tone="brand" pulse />listening</Chip>}
+          {heard && !listening && <Chip tone="warn">{heard}</Chip>}
           <span className="ml-auto flex items-center gap-1">
+            {canSpeak && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { const next = !readAloud; setReadAloud(next); if (!next) stopSpeaking() }}
+                aria-pressed={readAloud}
+                title={readAloud ? 'Stop reading replies aloud' : 'Read replies aloud'}
+              >
+                {readAloud ? <Volume2 size={11} /> : <VolumeX size={11} />}
+              </Button>
+            )}
             {running && <Button size="sm" variant="ghost" onClick={() => stop(threadId)}><Square size={10} />Stop</Button>}
             {messages.length > 0 && !running && <Button size="sm" variant="ghost" onClick={() => clear(threadId)}>Clear</Button>}
           </span>
@@ -396,6 +455,7 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
               </ul>
             )}
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -422,6 +482,25 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
               data-testid="workspace-composer"
               className="w-full resize-none rounded-md border border-line-strong bg-sunken px-3 py-2 pr-11 text-xs leading-relaxed text-ink placeholder:text-ink-3 focus:border-brand focus:outline-none disabled:opacity-60"
             />
+            {canDictate && (
+              <button
+                type="button"
+                disabled={pending}
+                onPointerDown={(e) => { e.preventDefault(); hold() }}
+                onPointerUp={release}
+                onPointerLeave={release}
+                onPointerCancel={release}
+                className={cn(
+                  'absolute bottom-3 right-11 flex h-7 w-7 items-center justify-center rounded border transition-colors disabled:opacity-30',
+                  listening ? 'border-brand bg-brand text-[#1B1B1E]' : 'border-line-strong bg-sunken text-ink-2 hover:text-ink',
+                )}
+                aria-label={listening ? 'Listening — release to stop' : 'Hold to talk'}
+                aria-pressed={listening}
+                title="Hold to talk"
+              >
+                {listening ? <Mic size={14} strokeWidth={2.5} /> : <MicOff size={14} />}
+              </button>
+            )}
             <button
               type="submit"
               disabled={!input.trim() || running || pending}
