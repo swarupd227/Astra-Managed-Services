@@ -113,7 +113,16 @@ export interface Recommendation {
 }
 
 const DAY = 86_400_000
-const age = (iso: string | null, nowMs: number) => (iso ? Math.floor((nowMs - Date.parse(iso)) / DAY) : null)
+/**
+ * Days since something was raised, never negative.
+ *
+ * The estate clock advances while a thread is open, so something recorded a
+ * few minutes ago can carry a timestamp fractionally ahead of the `nowMs` a
+ * reader was given, and the floor of that is −1. "Last raised −1 d ago" was
+ * on the register within a minute of funding the first experiment.
+ */
+const age = (iso: string | null, nowMs: number) =>
+  iso ? Math.max(0, Math.floor((nowMs - Date.parse(iso)) / DAY)) : null
 
 function fromProposal(p: Proposal, nowMs: number): Recommendation {
   const lapsed = Date.parse(p.expiresAt) < nowMs
