@@ -28,6 +28,48 @@ if (!configured) {
 
 const histories = JSON.parse(fs.readFileSync(FILE, 'utf8'))
 
+/* ==========================================================================
+   Check the extract before writing any of it.
+
+   The ids in an extract are generated — a cluster's comes from its phrasing,
+   truncated — so two different phrasings can collide, and two did: "HRISCAMS
+   was inaccessible - Tomcat Restarted" and the same sentence with an incident
+   number in front of it. The insert threw on the colliding row, and because
+   the limitations are written after the clusters, they were never written at
+   all. One malformed id cost the platform the rows that make it say what it
+   cannot measure.
+
+   A load that writes nothing is recoverable. A load that writes most of
+   itself and stops is the thing that hid this for weeks, so the shape is
+   checked first and the whole extract is refused if any of it is wrong.
+   ========================================================================== */
+const faults = []
+for (const h of histories) {
+  const dup = (key, rows) => {
+    const seen = new Map()
+    for (const r of rows ?? []) seen.set(r.id, [...(seen.get(r.id) ?? []), r])
+    for (const [id, rs] of seen) {
+      if (rs.length > 1) {
+        faults.push(`${h.engagementId}: ${rs.length} ${key} share the id "${id}" — ${rs.map((r) => JSON.stringify(r.example ?? r.name)).join(' and ')}`)
+      }
+    }
+  }
+  dup('clusters', h.clusters)
+  dup('themes', h.themes)
+  dup('scope lines', h.scope?.byLine)
+
+  const limits = new Set()
+  for (const c of h.cannot ?? []) {
+    if (limits.has(c.what)) faults.push(`${h.engagementId}: "${c.what}" is stated as a limitation twice`)
+    limits.add(c.what)
+  }
+}
+if (faults.length) {
+  console.error('Extract refused — nothing was written:')
+  for (const f of faults) console.error(`  ${f}`)
+  process.exit(1)
+}
+
 try {
   for (const h of histories) {
     const [engagement] = await query('select id from engagement where id = $1', [h.engagementId])

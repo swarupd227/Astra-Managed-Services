@@ -264,7 +264,7 @@
         "months": 4
       },
       {
-        "id": "cl_hriscams_inaccessible_restar",
+        "id": "cl_hriscams_inaccessible_r_4f8a",
         "example": "INC0099614 HRISCAMS Inaccessible - Tomcat Restarted",
         "subCategory": "HRIS-CAMS Interface",
         "incidents": 10,
@@ -282,7 +282,7 @@
       "clustersOverTen": 22,
       "clusterSharePct": 26.6,
       "humanRaisedPct": 96.4,
-      "stillOpenPct": 5.0,
+      "stillOpenPct": 5,
       "offInventoryPct": 61.7,
       "offInventory": 1679
     },
