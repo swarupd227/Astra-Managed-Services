@@ -132,20 +132,60 @@
     },
     {
       "name": "receive_ticket", "agent": "agt_sentinel", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
-      "description": "Admit a ticket from the client's ticketing system — the integration point. Everything after the payload is computed on admission: the configuration items are resolved against the estate graph, the class is matched against the client's own ingested history (sub-category first, then the phrasing of clusters that recur in their extract, then the theme), the blast radius is walked from the dependency graph, the knowledge pack is assembled from assertions, known errors and the runbooks that resolve them, and the routing follows from what the platform actually holds. An attempt is made only where a runbook resolves a known error on something the ticket names AND an agent holds a grant for every class that runbook uses; otherwise the ticket goes to a named person with the reason. A ticket that matches nothing in the client's history is not classified at a low confidence — it is unclassified and held for a person. Call with no reference to admit the next sample waiting behind the connector.",
+      "description": "Admit a ticket from the client's ticketing system — the integration point. Everything after the payload is computed on admission: the configuration items are resolved against the estate graph, the class is matched against the client's own ingested history (sub-category first, then the phrasing of clusters that recur in their extract, then the theme), the blast radius is walked from the dependency graph, the knowledge pack is assembled from assertions, known errors and the runbooks that resolve them, and the routing follows from what the platform actually holds. An attempt is made only where a runbook resolves a known error carrying the class it was just classified into, on something the ticket names, AND an agent holds a grant for every class that runbook uses. A runbook held against the same component for a different failure is reported as context and not attempted; otherwise the ticket goes to a named person with the reason. A ticket that matches nothing in the client's history is not classified at a low confidence — it is unclassified and held for a person. A named reference is looked up across the whole loaded feed rather than only the arrivals on screen. Call with no reference to admit the next one waiting on the queue.",
       "describe": "Admit ticket {reference} from the client's ticketing system and triage it.",
       "input_schema": {
         "type": "object",
         "properties": {
-          "reference": { "type": "string", "description": "The ticketing system's reference, e.g. INC0491204. Omitted admits the next one waiting." }
+          "reference": { "type": "string", "description": "The ticketing system's own reference, e.g. INC0074675. Omitted admits the next one waiting." }
         },
         "additionalProperties": false
       }
     },
     {
+      "name": "profile_incident_dump", "agent": "agt_archivist", "surfaces": ["transition", "platform"],
+      "description": "Read an incident dump from any ticketing system and propose how the platform should read it, writing nothing. Profiles the values rather than trusting the headers: a column whose entries are unique and reference-shaped is the reference column whatever it is called, and a column called Date whose entries are not dates is not the timestamp. Returns, per field, which column it proposes, how confident it is, and whether the match was made on the column's name, on its values, or on both — plus the priority vocabulary it reads from the values, the columns it would not use, and anything the intake cannot run without that is still unresolved. Nothing is loaded and no configuration is stored: a person confirms a mapping, because the mapping is a decision about somebody's data rather than something to infer silently.",
+      "describe": "Profile an incident dump and propose how to read it, writing nothing.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filename": { "type": "string", "description": "The name of the uploaded file, for the record of what was profiled." },
+          "content": { "type": "string", "description": "The dump itself, as delimited text. Comma, semicolon, tab and pipe are all read." }
+        },
+        "required": ["content"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "configure_incident_feed", "agent": "agt_archivist", "surfaces": ["transition", "platform"], "mutating": true, "approval": true,
+      "description": "Store a confirmed reading of a client's incident dump against their engagement, and load the dump under it. The column mapping, the priority vocabulary and the declaration of which sub-categories correspond to a costed class are all held as configuration against the engagement rather than in the platform's code, so a second client loads their own export in their own shape and nothing here changes. Refuses the whole dump and writes nothing where anything does not line up — a mapped column the dump does not have, a repeated reference, a class declared for a sub-category the dump does not contain — reporting everything wrong at once rather than the first thing. A load replaces the period it covers rather than merging, because half of one quarter's arrivals mixed with half of another's describes nothing. What landed is read back and compared against what was mapped before it is called a load. Counted volumes are recounted every time; the declarations a person owns are left alone.",
+      "describe": "Load {filename} into the incident feed under the mapping you have confirmed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filename": { "type": "string", "description": "The name of the dump being loaded." },
+          "content": { "type": "string", "description": "The dump itself, as delimited text." },
+          "system": { "type": "string", "description": "The system that produced it, as it should be recorded on every arrival, e.g. ServiceNow." },
+          "column_map": { "type": "object", "description": "Which column feeds which field: ref, openedAt, shortDescription, category, subCategory, state, priority, assignmentGroup, reportedBy. The first three are required.", "additionalProperties": { "type": "string" } },
+          "priorities": { "type": "array", "description": "The client's priority values and what each one means on the platform's four levels.", "items": { "type": "object", "properties": { "value": { "type": "string" }, "priority": { "type": "string", "enum": ["P1", "P2", "P3", "P4"] } }, "required": ["value", "priority"], "additionalProperties": false } },
+          "sub_category_classes": { "type": "array", "description": "Which of the client's sub-categories correspond to a costed class, and which estate components that demand lands on. Keyed case-folded as category|sub-category.", "items": { "type": "object", "properties": { "key": { "type": "string" }, "classId": { "type": "string" }, "nodeIds": { "type": "array", "items": { "type": "string" } } }, "required": ["key", "classId"], "additionalProperties": false } }
+        },
+        "required": ["content", "column_map"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_inbound", "agent": "agt_sentinel", "surfaces": ["run", "governance"],
-      "description": "What is waiting behind the ticketing connector and has not been admitted yet, with what the platform would make of each one if it were: the class it would be matched to and at what confidence, what that match was made on, whether its configuration items resolve to the estate, and whether it would be attempted by an agent or routed to a person. Read-only — nothing is admitted. The tickets themselves are a connector sample until the feed is wired; everything said about them is computed.",
-      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+      "description": "What is waiting in the client's own incident feed and has not been admitted yet, with what the platform would make of each one if it were: the class it would be matched to and at what confidence, what that match was made on, whether its configuration items resolve to the estate, and whether it would be attempted by an agent or routed to a person. The arrivals are the client's own loaded incidents, read a page at a time rather than all at once. Read-only — nothing is admitted. Says how many arrivals the feed holds in total, and names any it cannot present along with why.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "number", "description": "How many arrivals to show, up to 50. Twelve by default." },
+          "sub_category": { "type": "string", "description": "Only arrivals the client filed under this sub-category, e.g. Account Lock-Out or M365 - OneDrive." },
+          "matching": { "type": "string", "description": "Only arrivals whose description contains this wording." }
+        },
+        "additionalProperties": false
+      }
     },
     {
       "name": "draft_procedure", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition"], "mutating": true, "approval": true,

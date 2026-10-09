@@ -3,6 +3,7 @@ import { ENGAGEMENT } from './engagement'
 import { SLAS } from './ledgers'
 import { AC } from './reference'
 import { historyFor } from './ticketHistory'
+import { feedFor, largestDeclared, RECURS_AT, volumeFor } from './ticketFeed'
 import type { Priority } from './types'
 
 /* ==========================================================================
@@ -55,7 +56,7 @@ export interface InboundTicket {
 /* ------------------------------ Classification ------------------------------ */
 
 export interface MatchEvidence {
-  on: 'sub_category' | 'phrasing' | 'theme'
+  on: 'sub_category_volume' | 'sub_category' | 'phrasing' | 'theme'
   value: string
   /** Arrivals behind the match in the client's extract. */
   incidents?: number
@@ -79,87 +80,155 @@ const STOP = new Set([
 const words = (s: string) =>
   s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w))
 
+/** One reading of an arriving ticket, with how strongly it is believed. */
+interface Candidate {
+  demandClass: string | null
+  /** The theme it places the ticket under, where the signal knows one. */
+  themeId: string | null
+  confidence: number
+  evidence: MatchEvidence
+}
+
 /**
  * What the arriving ticket is, read against what the client has sent before.
  *
- * Deliberately ordered strongest evidence first, and deliberately refuses. A
- * confidence invented for an unmatched ticket is how an agent ends up acting
- * on something nobody has seen before.
+ * Every signal is scored and the strongest wins. The first cut returned at
+ * the first tier that matched, in a fixed order, which quietly made the order
+ * the answer: a weak sub-category match beat a near-perfect phrasing match
+ * because it was checked first. Scoring them all and comparing means the
+ * confidence a ticket carries is the strength of the best evidence for it
+ * rather than an artefact of which test ran first — and where two signals
+ * agree, both travel with the classification, because corroboration is
+ * exactly what a reviewer wants to see.
+ *
+ * It still refuses. A confidence invented for an unmatched ticket is how an
+ * agent ends up acting on something nobody has seen before.
  */
 export function classify(t: InboundTicket, engagementId = ENGAGEMENT.id): Classification {
   const h = historyFor(engagementId)
-  if (!h) {
+  const feed = feedFor(engagementId)
+  if (!h && !feed) {
     return {
       demandClass: null, themeId: null, confidence: 0, evidence: [],
-      refusal: 'No ticket history is ingested for this engagement, so there is nothing to classify against.',
+      refusal: 'Nothing is ingested for this engagement, so there is nothing to classify against.',
     }
   }
 
-  const biggest = Math.max(...h.clusters.map((c) => c.incidents), 1)
   const sub = t.subCategory.trim().toLowerCase()
-
-  // 1. The sub-category the client's own system filed it under.
-  const bySub = h.clusters.filter((c) => c.subCategory.trim().toLowerCase() === sub && c.classId)
-  if (bySub.length) {
-    const best = bySub.sort((a, b) => b.incidents - a.incidents)[0]
-    const theme = h.themes.find((x) => x.classIds.includes(best.classId!)) ?? null
-    return {
-      demandClass: best.classId!,
-      themeId: theme?.id ?? null,
-      // Dominance of the match, floored so a real sub-category match is never
-      // weak and capped below certainty, which no classifier has earned.
-      confidence: Math.min(0.95, 0.78 + 0.17 * (best.incidents / biggest)),
-      evidence: [{ on: 'sub_category', value: best.subCategory, incidents: bySub.reduce((n, c) => n + c.incidents, 0) }],
-      }
-  }
-
-  // 2. The phrasing of a cluster that recurs in their extract.
   const tokens = new Set(words(t.shortDescription))
-  const scored = h.clusters
-    .filter((c) => c.classId)
-    .map((c) => {
-      const theirs = words(c.example)
-      const hit = theirs.filter((w) => tokens.has(w))
-      return { c, overlap: theirs.length ? hit.length / theirs.length : 0, hit }
+  const candidates: Candidate[] = []
+  // The theme a costed class sits under, where the ingested history places it.
+  const themeOf = (classId: string) => h?.themes.find((x) => x.classIds.includes(classId))?.id ?? null
+
+  /* ------------------------------------------------------------------------
+     1. How often the client has filed this exact sub-category before.
+
+     The strongest signal available and the one that was going unused. It
+     needs two things, and they are different kinds of thing: a count, which
+     is measured from their dump, and a declaration that the sub-category
+     corresponds to a costed class, which is somebody's decision. The count
+     without the declaration says a lot of tickets arrive and nothing about
+     what they are; the declaration is what makes it classifiable.
+     ------------------------------------------------------------------------ */
+  const volume = volumeFor(t.category, t.subCategory, engagementId)
+  if (volume?.classId) {
+    const share = volume.incidents / largestDeclared(engagementId)
+    const recurring = volume.incidents >= RECURS_AT
+    candidates.push({
+      demandClass: volume.classId,
+      themeId: themeOf(volume.classId),
+      // Capped below certainty, which no classifier has earned. A declared
+      // sub-category that has not recurred enough to be a pattern is still
+      // believed — somebody stated the correspondence — but it is believed
+      // less, and the evidence line says how often it has actually arrived.
+      confidence: recurring ? Math.min(0.95, 0.8 + 0.15 * share) : 0.65,
+      evidence: {
+        on: 'sub_category_volume',
+        value: recurring
+          ? `${volume.category} / ${volume.subCategory}, declared as ${volume.classId}`
+          : `${volume.category} / ${volume.subCategory}, declared as ${volume.classId} but below ${RECURS_AT} arrivals, which is where this platform treats a pattern as recurring`,
+        incidents: volume.incidents,
+      },
     })
-    .filter((x) => x.overlap >= 0.4 && x.hit.length >= 2)
-    .sort((a, b) => b.overlap - a.overlap || b.c.incidents - a.c.incidents)
+  }
 
-  if (scored.length) {
-    const { c, overlap, hit } = scored[0]
-    const theme = h.themes.find((x) => x.classIds.includes(c.classId!)) ?? null
-    return {
-      demandClass: c.classId!,
-      themeId: theme?.id ?? null,
-      confidence: Math.min(0.88, 0.5 + 0.38 * overlap),
-      evidence: [{ on: 'phrasing', value: `${c.example} — matched on ${hit.join(', ')}`, incidents: c.incidents }],
+  if (h) {
+    const biggest = Math.max(...h.clusters.map((c) => c.incidents), 1)
+
+    // 2. The sub-category a recurring cluster in the extract was filed under.
+    const bySub = h.clusters.filter((c) => c.subCategory.trim().toLowerCase() === sub && c.classId)
+    if (bySub.length) {
+      const best = [...bySub].sort((a, b) => b.incidents - a.incidents)[0]
+      candidates.push({
+        demandClass: best.classId!,
+        themeId: themeOf(best.classId!),
+        confidence: Math.min(0.95, 0.78 + 0.17 * (best.incidents / biggest)),
+        evidence: { on: 'sub_category', value: best.subCategory, incidents: bySub.reduce((n, c) => n + c.incidents, 0) },
+      })
+    }
+
+    // 3. The phrasing of a cluster that recurs in their extract.
+    const scored = h.clusters
+      .filter((c) => c.classId)
+      .map((c) => {
+        const theirs = words(c.example)
+        const hit = theirs.filter((w) => tokens.has(w))
+        return { c, overlap: theirs.length ? hit.length / theirs.length : 0, hit }
+      })
+      .filter((x) => x.overlap >= 0.4 && x.hit.length >= 2)
+      .sort((a, b) => b.overlap - a.overlap || b.c.incidents - a.c.incidents)
+
+    if (scored.length) {
+      const { c, overlap, hit } = scored[0]
+      candidates.push({
+        demandClass: c.classId!,
+        themeId: themeOf(c.classId!),
+        confidence: Math.min(0.88, 0.5 + 0.38 * overlap),
+        evidence: { on: 'phrasing', value: `${c.example} — matched on ${hit.join(', ')}`, incidents: c.incidents },
+      })
+    }
+
+    // 4. The theme, which places a ticket without identifying it. Below the
+    // bar for acting unattended on purpose: this wants a person's eye.
+    const themeHit = h.themes.find((x) => {
+      const n = words(x.name)
+      return n.some((w) => tokens.has(w) || sub.includes(w))
+    })
+    if (themeHit) {
+      candidates.push({
+        demandClass: themeHit.classIds[0] ?? null,
+        themeId: themeHit.id,
+        confidence: themeHit.classIds[0] ? 0.45 : 0.3,
+        evidence: { on: 'theme', value: themeHit.name, incidents: themeHit.incidents },
+      })
     }
   }
 
-  // 3. The theme, which places it without costing it.
-  const themeHit = h.themes.find((x) => {
-    const n = words(x.name)
-    return n.some((w) => tokens.has(w) || sub.includes(w))
-  })
-  if (themeHit) {
-    const classId = themeHit.classIds[0] ?? null
+  if (!candidates.length) {
+    const seen = h?.volumes.incidents ?? feed?.loaded.tickets ?? 0
     return {
-      demandClass: classId,
-      themeId: themeHit.id,
-      // A theme places a ticket but does not identify it. Below the shadow
-      // thresholds on purpose: this wants a person's eye.
-      confidence: classId ? 0.45 : 0.3,
-      evidence: [{ on: 'theme', value: themeHit.name, incidents: themeHit.incidents }],
-      ...(classId ? {} : { refusal: `Falls under ${themeHit.name}, which carries no costed class in the ledger.` }),
+      demandClass: null,
+      themeId: null,
+      confidence: 0,
+      evidence: [],
+      refusal: `Nothing in ${seen.toLocaleString('en-GB')} recorded incidents matches "${t.shortDescription}" under ${t.category} / ${t.subCategory}.`,
     }
   }
+
+  const best = candidates.sort((a, b) => b.confidence - a.confidence)[0]
+  // Everything that points at the same answer travels with it. Evidence for a
+  // different class is left off: it is not support for this reading, and
+  // listing it would read as though it were.
+  const corroborating = candidates.filter((c) => c !== best && c.demandClass === best.demandClass)
 
   return {
-    demandClass: null,
-    themeId: null,
-    confidence: 0,
-    evidence: [],
-    refusal: `Nothing in ${h.volumes.incidents.toLocaleString('en-GB')} recorded incidents matches "${t.shortDescription}" under ${t.category} / ${t.subCategory}.`,
+    demandClass: best.demandClass,
+    themeId: best.themeId ?? corroborating.find((c) => c.themeId)?.themeId ?? null,
+    confidence: best.confidence,
+    evidence: [best.evidence, ...corroborating.map((c) => c.evidence)],
+    ...(best.demandClass
+      ? {}
+      : { refusal: `Falls under ${best.evidence.value}, which carries no costed class in the ledger.` }),
   }
 }
 
@@ -204,7 +273,14 @@ export function resolveItems(cis: string[]): { resolved: string[]; unresolved: s
  * problems and the reason says which.
  */
 export function routeFor(
-  args: { classification: Classification; runbooks: { id: string; attrs: Record<string, string | number> }[]; tower: string },
+  args: {
+    classification: Classification
+    /** Only runbooks resolving a known error that carries this class. */
+    runbooks: { id: string; attrs: Record<string, string | number> }[]
+    tower: string
+    /** Everything on the component, used only to explain a refusal. */
+    runbooksOnComponent?: { id: string; name: string }[]
+  },
 ): Route {
   const { classification, runbooks } = args
 
@@ -219,7 +295,19 @@ export function routeFor(
     }
   }
   if (!runbooks.length) {
-    return { attempt: false, toRole: 'resolver', because: 'No runbook in the graph resolves a known error on what this ticket names.' }
+    // Two different situations, and conflating them is how an attempt on the
+    // wrong procedure gets justified. Nothing known about the component at
+    // all is a knowledge gap. Something known about it, but about a different
+    // failure, is the case where a confident attempt would have been made on
+    // the right component with the wrong runbook.
+    const nearby = args.runbooksOnComponent ?? []
+    return {
+      attempt: false,
+      toRole: 'resolver',
+      because: nearby.length
+        ? `No runbook resolves a known error carrying ${classification.demandClass} on what this ticket names. ${nearby.length === 1 ? `${nearby[0].name} is held against this component but resolves a different failure` : `${nearby.length} runbooks are held against this component, but they resolve different failures: ${nearby.map((r) => r.name).join('; ')}`}.`
+        : 'No runbook in the graph resolves a known error on what this ticket names.',
+    }
   }
 
   // Every runbook on the thing, not just the first one found. Taking only the

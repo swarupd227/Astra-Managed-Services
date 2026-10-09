@@ -1093,6 +1093,104 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
+  /* ------------------------------------------------------------------------
+     Taking a client's incident dump.
+
+     Two tools rather than one, because the thing between them is a person.
+     Profiling reads the dump and proposes how to read it, writing nothing;
+     configuring takes a mapping somebody has confirmed and loads under it.
+
+     That separation is what makes this a platform rather than one client's
+     loader. The column names, the priority vocabulary and the declaration of
+     which sub-categories carry a costed class are configuration held against
+     the engagement — a second client's export proposes its own mapping and
+     nothing in the code changes.
+     ------------------------------------------------------------------------ */
+  profile_incident_dump: async (input) => {
+    const content = str(input.content)
+    if (!content.trim()) throw new ToolError('There is nothing in the dump to read.')
+
+    const res = await fetch('/api/ticket-feed/profile', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content, filename: str(input.filename) || 'upload' }),
+    })
+    const out = await res.json()
+    if (!res.ok) throw new ToolError(out.detail ?? out.error ?? `The dump could not be profiled (${res.status}).`)
+    if (!out.ok) throw new ToolError(out.error)
+
+    const fields = Object.entries(out.columnMap as Record<string, string>).map(([field, column]) => {
+      const b = (out.because as Record<string, { confidence: number; on: string; why: string }>)[field]
+      return { field, fromColumn: column, confidence: Math.round(b.confidence * 100), matchedOn: b.on, because: b.why }
+    })
+    return {
+      payload: {
+        read: { file: out.filename, rows: out.rows, columns: out.columns.length, splitOn: out.delimiter },
+        proposed: fields,
+        // Named separately because they are the two things a person has to
+        // decide rather than check: a field nothing fits, and a priority value
+        // that maps to none of the platform's four levels.
+        unresolvedAndRequired: out.missing,
+        columnsNotUsed: out.unused,
+        priorityVocabulary: out.priorities,
+        priorityValuesNeedingAPerson: (out.priorities as { value: string; priority: string | null }[])
+          .filter((p) => !p.priority).map((p) => p.value),
+        wrote: 'nothing — confirm a mapping to load it',
+      },
+      artifacts: [],
+    }
+  },
+
+  configure_incident_feed: async (input) => {
+    const content = str(input.content)
+    const columnMap = (input.column_map ?? {}) as Record<string, string>
+    if (!content.trim()) throw new ToolError('There is nothing in the dump to load.')
+    if (!Object.keys(columnMap).length) {
+      throw new ToolError('A load needs a confirmed column mapping. Profile the dump first, then confirm which column feeds which field.')
+    }
+
+    const st = useAstra.getState()
+    const res = await fetch('/api/ticket-feed/load', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        engagement: ENGAGEMENT.id,
+        system: str(input.system) || 'Unnamed system',
+        filename: str(input.filename) || 'upload',
+        content,
+        columnMap,
+        priorities: input.priorities ?? [],
+        subCategoryClasses: input.sub_category_classes ?? [],
+        // Who confirmed it, so the register can say whose decision the
+        // mapping and the declarations were.
+        confirmedBy: st.roleId,
+      }),
+    })
+    const out = await res.json()
+    if (!res.ok) throw new ToolError(out.detail ?? out.error ?? `The dump could not be loaded (${res.status}).`)
+    if (!out.ok) {
+      throw new ToolError(`The dump was refused and nothing was written — ${(out.faults as string[]).join('; ')}.`)
+    }
+
+    return {
+      payload: {
+        loaded: { file: out.source, tickets: out.tickets, from: out.period.from, to: out.period.to },
+        subCategories: out.subCategories,
+        declaredAgainstACostedClass: out.declared,
+        confirmedBy: ROLE_BY_ID[st.roleId]?.title ?? st.roleId,
+        setAside: out.unreadable
+          ? `${out.unreadable} row(s) had no reference or no readable timestamp`
+          : null,
+        countedTogetherDespiteCase: out.foldedRows
+          ? `${out.foldedRows} row(s) across ${out.foldedKeys} sub-categories differed only in case`
+          : null,
+        priorityValuesNotTranslated: out.untranslated,
+        readBack: 'every count matched what was mapped from the dump',
+      },
+      artifacts: [],
+    }
+  },
+
   get_inbound: async (input) => {
     const st = useAstra.getState()
     const feed = feedFor()
@@ -1122,7 +1220,12 @@ export const EXECUTORS: Record<string, Executor> = {
           const { resolved, unresolved } = resolveItems(t.configurationItems)
           const tower = towerForItems(resolved)
           const k = knowledgeFor({ affected: resolved, demandClass: c.demandClass ?? 'unclassified' })
-          const route = routeFor({ classification: c, runbooks: k.runbooks, tower: tower ?? '' })
+          const route = routeFor({
+            classification: c,
+            runbooks: k.runbooksForClass,
+            tower: tower ?? '',
+            runbooksOnComponent: k.runbooks.map((r) => ({ id: r.id, name: r.name })),
+          })
           return {
             reference: t.externalRef, system: t.system, opened: t.openedAt, priority: t.priority,
             shortDescription: t.shortDescription, filedUnder: `${t.category} / ${t.subCategory}`,
@@ -1132,7 +1235,15 @@ export const EXECUTORS: Record<string, Executor> = {
             unclassifiedBecause: c.refusal ?? null,
             configurationItems: { resolved, notInTheEstate: unresolved },
             wouldBePlacedIn: tower,
-            knowledge: { assertions: k.assertions.length, humanVerified: k.humanVerified, runbooks: k.runbooks.map((r) => r.name), knownErrors: k.knownErrors.map((e) => e.name), priorArrivals: k.priors.reduce((n, p) => n + p.incidents, 0) },
+            knowledge: {
+              assertions: k.assertions.length, humanVerified: k.humanVerified,
+              // Separated because a runbook on the component is not a runbook
+              // for this failure, and only the second kind may be attempted.
+              runbooksForThisClass: k.runbooksForClass.map((r) => r.name),
+              otherRunbooksOnTheComponent: k.runbooks.filter((r) => !k.runbooksForClass.includes(r)).map((r) => r.name),
+              knownErrors: k.knownErrors.map((e) => e.name),
+              priorArrivals: k.priors.reduce((n, p) => n + p.incidents, 0),
+            },
             blastRadius: { dependents: k.blast.dependents, services: k.blast.services, mostCriticalTier: k.blast.maxTier },
             wouldBe: route.attempt ? `attempted by ${AGENT_BY_ID[route.agentId]?.name ?? route.agentId} under ${route.runbookId}` : `routed to ${ROLE_BY_ID[route.toRole]?.title ?? route.toRole}`,
             because: route.because,
@@ -1194,7 +1305,9 @@ export const EXECUTORS: Record<string, Executor> = {
         unclassifiedBecause: c.refusal ?? null,
         knowledgeAssembled: {
           assertions: k.assertions.length, humanVerified: k.humanVerified, floor: k.floor,
-          runbooks: k.runbooks.map((r) => r.name), knownErrors: k.knownErrors.map((e) => e.name),
+          runbooksForThisClass: k.runbooksForClass.map((r) => r.name),
+          otherRunbooksOnTheComponent: k.runbooks.filter((r) => !k.runbooksForClass.includes(r)).map((r) => r.name),
+          knownErrors: k.knownErrors.map((e) => e.name),
           priorArrivals: k.priors.reduce((n, p) => n + p.incidents, 0),
           notInTheEstate: k.unmapped,
         },

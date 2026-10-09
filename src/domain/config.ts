@@ -33,6 +33,23 @@ export function setTicketHistories(histories: unknown[]) {
 
 export const loadedTicketHistories = (): unknown[] => ticketHistories
 
+/**
+ * The ticket feeds: how each client's dump is read, and the sub-category
+ * volumes it was found to contain.
+ *
+ * The volumes come down with the configuration because they are a few hundred
+ * rows and because they are the strongest signal the classifier has. The
+ * arrivals themselves do not: those are paged, and asked for by whoever needs
+ * them.
+ */
+let ticketFeeds: unknown[] = []
+
+export function setTicketFeeds(feeds: unknown[]) {
+  ticketFeeds = feeds ?? []
+}
+
+export const loadedTicketFeeds = (): unknown[] => ticketFeeds
+
 /** What people had recorded, as the database held it when the application started. */
 export function setRecords(registers: Record<string, unknown[]>) {
   records = registers ?? {}

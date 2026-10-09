@@ -46,6 +46,11 @@ export interface WorkKnowledge {
   contradicted: Assertion[]
   knownErrors: GraphNode[]
   runbooks: GraphNode[]
+  /**
+   * Those of them that resolve a known error carrying this work's class. A
+   * runbook on the component is context; only one of these may be attempted.
+   */
+  runbooksForClass: GraphNode[]
   /** The class it was classified into, where the ledger has costed one. */
   demandClass: DemandClassRec | null
   /** Prior arrivals of the same phrasing, from the client's own extract. */
@@ -64,6 +69,28 @@ const causedBy = (nodeIds: Set<string>) =>
 /** Edges that say "this runbook resolves that known error". */
 const resolves = (errorIds: Set<string>) =>
   GRAPH_EDGES.filter((e) => e.rel === 'RESOLVES' && errorIds.has(e.to)).map((e) => e.from)
+
+/**
+ * The known error a runbook resolves, and the class that error carries.
+ *
+ * The distinction this draws is the difference between a runbook that is
+ * nearby and a runbook that applies. A component usually has more than one
+ * known error against it, and a runbook resolving one of them resolves that
+ * one — not whatever else happens to land on the same component.
+ *
+ * It took real arrivals to make this visible. The Zero-Trust client and the
+ * endpoint-security stack both sit on the secure edge, so every one of the
+ * client's 1,879 Zero-Trust tickets would have been offered the runbook that
+ * de-duplicates antivirus agents: a confident attempt, on the right
+ * component, with the wrong procedure. Everything on the component is still
+ * assembled as context, because a resolver wants to know what else is known
+ * there. Only the class-matched ones may be acted on.
+ */
+const resolvesClass = (runbookId: string, demandClass: string) =>
+  GRAPH_EDGES.some((e) => {
+    if (e.rel !== 'RESOLVES' || e.from !== runbookId) return false
+    return BY_ID.get(e.to)?.attrs.class === demandClass
+  })
 
 /**
  * Takes only the two fields it reads, so a caller with a ticket in hand and
@@ -108,6 +135,12 @@ export function knowledgeFor(wo: Classifiable, engagementId = ENGAGEMENT.id): Wo
     contradicted: assertions.filter((a) => a.conflictsWith),
     knownErrors: [...errorIds].map((id) => BY_ID.get(id)).filter((n): n is GraphNode => Boolean(n)),
     runbooks: [...runbookIds].map((id) => BY_ID.get(id)).filter((n): n is GraphNode => Boolean(n)),
+    // The subset that resolves a known error carrying this work's class, which
+    // is the only subset the routing may attempt.
+    runbooksForClass: [...runbookIds]
+      .filter((id) => resolvesClass(id, wo.demandClass))
+      .map((id) => BY_ID.get(id))
+      .filter((n): n is GraphNode => Boolean(n)),
     demandClass: dc,
     priors,
     priorsPerYear: dc && dc.volumeBasis !== 'sampled' ? dc.volumeYr : null,

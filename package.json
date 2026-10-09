@@ -15,6 +15,8 @@
     "start": "node server/agent.mjs",
     "db:migrate": "node server/migrate.mjs",
     "db:ingest": "node server/ingest.mjs",
+    "db:ingest:tickets": "node server/ingest-tickets.mjs",
+    "db:profile:dump": "node server/profile-dump.mjs",
     "db:prune": "node server/prune.mjs"
   },
   "dependencies": {

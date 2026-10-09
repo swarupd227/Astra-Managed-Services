@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'
-import { setConfig, setRecordEpoch, setRecords, setTicketHistories } from './domain/config'
+import { setConfig, setRecordEpoch, setRecords, setTicketFeeds, setTicketHistories } from './domain/config'
 import type { Engagement } from './domain/engagement'
 
 /* ==========================================================================
@@ -41,9 +41,14 @@ async function start() {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.detail ?? body.error ?? `/api/config answered ${res.status}`)
   }
-  const { engagements, ticketHistories } = (await res.json()) as { engagements: Engagement[]; ticketHistories: unknown[] }
+  const { engagements, ticketHistories, ticketFeeds } = (await res.json()) as {
+    engagements: Engagement[]
+    ticketHistories: unknown[]
+    ticketFeeds: unknown[]
+  }
   setConfig(engagements)
   setTicketHistories(ticketHistories ?? [])
+  setTicketFeeds(ticketFeeds ?? [])
 
   // What people recorded before, for the engagement the surfaces read. A
   // failure here is as loud as a missing configuration: a register that

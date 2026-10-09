@@ -2017,7 +2017,12 @@ export const useAstra = create<State>((set, get) => ({
     }
 
     const knowledge = knowledgeFor(base)
-    const route = routeFor({ classification, runbooks: knowledge.runbooks, tower: tower ?? '' })
+    const route = routeFor({
+      classification,
+      runbooks: knowledge.runbooksForClass,
+      tower: tower ?? '',
+      runbooksOnComponent: knowledge.runbooks.map((r) => ({ id: r.id, name: r.name })),
+    })
 
     const arrival = appendRecord(s.evidence, {
       id: `ev_${digest('rx' + ticket.externalRef).slice(0, 10)}`,

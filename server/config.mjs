@@ -120,3 +120,97 @@ export async function readTicketHistories() {
     cannot: by(limits, h.engagement_id).map((c) => ({ what: c.what, because: c.because })),
   }))
 }
+
+/* ==========================================================================
+   The ticket feed: how a client's dump is read, and what it was found to
+   contain.
+
+   The sub-category volumes come down with the configuration because they are
+   small — a few hundred rows — and because they are the strongest signal the
+   classifier has. The tickets themselves do not: twenty-eight thousand
+   arrivals is not something to hand a browser at start-up, so they are paged
+   and asked for by whoever needs them.
+   ========================================================================== */
+
+export async function readTicketFeeds() {
+  const [feeds, priorities, subs] = await Promise.all([
+    query('select * from ticket_feed'),
+    query('select * from ticket_feed_priority order by engagement_id, value'),
+    query('select * from ticket_subcategory order by engagement_id, incidents desc'),
+  ])
+  const by = (rows, id) => rows.filter((r) => r.engagement_id === id)
+
+  return feeds.map((f) => ({
+    engagementId: f.engagement_id,
+    system: f.system,
+    source: f.source,
+    columnMap: f.column_map,
+    because: f.because,
+    confirmedBy: f.confirmed_by,
+    confirmedAt: f.confirmed_at instanceof Date ? f.confirmed_at.toISOString() : f.confirmed_at,
+    loaded: { tickets: f.rows_ingested, unreadable: f.unreadable, foldedRows: f.folded_rows },
+    priorities: Object.fromEntries(by(priorities, f.engagement_id).map((p) => [p.value, p.priority])),
+    subCategories: by(subs, f.engagement_id).map((s) => ({
+      key: s.key,
+      category: s.category,
+      subCategory: s.sub_category,
+      incidents: s.incidents,
+      // Counted and declared, kept apart: the volume is measured from the
+      // dump, the class and component are somebody's decision.
+      ...(s.class_id ? { classId: s.class_id, nodeIds: s.node_ids, declaredBy: s.declared_by } : {}),
+    })),
+  }))
+}
+
+/**
+ * A page of the client's own tickets.
+ *
+ * Filters are the ones a person actually asks for out loud — this
+ * sub-category, this state, this wording — and the total comes back with the
+ * page so a screen can say how many there are without holding them.
+ */
+export async function readTickets(args = {}) {
+  const { engagementId, limit = 50, offset = 0, subCategory, state, q, priority, ref } = args
+  const where = ['engagement_id = $1']
+  const params = [engagementId]
+  const add = (clause, value) => {
+    params.push(value)
+    where.push(clause.replace('$n', `$${params.length}`))
+  }
+  // Asked for by the client's own reference, which is how a person refers to
+  // a ticket out loud. Case-insensitive because they will type it either way.
+  if (ref) add('lower(ref) = lower($n)', ref)
+  if (subCategory) add('lower(sub_category) = lower($n)', subCategory)
+  if (state) add('lower(state) = lower($n)', state)
+  if (priority) add('priority = $n', priority)
+  if (q) add('short_description ilike $n', `%${q}%`)
+
+  const clause = where.join(' and ')
+  const [[{ n: total }], rows] = await Promise.all([
+    query(`select count(*)::int as n from ticket where ${clause}`, params),
+    query(
+      `select ref, short_description, category, sub_category, state, priority_raw, priority,
+              assignment_group, reported_by, opened_at
+         from ticket where ${clause}
+         order by opened_at desc, ref desc
+         limit ${Math.min(Number(limit) || 50, 500)} offset ${Math.max(Number(offset) || 0, 0)}`,
+      params,
+    ),
+  ])
+
+  return {
+    total,
+    tickets: rows.map((t) => ({
+      externalRef: t.ref,
+      shortDescription: t.short_description,
+      category: t.category,
+      subCategory: t.sub_category,
+      state: t.state,
+      priorityRaw: t.priority_raw,
+      priority: t.priority,
+      assignmentGroup: t.assignment_group,
+      reportedBy: t.reported_by || undefined,
+      openedAt: t.opened_at instanceof Date ? t.opened_at.toISOString() : t.opened_at,
+    })),
+  }
+}

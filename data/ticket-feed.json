@@ -1,0 +1,43 @@
+{
+  "engagementId": "eng_kearney",
+  "system": "ServiceNow",
+  "source": "incident-dump.csv",
+  "confirmedBy": "transition",
+
+  "_comment_columnMap": "What a person confirmed from the profiler's proposal. Held as configuration rather than code because the next client's export will not spell its columns this way. The profiler proposed all eight of these from the dump itself; nothing here was typed from knowledge of the client.",
+  "columnMap": {
+    "ref": "INC",
+    "openedAt": "sys_created_on",
+    "shortDescription": "Short Description",
+    "category": "Category",
+    "subCategory": "Sub Category",
+    "state": "state",
+    "priority": "priority",
+    "assignmentGroup": "Assignment Group"
+  },
+
+  "_comment_priorities": "This client's priority scheme has five levels and the platform has four, so the bottom two collapse. 94% of the dump sits at '5 - Planning', which is a fact about how they file rather than about how urgent their estate is — a reader of any figure cut by priority needs to know that.",
+  "priorities": [
+    { "value": "1 - Critical", "priority": "P1" },
+    { "value": "2 - High", "priority": "P2" },
+    { "value": "3 - Moderate", "priority": "P3" },
+    { "value": "4 - Low", "priority": "P4" },
+    { "value": "5 - Planning", "priority": "P4" }
+  ],
+
+  "_comment_subCategoryClasses": "The declaration a person owns: which of the client's sub-categories corresponds to a class the ledger prices, and which component in the estate that demand lands on. Not guesswork — the estate's known errors already record their own occurrence counts, and 2,484, 926 and 658 are exactly the volumes of three of these sub-categories in the dump. The link was already in the data and simply written nowhere the classifier could read it; the first three recover it and the rest follow the same rule. A sub-category with no defensible component is left out rather than attached to the nearest one, because a wrong component resolves a ticket onto the wrong tower and so under the wrong approval policy.",
+  "subCategoryClasses": [
+    { "key": "security|account lock-out", "classId": "dc_pwd_reset", "nodeIds": ["euc_entra"] },
+    { "key": "change/add/move|domain password reset", "classId": "dc_pwd_reset", "nodeIds": ["euc_entra"] },
+    { "key": "security|duo mfa", "classId": "dc_pwd_reset", "nodeIds": ["euc_entra"] },
+    { "key": "software|m365 - onedrive", "classId": "dc_onedrive_sync", "nodeIds": ["app_m365"] },
+    { "key": "applications|iem", "classId": "dc_iem_ghost", "nodeIds": ["app_iem"] },
+    { "key": "software|cisco secure client – zero trust (sase)", "classId": "dc_zta_sync_break", "nodeIds": ["net_sase_edge"] },
+    { "key": "software|cisco secure client", "classId": "dc_zta_sync_break", "nodeIds": ["net_sase_edge"] },
+    { "key": "security|cisco amp for endpoints", "classId": "dc_triple_av", "nodeIds": ["net_sase_edge"] },
+    { "key": "security|cisco amp - definition update", "classId": "dc_triple_av", "nodeIds": ["net_sase_edge"] },
+    { "key": "infrastructure|servers - oracle", "classId": "dc_oracle_blindspot", "nodeIds": ["da_oracle_dm"] },
+    { "key": "applications|azure apps (solutions factory)", "classId": "dc_pipeline_fail", "nodeIds": ["pipe_datamart"] },
+    { "key": "technical support|software maintenance", "classId": "dc_sw_provision", "nodeIds": ["app_catalog"] }
+  ]
+}

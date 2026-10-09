@@ -20,7 +20,9 @@ import { classifyInjection } from './injection.mjs'
 import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } from './converse.mjs'
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
 import { configured as dbConfigured, ping } from './db.mjs'
-import { readEngagements, readTicketHistories } from './config.mjs'
+import { readEngagements, readTicketFeeds, readTicketHistories, readTickets } from './config.mjs'
+import { profile, proposePriorities, readDelimited, sniffDelimiter } from './ticket-feed.mjs'
+import { checkDump, writeDump } from './ticket-load.mjs'
 import { appendRecords, clearRecords, readEpoch, readRecords } from './records.mjs'
 
 /**
@@ -752,12 +754,31 @@ http
     // fall back to: a failure here is reported and the application does not
     // start, rather than quietly running on terms nobody can change.
     if (req.method === 'GET' && url === '/api/config') {
-      return Promise.all([readEngagements(), readTicketHistories()])
-        .then(([engagements, ticketHistories]) => json(res, 200, { engagements, ticketHistories }))
+      return Promise.all([readEngagements(), readTicketHistories(), readTicketFeeds()])
+        .then(([engagements, ticketHistories, ticketFeeds]) => json(res, 200, { engagements, ticketHistories, ticketFeeds }))
         .catch((err) => json(res, 503, {
           error: 'The configuration could not be read from the database.',
           detail: err instanceof Error ? err.message : String(err),
         }))
+    }
+
+    // A page of the client's own tickets. Paged rather than part of the
+    // bootstrap: twenty-eight thousand arrivals is not something to hand a
+    // browser at start-up, and nothing on screen needs all of them at once.
+    if (req.method === 'GET' && url.startsWith('/api/tickets')) {
+      const q = new URL(url, 'http://local').searchParams
+      return readTickets({
+        engagementId: q.get('engagement') ?? '',
+        limit: q.get('limit') ?? 50,
+        offset: q.get('offset') ?? 0,
+        ref: q.get('ref') ?? undefined,
+        subCategory: q.get('sub') ?? undefined,
+        state: q.get('state') ?? undefined,
+        priority: q.get('priority') ?? undefined,
+        q: q.get('q') ?? undefined,
+      })
+        .then((page) => json(res, 200, page))
+        .catch((err) => json(res, 503, { error: 'The tickets could not be read.', detail: String(err?.message ?? err) }))
     }
 
     // What people have recorded, for the engagement the browser is reading.
@@ -787,9 +808,24 @@ http
 
     if (req.method !== 'POST') return json(res, 404, { error: 'not found' })
 
+    // An incident dump is megabytes, so the cap is generous — but it is a cap,
+    // because without one a single upload decides how much memory the gateway
+    // has.
+    const BODY_LIMIT = 96 * 1024 * 1024
     let raw = ''
-    req.on('data', (c) => { raw += c })
+    let aborted = false
+    req.on('data', (c) => {
+      if (aborted) return
+      raw += c
+      if (raw.length > BODY_LIMIT) {
+        aborted = true
+        raw = ''
+        json(res, 413, { error: `That upload is larger than the ${Math.round(BODY_LIMIT / 1024 / 1024)}MB this accepts in one go.` })
+        req.destroy()
+      }
+    })
     req.on('end', async () => {
+      if (aborted) return
       let body
       try {
         body = raw ? JSON.parse(raw) : {}
@@ -873,6 +909,75 @@ http
               // write them back over it.
               ? json(res, 409, { error: 'These records are from before a reset.', detail: err.message, epoch: err.current })
               : json(res, 503, { error: 'The records could not be written.', detail: String(err?.message ?? err) })))
+        }
+
+        /* ------------------------------------------------------------------
+           Uploading an incident dump.
+
+           Two calls, deliberately separate, because the thing between them is
+           a person. The first reads the dump and proposes how to read it,
+           writing nothing. The second takes a mapping somebody has confirmed
+           and loads under it.
+
+           Separating them is what makes this a platform rather than this
+           client's loader: a different client's export proposes a different
+           mapping, and the confirmation is stored against their engagement.
+           Nothing about anybody's column names is in the code.
+           ------------------------------------------------------------------ */
+        if (url === '/api/ticket-feed/profile') {
+          const content = String(body.content ?? '')
+          if (!content.trim()) return json(res, 400, { error: 'The upload is empty.' })
+          const delimiter = sniffDelimiter(content)
+          const rows = readDelimited(content, delimiter)
+          if (rows.length < 2) {
+            return json(res, 200, { ok: false, error: 'That file has a header and no rows, so there is nothing to read.' })
+          }
+          const p = profile(rows)
+          const header = (rows[0] ?? []).map((h) => h.trim())
+          const i = p.columnMap.priority ? header.indexOf(p.columnMap.priority) : -1
+          return json(res, 200, {
+            ok: true,
+            filename: String(body.filename ?? 'upload'),
+            delimiter: delimiter === '\t' ? 'tab' : delimiter,
+            rows: p.rows,
+            columns: p.columns,
+            columnMap: p.columnMap,
+            because: p.because,
+            missing: p.missing,
+            unused: p.unused,
+            priorities: i >= 0 ? proposePriorities(rows.slice(1).map((r) => String(r[i] ?? '').trim())) : [],
+          })
+        }
+
+        if (url === '/api/ticket-feed/load') {
+          const content = String(body.content ?? '')
+          if (!content.trim()) return json(res, 400, { error: 'The upload is empty.' })
+          const rows = readDelimited(content, sniffDelimiter(content))
+          const config = {
+            engagementId: String(body.engagement ?? ''),
+            system: String(body.system ?? 'Unnamed system'),
+            source: String(body.filename ?? 'upload'),
+            columnMap: body.columnMap ?? {},
+            because: body.because ?? {},
+            confirmedBy: String(body.confirmedBy ?? ''),
+            priorities: Array.isArray(body.priorities) ? body.priorities : [],
+            subCategoryClasses: Array.isArray(body.subCategoryClasses) ? body.subCategoryClasses : [],
+          }
+          if (!config.engagementId || !config.confirmedBy) {
+            return json(res, 400, { error: 'A load has to say which engagement it is for and who confirmed it.' })
+          }
+          const prepared = checkDump({ rows, ...config })
+          if (prepared.faults.length) {
+            // Refused, with everything wrong at once rather than the first
+            // thing wrong, because a person is about to fix all of it.
+            return json(res, 200, { ok: false, faults: prepared.faults })
+          }
+          try {
+            const report = await writeDump(config, prepared)
+            return json(res, 200, { ok: true, ...report, untranslated: prepared.untranslated })
+          } catch (err) {
+            return json(res, 503, { error: 'The dump could not be loaded.', detail: String(err?.message ?? err) })
+          }
         }
 
         if (url === '/api/agent/classify') {

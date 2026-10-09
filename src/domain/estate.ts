@@ -132,9 +132,14 @@ export const GRAPH_NODES: GraphNode[] = [
   { id: 'net_sase_edge', type: 'InfraResource', name: 'cisco-sase-global', tower: 'twr_network', tier: 0, attrs: { vendor: 'Cisco', mode: 'Zero Trust (SASE)' } },
   { id: 'if_zta', type: 'Interface', name: 'Zero Trust Network Access (ZTA)', tower: 'twr_network', tier: 1, attrs: { auth: 'SAML/OIDC', policy: 'Cisco ZTA' } },
   { id: 'rb_mulesoft_failover', type: 'Runbook', name: 'Mulesoft integration failover', tower: 'twr_payments', tier: 1, attrs: { uses: 'AC-31, AC-12', success: '91.2%', verified: 'human' } },
-  { id: 'ke_mulesoft_soleowner', type: 'KnownError', name: 'Sole maintainer unavailable — bridge unmonitored', tower: 'twr_payments', tier: 1, attrs: { first_seen: '2026-06-02', occurrences: 3 } },
+  { id: 'ke_mulesoft_soleowner', type: 'KnownError', name: 'Sole maintainer unavailable — bridge unmonitored', tower: 'twr_payments', tier: 1, attrs: { first_seen: '2026-06-02', occurrences: 3, class: 'dc_mulesoft_soleowner' } },
   { id: 'rb_endpoint_dedupe', type: 'Runbook', name: 'Endpoint security stack de-duplication', tower: 'twr_secops', tier: 0, attrs: { uses: 'AC-52, AC-31', success: '87.0%', verified: 'human' } },
-  { id: 'ke_triple_av', type: 'KnownError', name: 'Three concurrent endpoint-security agents contend for CPU', tower: 'twr_secops', tier: 0, attrs: { first_seen: '2025-09-11', occurrences: 41 } },
+  // The class matters as much as the name: a known error that does not say
+  // which class it carries cannot be told apart from the others on the same
+  // component, and the routing would hand its runbook to any ticket that
+  // landed there. On this component that meant every Zero-Trust client ticket
+  // being offered an antivirus de-duplication runbook.
+  { id: 'ke_triple_av', type: 'KnownError', name: 'Three concurrent endpoint-security agents contend for CPU', tower: 'twr_secops', tier: 0, attrs: { first_seen: '2025-09-11', occurrences: 41, class: 'dc_triple_av' } },
   { id: 'da_cmdb_gap', type: 'DataAsset', name: 'Unreconciled CMDB — 55 apps outside Attachment C.4', tower: 'twr_claims', tier: 1, attrs: { pii: 'none', freshness: 'stale', contract: 'none — reconciliation pending' } },
   { id: 'agt_client_iem', type: 'AgentEntity', name: 'Kearney IEM Time-Entry Bot', tower: 'twr_agentops', tier: 2, attrs: { owner: 'Finance Operations', model: 'client-hosted', aer: 'aer_cl_002' } },
 

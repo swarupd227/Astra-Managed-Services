@@ -244,10 +244,17 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
-    id: 'ds_intake', name: 'Tickets arriving from the client’s ticketing system', origin: 'connector',
-    source: 'ServiceNow, via the service-management feed: the payload — reference, category and sub-category, priority, and the configuration items named on the ticket. Four samples stand behind the connector until it is wired',
+    id: 'ds_intake', name: 'Tickets arriving from the client’s ticketing system', origin: 'client_extract',
+    source: 'The client’s own incident dump, loaded row by row: reference, short description, category and sub-category, state, their priority word, assignment group and when it was raised. No longer sampled — the arrivals the intake is shown are the client’s own, read a page at a time',
     routes: ['/operate/room', '/operate/board', '/operate/work'],
-    caution: 'The payloads are sampled; nothing derived from them is. On admission the configuration items are resolved against the estate graph, the class is matched against the client’s own ingested history, the blast radius is walked and the routing follows from the runbooks and grants the platform holds — and a ticket matching nothing is held for a person rather than classified at a low confidence',
+    caution: 'The dump carries no configuration items at all, so what a ticket names is read from the declaration against its sub-category rather than from the ticket. Everything else on admission is derived: the class is matched against the client’s own history and sub-category volumes, the blast radius is walked from the graph, and the routing follows from the runbooks and grants the platform holds — a ticket matching nothing is held for a person rather than classified at a low confidence. Their priority scheme has five levels against the platform’s four and 94% of the dump sits at their lowest, so any figure cut by priority says more about how they file than about urgency',
+    maturity: 'live',
+  },
+  {
+    id: 'ds_ticket_feed', name: 'How the client’s incident dump is read', origin: 'declared',
+    source: 'What a person confirmed when the dump was loaded: which column feeds which field, what each of the client’s priority words means on the platform’s four levels, and which of their sub-categories corresponds to a costed class and lands on which estate component. Proposed by profiling the dump’s values, then confirmed — and held against the engagement rather than in the platform’s code',
+    routes: ['/operate/room', '/operate/board', '/operate/work'],
+    caution: 'The sub-category volumes beside these declarations are counted from the dump; the class and the component are somebody’s decision and are the part nothing can derive. That decision sets which tower an arriving ticket lands on and therefore which approval policy governs it, so a wrong declaration is a wrong gate rather than a wrong label. A sub-category nobody has declared is classified no further than its theme',
     maturity: 'live',
   },
   {

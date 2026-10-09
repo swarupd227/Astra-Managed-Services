@@ -243,3 +243,85 @@ create table if not exists ticket_limitation (
 );
 
 create index if not exists ticket_cluster_size on ticket_cluster (engagement_id, incidents desc);
+
+-- ===========================================================================
+-- The client's incidents themselves, and the configuration that reads them.
+--
+-- The aggregates above describe demand. They cannot be used to take a ticket:
+-- the intake needs an arrival, with a reference, a sub-category and a
+-- timestamp, and until these tables existed there was no arrival anywhere in
+-- the platform to show it. Invented samples stood in for them.
+--
+-- `ticket_feed` is why this is a platform rather than one client's loader.
+-- Which column in a dump feeds which field is held here, per engagement, as
+-- the mapping a person confirmed — not in the code, because the next client's
+-- export will not spell its columns the way this one does. The same goes for
+-- `ticket_feed_priority`: "5 - Planning" means P4 in this client's scheme and
+-- nothing at all in another's.
+--
+-- `ticket_subcategory` carries two different kinds of thing on purpose, and
+-- the difference matters. `incidents` is counted from the dump. `class_id` and
+-- `node_ids` are declared by a person: which costed class this sub-category's
+-- demand belongs to, and which component in the estate it lands on. A
+-- re-ingest recounts the first and must not touch the second, because the
+-- declaration is the part nobody can derive and the part that decides which
+-- tower, and therefore which approval policy, a ticket arrives under.
+-- ===========================================================================
+
+create table if not exists ticket_feed (
+  engagement_id text primary key references engagement(id) on delete cascade,
+  system        text not null,
+  source        text,
+  column_map    jsonb not null,
+  -- What the profiler said about each proposed column, kept so a reviewer can
+  -- see whether a field was matched on its name or only on its values.
+  because       jsonb not null default '{}',
+  confirmed_by  text not null,
+  confirmed_at  timestamptz not null default now(),
+  rows_ingested integer not null default 0,
+  unreadable    integer not null default 0,
+  folded_rows   integer not null default 0
+);
+
+create table if not exists ticket_feed_priority (
+  engagement_id text not null references engagement(id) on delete cascade,
+  value         text not null,
+  priority      text not null,
+  primary key (engagement_id, value)
+);
+
+create table if not exists ticket (
+  engagement_id     text not null references engagement(id) on delete cascade,
+  ref               text not null,
+  short_description text not null default '',
+  category          text not null default '',
+  sub_category      text not null default '',
+  state             text not null default '',
+  -- The client's own word for the priority, and what it was declared to mean.
+  -- Keeping both means a disputed translation can be settled from the row.
+  priority_raw      text not null default '',
+  priority          text,
+  assignment_group  text not null default '',
+  reported_by       text not null default '',
+  opened_at         timestamptz not null,
+  primary key (engagement_id, ref)
+);
+
+create index if not exists ticket_arrival on ticket (engagement_id, opened_at desc);
+create index if not exists ticket_filed_under on ticket (engagement_id, lower(category), lower(sub_category));
+
+create table if not exists ticket_subcategory (
+  engagement_id text not null references engagement(id) on delete cascade,
+  -- Case-folded, because the dumps file the same category both ways and a
+  -- capital letter must not split one sub-category's volume in two.
+  key           text not null,
+  category      text not null,
+  sub_category  text not null,
+  incidents     integer not null,
+  class_id      text,
+  node_ids      text[] not null default '{}',
+  declared_by   text,
+  primary key (engagement_id, key)
+);
+
+create index if not exists ticket_subcategory_size on ticket_subcategory (engagement_id, incidents desc);
