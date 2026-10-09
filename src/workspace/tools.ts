@@ -589,6 +589,55 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
+  get_blast_radius: (input) => {
+    const item = findData(str(input.item))
+    const upstream = str(input.direction) === 'upstream'
+    const related = upstream ? ancestors(item.id) : descendants(item.id)
+    const x = impact(item.id)
+
+    // Nothing mapped is an unknown, not a clean bill of health. Saying "no
+    // impact" about an item whose lineage nobody has drawn is the single
+    // most dangerous answer this tool could give.
+    if (!related.length) {
+      return {
+        payload: {
+          item: item.name,
+          direction: upstream ? 'upstream' : 'downstream',
+          refused: `Nothing is mapped ${upstream ? 'into' : 'out of'} ${item.name}, so what would break cannot be read. Its lineage is ${item.lineage}.`,
+          lineage: item.lineage,
+          owner: item.steward ?? item.owner ?? null,
+        },
+        artifacts: [card('lineage', `${item.name} · what breaks`, { id: item.id }, '/operate/data')],
+      }
+    }
+
+    const who = new Map<string, number>()
+    for (const c of x.consumers) {
+      const owner = c.steward ?? c.owner
+      if (owner) who.set(owner, (who.get(owner) ?? 0) + 1)
+    }
+
+    return {
+      payload: {
+        item: item.name,
+        itsOwner: item.steward ?? item.owner ?? null,
+        direction: upstream ? 'upstream' : 'downstream',
+        [upstream ? 'whatFeedsIt' : 'whatBreaks']: related.map((d) => ({
+          name: d.name, kind: d.kind, owner: d.steward ?? d.owner ?? null,
+        })),
+        ...(upstream ? {} : {
+          reportsAffected: x.reports.length,
+          externalRecipients: x.recipients.map((r) => r.party ?? r.name),
+          largestReadership: x.largestAudience,
+          // Who to tell, by the role the register holds rather than a person
+          // who may have left.
+          whoToTell: [...who].sort((a, b) => b[1] - a[1]).map(([role, n]) => `${role} — ${n} affected`),
+        }),
+      },
+      artifacts: [card('lineage', `${item.name} · what breaks`, { id: item.id }, '/operate/data')],
+    }
+  },
+
   raise_ticket: (input) => {
     const summary = str(input.short_description)
     const checked = str(input.what_was_checked)

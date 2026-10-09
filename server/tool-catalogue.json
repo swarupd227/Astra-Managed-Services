@@ -212,6 +212,19 @@
       }
     },
     {
+      "name": "get_blast_radius", "agent": "agt_archivist", "surfaces": ["run", "governance"],
+      "description": "What breaks if one thing in the data estate fails, walked from the lineage the platform already holds rather than reconstructed by hand. Returns everything downstream of it — datasets, semantic models, reports, applications and external recipients — with what each one is, who answers for it by role, and how many people read the far end, ranked by readership. Also answers the two questions either side of it: what feeds a given report, and who owns a given item. An item with nothing mapped either side of it says so rather than reporting that nothing would break, because an unmapped item is an unknown, not a safe one. Draws the slice as a picture with the failing item marked and the path a failure takes through it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "item": { "type": "string", "description": "The item by id or name, e.g. src_hcm_feed or PeopleSoft HCM feed" },
+          "direction": { "type": "string", "enum": ["downstream", "upstream"], "description": "downstream answers what breaks if it fails; upstream answers what feeds it. Defaults to downstream." }
+        },
+        "required": ["item"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "raise_ticket", "agent": "agt_sentinel", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
       "description": "Raise a ticket into the client's ticketing system from this conversation, for something the platform found rather than something the client reported. Distinct from admitting one: there is no client reference yet, so the platform carries a provisional one until the ticketing system assigns its own. Everything an admitted ticket gets, this gets too — the configuration items are resolved against the estate graph, the class is matched against the client's own ingested history so genuinely similar past tickets are linked by the phrasing that recurs in their extract, the blast radius is walked and the knowledge pack assembled. Give it what was checked and what it found: a ticket raised from a conversation should need no further investigation to pick up.",
       "describe": "Raise a ticket with the client's service desk: {short_description}",
