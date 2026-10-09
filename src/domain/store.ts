@@ -533,11 +533,19 @@ export const useAstra = create<State>((set, get) => ({
         // the branch the lifecycle never had, because verification could only
         // ever pass.
         if (wo.state === 'verifying') {
-          const pack = wo.autonomy?.actionClasses.map((c) => AC[c]?.verificationPack).find((p) => p && p !== 'none' && p !== 'n/a')
-          const v = runPack(pack, wo.affected, { confidence: wo.classificationConfidence })
-          if (v.result !== 'green') {
-            held.push({ id: wo.id, result: v.result, summary: v.summary })
-            continue
+          const classes = wo.autonomy?.actionClasses ?? []
+          // A verification exists to catch a bad change. An action that only
+          // read something changed nothing, so there is nothing to verify and
+          // holding it would be theatre — the first cut of this held every
+          // read-only run at amber and would have stalled the whole board.
+          const changed = classes.some((c) => AC[c] && AC[c].reversibility !== 'read_only')
+          if (changed) {
+            const pack = classes.map((c) => AC[c]?.verificationPack).find((p) => p && p !== 'none' && p !== 'n/a')
+            const v = runPack(pack, wo.affected, { confidence: wo.classificationConfidence })
+            if (v.result !== 'green') {
+              held.push({ id: wo.id, result: v.result, summary: v.summary })
+              continue
+            }
           }
         }
 

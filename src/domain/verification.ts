@@ -1,7 +1,10 @@
 import { DATA_LIFECYCLE, dataSummary, isBreach } from './dataEstate'
 import { reliabilitySummary } from './dataReliability'
 import { GRAPH_NODES } from './estate'
+import { INVENTORY } from './inventory'
 import { UNATTENDED_BAR } from './intake'
+import { releaseSummary } from './releases'
+import { BUDGETS } from './tokenOpsSeed'
 
 /* ==========================================================================
    Running a verification pack, and letting it fail.
@@ -69,22 +72,33 @@ function dataItemsFor(nodeIds: string[]) {
  */
 const PACKS: Record<string, (nodeIds: string[], context: { confidence?: number; engagementId?: string }) => Probe[]> = {
   health_probe_v4: (nodeIds) => {
-    const items = dataItemsFor(nodeIds)
-    const observed = items.filter((i) => i.own !== 'unobserved')
+    // Health lives in two different registers depending on what was acted on:
+    // an application's observability is recorded in the inventory, a data
+    // item's in the estate. Looking only in the estate — which is what this
+    // did — made every application action unverifiable.
+    const data = dataItemsFor(nodeIds)
+    const apps = INVENTORY.filter((a) => nodeIds.includes(a.nodeId ?? '') || nodeIds.includes(a.id))
+    const observedApps = apps.filter((a) => a.observed !== 'not_observed')
+    const observedData = data.filter((i) => i.own !== 'unobserved')
+    const covered = apps.length + data.length
+    const observed = observedApps.length + observedData.length
+
     return [
       {
         what: 'The thing acted on reports its own health',
-        outcome: !items.length ? 'unknown' : observed.length === items.length ? 'pass' : 'unknown',
-        readFrom: items.length
-          ? `${observed.length} of ${items.length} acted-on items report telemetry`
-          : 'No acted-on item is in the estate register, so no health signal can be read',
+        outcome: !covered ? 'unknown' : observed === covered ? 'pass' : 'unknown',
+        readFrom: covered
+          ? `${observed} of ${covered} acted-on items are observable (${apps.length} in the application inventory, ${data.length} in the data estate)`
+          : 'Nothing acted on is in the application inventory or the data estate, so no health signal can be read',
       },
       {
-        what: 'No item acted on is failing its own checks',
-        outcome: !observed.length ? 'unknown' : observed.some((i) => isBreach(i.own)) ? 'fail' : 'pass',
-        readFrom: observed.length
-          ? `${observed.filter((i) => isBreach(i.own)).length} of ${observed.length} observed items in breach`
-          : 'Nothing observed to check',
+        what: 'Nothing acted on is failing its own checks',
+        outcome: !observed
+          ? 'unknown'
+          : observedData.some((i) => isBreach(i.own)) ? 'fail' : 'pass',
+        readFrom: observedData.length
+          ? `${observedData.filter((i) => isBreach(i.own)).length} of ${observedData.length} observed data items in breach`
+          : `${observedApps.length} applications observable; the inventory records no failing check of its own`,
       },
     ]
   },
@@ -162,6 +176,48 @@ const PACKS: Record<string, (nodeIds: string[], context: { confidence?: number; 
     ]
   },
 
+  release_pack_v9: (nodeIds) => {
+    const r = releaseSummary()
+    const touched = r.readings.filter((x) => nodeIds.includes(x.release.itemId))
+    return [
+      {
+        what: 'The regression gate on the release passed',
+        outcome: !touched.length ? 'unknown' : touched.some((x) => x.gate === 'fail') ? 'fail' : 'pass',
+        readFrom: touched.length
+          ? `${touched.filter((x) => x.gate === 'fail').length} of ${touched.length} releases on what was acted on have a failing gate`
+          : 'No release in the register is against what was acted on, so there is no gate to read',
+      },
+    ]
+  },
+
+  patch_wave_v2: (nodeIds) => {
+    const apps = INVENTORY.filter((a) => nodeIds.includes(a.nodeId ?? '') || nodeIds.includes(a.id))
+    const baselined = apps.filter((a) => a.config.drift === 'in_baseline')
+    return [
+      {
+        what: 'What was patched is back in its recorded baseline',
+        outcome: !apps.length ? 'unknown' : baselined.length === apps.length ? 'pass' : 'fail',
+        readFrom: apps.length
+          ? `${baselined.length} of ${apps.length} acted-on applications are in baseline (${apps.filter((a) => a.config.drift === 'unknown').length} have no baseline at all)`
+          : 'Nothing acted on is in the application inventory, so no baseline can be compared',
+      },
+    ]
+  },
+
+  budget_check_v2: (nodeIds) => {
+    const towers = new Set(nodeIds.map((id) => BY_ID.get(id)?.tower).filter(Boolean) as string[])
+    const mine = BUDGETS.filter((b) => towers.has(b.scope))
+    return [
+      {
+        what: 'The spend stayed inside its budget',
+        outcome: !mine.length ? 'unknown' : mine.some((b) => b.state === 'hard') ? 'fail' : 'pass',
+        readFrom: mine.length
+          ? mine.map((b) => `${b.scope}: ${b.spent} of ${b.limit} (${b.state})`).join('; ')
+          : 'No budget is recorded for the tower this was acted on',
+      },
+    ]
+  },
+
   classification_agreement: (_nodeIds, ctx) => [
     {
       what: 'The classification is confident enough to stand',
@@ -173,6 +229,30 @@ const PACKS: Record<string, (nodeIds: string[], context: { confidence?: number; 
         : `Classified at ${Math.round(ctx.confidence * 100)}% against a ${Math.round(UNATTENDED_BAR * 100)}% bar`,
     },
   ],
+}
+
+/**
+ * Packs the contract names and the platform cannot yet run, each with the
+ * register that is missing.
+ *
+ * Kept explicitly rather than falling through to "undefined", because these
+ * are not mistakes — they are instrumentation the platform has not built, and
+ * the capability watch reads the same gaps as recommendations. A pack listed
+ * here holds its work at amber exactly as an unreadable probe does.
+ */
+const NOT_INSTRUMENTED: Record<string, { what: string; because: string }> = {
+  tls_probe_v3: {
+    what: 'The rotated certificate or secret is in use and valid',
+    because: 'the platform holds no certificate or secret register, so a rotation cannot be confirmed from a record.',
+  },
+  entitlement_diff_v3: {
+    what: 'The entitlement granted is the one that was approved, and nothing else changed',
+    because: 'the platform holds no entitlement register, so a before-and-after diff cannot be computed.',
+  },
+  reachability_v2: {
+    what: 'What was reachable before the change is reachable after it',
+    because: 'the platform holds no reachability probe results, so connectivity cannot be compared across the change.',
+  },
 }
 
 /**
@@ -197,6 +277,21 @@ export function runPack(
     }
   }
 
+  // A pack the platform cannot run because the register behind it does not
+  // exist. Naming the missing register is the useful answer — "no probes
+  // defined" told an operator nothing, and told the platform team less.
+  const missing = NOT_INSTRUMENTED[pack]
+  if (missing) {
+    return {
+      pack,
+      probes: [{ what: missing.what, outcome: 'unknown', readFrom: missing.because }],
+      result: 'amber',
+      failed: [],
+      unreadable: [{ what: missing.what, outcome: 'unknown', readFrom: missing.because }],
+      summary: `${pack} cannot be run: ${missing.because} Not closed, and the gap is a platform-capability finding rather than a verification.`,
+    }
+  }
+
   const build = PACKS[pack]
   if (!build) {
     return {
@@ -205,7 +300,7 @@ export function runPack(
       result: 'amber',
       failed: [],
       unreadable: [],
-      summary: `${pack} has no probes defined, so nothing was proved. An undefined pack is not a pass.`,
+      summary: `${pack} has no probes defined and no stated reason, so nothing was proved. An undefined pack is not a pass.`,
     }
   }
 
