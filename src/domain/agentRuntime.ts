@@ -2,6 +2,7 @@ import { evaluate, type ActionContext, type EngineResult } from './policyEngine'
 import { missionCeiling, missionFor, type Mission } from './missions'
 import { AGENTS, AGENT_BY_ID, CLIENT, GRAPH_EDGES, GRAPH_NODES, POLICIES, SKILLS, TOWERS, TOWER_BY_ID, policyForTower } from './estate'
 import { DATA_ITEMS, contractState, descendants, itemsNamedIn, policyAsset, withoutContract } from './dataEstate'
+import { describeChain, orchestrate } from './orchestration'
 import { runPack } from './verification'
 import { holdsOn } from './privacy'
 import { ACTION_CLASSES, AC } from './reference'
@@ -30,7 +31,9 @@ export type Beat =
   | { t: 'policy'; result: EngineResult; agentId: string; policyName: string; advisory?: boolean }
   | { t: 'mission'; missionId: string; name: string; goal: string; from: ExecutionMode; to: ExecutionMode; reason: string }
   | { t: 'gate'; role: string; timeoutSec: number; escalatesTo: string }
-  | { t: 'exec'; stepIndex: number; detail: string; ms: number }
+  | { t: 'exec'; stepIndex: number; detail: string; ms: number; agent?: string }
+  /** Who is carrying which part of this, and why each of them. */
+  | { t: 'handoff'; agents: string[]; detail: string }
   /** Red is a real outcome: a pack that cannot fail is not a verification. */
   | { t: 'verify'; pack: string; probes: string[]; result: 'green' | 'amber' | 'red' }
   | { t: 'evidence'; summary: string; kind: EvidenceKind }
@@ -482,8 +485,23 @@ export async function runIntent(
         }
 
         onBeat({ t: 'route', intent: proposal.intent, confidence: proposal.intent_confidence, agent: routedAgent, note: proposal.routing_note })
+
+        // Who carries which part, read from the grants rather than from the
+        // model's choice of who should answer. The chain is announced before
+        // any of it runs, so an operator sees the division of labour and the
+        // reason for each hand, not one name against all of it.
+        const planned = itemsNamedIn([
+          ...proposal.steps.flatMap((s) => [s.label, s.compensation]),
+          proposal.finding?.title ?? '', proposal.finding?.detail ?? '', ...(proposal.context_used?.cited ?? []),
+        ].join('\n'))
+        const chain = orchestrate({ tower: planned[0]?.tower ?? null, steps: proposal.steps, routedAgent })
+        onBeat({ t: 'handoff', agents: chain.agents.map((a) => a.id), detail: describeChain(chain) })
+        // Context is assembled by whoever holds AC-05 here, which is not
+        // necessarily the agent that will answer.
+        const contextBy = chain.stages[1]?.agent?.id ?? routedAgent
+
         onBeat({
-          t: 'retrieve', agent: routedAgent,
+          t: 'retrieve', agent: contextBy,
           assertions: proposal.context_used.assertions,
           humanVerified: proposal.context_used.human_verified,
           runbooks: proposal.context_used.runbooks,
@@ -613,11 +631,40 @@ export async function execute(
 ) {
   const cls = AC[proposal.action_class]
 
+  // Who may take each step, read from the grants on the tower the work landed
+  // on. The whole plan used to be attributed to the one agent the model
+  // routed to, including steps whose class it holds no grant for.
+  const targets = itemsNamedIn([
+    ...proposal.steps.flatMap((s) => [s.label, s.compensation]),
+    proposal.finding?.title ?? '', proposal.finding?.detail ?? '', ...(proposal.context_used?.cited ?? []),
+  ].join('\n'))
+  const chain = orchestrate({
+    tower: targets[0]?.tower ?? null,
+    steps: proposal.steps,
+    routedAgent: proposal.routed_agent,
+  })
+  onBeat({ t: 'handoff', agents: chain.agents.map((a) => a.id), detail: describeChain(chain) })
+
+  const planStages = chain.stages.filter((s) => s.did.startsWith('Step '))
   for (let i = 0; i < proposal.steps.length; i++) {
     const step = proposal.steps[i]
+    const by = planStages[i]
+    // A step nobody is granted for stops the run. Executing the covered steps
+    // and leaving a gap would leave the estate half-changed, and the
+    // compensation for a step that never ran does not exist.
+    if (!by || !by.agent) {
+      onBeat({
+        t: 'refuse',
+        agent: chain.agents[chain.agents.length - 1]?.id ?? proposal.routed_agent,
+        text: `Stopped before step ${i + 1} (${step.label}). ${by?.because ?? `No agent holds ${step.action_class} here`}.`,
+        rule: 'A plan is not run in part: the steps already taken stand, and the rest goes to a person',
+      })
+      onBeat({ t: 'evidence', summary: `Run stopped at step ${i + 1} — no agent is granted ${step.action_class} on this tower`, kind: 'decision' })
+      return
+    }
     await new Promise((r) => setTimeout(r, 620))
     if (signal.aborted) return
-    onBeat({ t: 'exec', stepIndex: i, detail: step.label, ms: 1800 + i * 2400 })
+    onBeat({ t: 'exec', stepIndex: i, detail: step.label, ms: 1800 + i * 2400, agent: by.agent.id })
   }
 
   await new Promise((r) => setTimeout(r, 500))

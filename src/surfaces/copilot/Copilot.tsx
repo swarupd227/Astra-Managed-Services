@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowUp, Ban, Check, CircleDot, Coins, Cpu, FileCheck2, Layers, Radar, ShieldAlert,
-  ShieldCheck, Sparkles, Square, Target, TriangleAlert, Undo2, X,
+  ShieldCheck, Sparkles, Square, Target, TriangleAlert, Undo2, Users, X,
 } from 'lucide-react'
 import { buildSuggestions, decide, execute, runIntent, type Beat, type AgentProposal } from '@/domain/agentRuntime'
 import { AGENT_BY_ID } from '@/domain/estate'
@@ -291,6 +291,20 @@ export function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; o
         </div>
       )
 
+    case 'handoff':
+      return (
+        <div className="rounded-md border border-brand/35 bg-brand/[0.05] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Users size={12} className="shrink-0 text-brand-ink" />
+            <span className="label-cap">Carried by</span>
+            {beat.agents.length
+              ? beat.agents.map((id) => <AgentChip key={id} id={id} />)
+              : <span className="text-2xs text-ink-3">nobody granted for it</span>}
+          </div>
+          <p className="mt-1.5 text-2xs leading-relaxed text-ink-2">{beat.detail}</p>
+        </div>
+      )
+
     case 'exec':
       return (
         <div className="flex items-center gap-2.5 rounded-md border border-line bg-surface px-3 py-2">
@@ -298,6 +312,8 @@ export function BeatBlock({ beat, live, onGate }: { beat: Beat; live: boolean; o
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="text-2xs font-medium text-ink">Step {beat.stepIndex + 1} executed</span>
+              {/* Which agent took it, not which one was routed to. */}
+              {beat.agent && <AgentChip id={beat.agent} />}
               <span className="tnum text-2xs text-ink-3">{(beat.ms / 1000).toFixed(1)}s</span>
             </div>
             <p className="mt-0.5 text-2xs text-ink-2">{beat.detail}</p>
