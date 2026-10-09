@@ -137,6 +137,43 @@ export const GRAPH_NODES: GraphNode[] = [
   { id: 'ke_triple_av', type: 'KnownError', name: 'Three concurrent endpoint-security agents contend for CPU', tower: 'twr_secops', tier: 0, attrs: { first_seen: '2025-09-11', occurrences: 41 } },
   { id: 'da_cmdb_gap', type: 'DataAsset', name: 'Unreconciled CMDB — 55 apps outside Attachment C.4', tower: 'twr_claims', tier: 1, attrs: { pii: 'none', freshness: 'stale', contract: 'none — reconciliation pending' } },
   { id: 'agt_client_iem', type: 'AgentEntity', name: 'Kearney IEM Time-Entry Bot', tower: 'twr_agentops', tier: 2, attrs: { owner: 'Finance Operations', model: 'client-hosted', aer: 'aer_cl_002' } },
+
+  /* --------------------------------------------------------------------------
+     Digital Workplace, which the graph did not hold at all — and which carries
+     the client's two largest recurring classes: password and MFA lockout
+     resets at 2,484 incidents a year, and OneDrive sync failures at 926.
+     -------------------------------------------------------------------------- */
+  { id: 'svc_workplace', type: 'BusinessService', name: 'Digital Workplace', tower: 'twr_euc', tier: 1, attrs: { criticality: 'Tier 1', owner: 'P. Lindegaard', seats: 9817 } },
+  { id: 'euc_entra', type: 'InfraResource', name: 'Entra ID (identity, MFA enrolment)', tower: 'twr_euc', tier: 0, attrs: { tenants: 1, mfa: 'enforced', enrolment: 'Cisco ZTA re-enrolment in progress' } },
+  { id: 'app_m365', type: 'Application', name: 'Microsoft 365 (Exchange, OneDrive, Teams)', tower: 'twr_euc', tier: 1, attrs: { stack: 'M365 E5', seats: 9817, sync: 'OneDrive Known Folder Move' } },
+  { id: 'app_catalog', type: 'Application', name: 'ServiceNow request catalogue', tower: 'twr_euc', tier: 2, attrs: { stack: 'ServiceNow', items: 214, preApproved: 96 } },
+
+  /* The known errors behind the classes that actually recur, each with the
+     runbook that resolves it. A runbook names the action classes it uses, and
+     the policy engine enforces those classes whatever the runbook says. */
+  { id: 'ke_mfa_lockout', type: 'KnownError', name: 'MFA re-enrolment leaves the account locked out', tower: 'twr_euc', tier: 0, attrs: { first_seen: '2026-07-14', occurrences: 2484, class: 'dc_pwd_reset' } },
+  { id: 'rb_mfa_lockout_recovery', type: 'Runbook', name: 'Lockout recovery after MFA re-enrolment', tower: 'twr_euc', tier: 0, attrs: { uses: 'AC-66', success: '98.1%', verified: 'human', proves: 'euc_checkin_v1' } },
+
+  { id: 'ke_onedrive_zta', type: 'KnownError', name: 'OneDrive sync breaks after Zero-Trust re-enrolment', tower: 'twr_euc', tier: 1, attrs: { first_seen: '2026-09-02', occurrences: 926, class: 'dc_onedrive_sync' } },
+  { id: 'rb_onedrive_resync', type: 'Runbook', name: 'Re-establish OneDrive sync on a re-enrolled device', tower: 'twr_euc', tier: 1, attrs: { uses: 'AC-66, AC-24', success: '94.7%', verified: 'human', proves: 'euc_checkin_v1' } },
+
+  { id: 'ke_catalog_approval_hop', type: 'KnownError', name: 'Pre-approved catalogue item still waits on a manual approval hop', tower: 'twr_euc', tier: 2, attrs: { first_seen: '2026-05-20', occurrences: 2140, class: 'dc_sw_provision' } },
+  { id: 'rb_catalog_entitlement', type: 'Runbook', name: 'Grant a pre-approved catalogue entitlement', tower: 'twr_euc', tier: 2, attrs: { uses: 'AC-58', success: '92.4%', verified: 'human', proves: 'entitlement_diff_v3' } },
+
+  { id: 'ke_adf_schema_drift', type: 'KnownError', name: 'Upstream schema change breaks the customer feed', tower: 'twr_dataplat', tier: 1, attrs: { first_seen: '2026-08-11', occurrences: 156, class: 'dc_pipeline_fail' } },
+  { id: 'rb_adf_replay', type: 'Runbook', name: 'Redeploy and replay the failed pipeline', tower: 'twr_dataplat', tier: 1, attrs: { uses: 'AC-12, AC-49', success: '89.3%', verified: 'human', proves: 'dq_contract_v5' } },
+
+  { id: 'ke_oracle_dark', type: 'KnownError', name: 'Oracle datamart carries no incident telemetry', tower: 'twr_dataplat', tier: 0, attrs: { first_seen: '2026-06-01', occurrences: 40, class: 'dc_oracle_blindspot' } },
+  { id: 'rb_oracle_triage', type: 'Runbook', name: 'Triage the Oracle datamart from what can be observed', tower: 'twr_dataplat', tier: 0, attrs: { uses: 'AC-05', success: '—', verified: 'human', proves: 'none — it decides rather than acts' } },
+
+  { id: 'ke_iem_live_after_retirement', type: 'KnownError', name: 'IEM marked replaced by Concur but still taking time entry', tower: 'twr_payments', tier: 2, attrs: { first_seen: '2026-06-05', occurrences: 658, class: 'dc_iem_ghost' } },
+  { id: 'rb_iem_access_triage', type: 'Runbook', name: 'Establish whether an IEM request belongs in IEM at all', tower: 'twr_payments', tier: 2, attrs: { uses: 'AC-05, AC-08', success: '—', verified: 'human', proves: 'classification_agreement' } },
+
+  { id: 'ke_vm_memory_pressure', type: 'KnownError', name: 'No autoscaling on workloads mid-migration out of the Chicago DC', tower: 'twr_cloud', tier: 1, attrs: { first_seen: '2026-04-18', occurrences: 240, class: 'dc_node_pressure' } },
+  { id: 'rb_autoscale_restore', type: 'Runbook', name: 'Restore autoscaling within approved bounds', tower: 'twr_cloud', tier: 1, attrs: { uses: 'AC-18, AC-12', success: '96.2%', verified: 'human', proves: 'capacity_probe_v2' } },
+
+  { id: 'ke_batch_contention', type: 'KnownError', name: 'Nightly close contends with the PeopleSoft to Workday extract', tower: 'twr_core', tier: 0, attrs: { first_seen: '2026-10-03', occurrences: 62, class: 'dc_batch_overrun' } },
+  { id: 'rb_batch_window', type: 'Runbook', name: 'Separate the close and the extract windows', tower: 'twr_core', tier: 0, attrs: { uses: 'AC-05, AC-18', success: '90.8%', verified: 'human', proves: 'capacity_probe_v2' } },
 ]
 
 export const GRAPH_EDGES: GraphEdge[] = [
@@ -156,6 +193,34 @@ export const GRAPH_EDGES: GraphEdge[] = [
   { id: 'e14', from: 'app_hcm', to: 'db_sap_prod', rel: 'READS' },
   { id: 'e15', from: 'rb_endpoint_dedupe', to: 'ke_triple_av', rel: 'RESOLVES' },
   { id: 'e16', from: 'ke_triple_av', to: 'net_sase_edge', rel: 'CAUSED_BY' },
+
+  /* Digital Workplace, and what it depends on. */
+  { id: 'e17', from: 'svc_workplace', to: 'app_m365', rel: 'DEPENDS_ON' },
+  { id: 'e18', from: 'svc_workplace', to: 'app_catalog', rel: 'DEPENDS_ON' },
+  { id: 'e19', from: 'app_m365', to: 'euc_entra', rel: 'DEPENDS_ON' },
+  { id: 'e20', from: 'app_catalog', to: 'euc_entra', rel: 'DEPENDS_ON' },
+  { id: 'e21', from: 'euc_entra', to: 'if_zta', rel: 'DEPENDS_ON' },
+
+  /* Each known error against the thing that causes it, and the runbook that
+     resolves it. The pair is what makes an unattended attempt possible: the
+     routing will not act without a runbook that resolves a known error on
+     something the ticket actually names. */
+  { id: 'e22', from: 'rb_mfa_lockout_recovery', to: 'ke_mfa_lockout', rel: 'RESOLVES' },
+  { id: 'e23', from: 'ke_mfa_lockout', to: 'euc_entra', rel: 'CAUSED_BY' },
+  { id: 'e24', from: 'rb_onedrive_resync', to: 'ke_onedrive_zta', rel: 'RESOLVES' },
+  { id: 'e25', from: 'ke_onedrive_zta', to: 'app_m365', rel: 'CAUSED_BY' },
+  { id: 'e26', from: 'rb_catalog_entitlement', to: 'ke_catalog_approval_hop', rel: 'RESOLVES' },
+  { id: 'e27', from: 'ke_catalog_approval_hop', to: 'app_catalog', rel: 'CAUSED_BY' },
+  { id: 'e28', from: 'rb_adf_replay', to: 'ke_adf_schema_drift', rel: 'RESOLVES' },
+  { id: 'e29', from: 'ke_adf_schema_drift', to: 'pipe_datamart', rel: 'CAUSED_BY' },
+  { id: 'e30', from: 'rb_oracle_triage', to: 'ke_oracle_dark', rel: 'RESOLVES' },
+  { id: 'e31', from: 'ke_oracle_dark', to: 'da_oracle_dm', rel: 'CAUSED_BY' },
+  { id: 'e32', from: 'rb_iem_access_triage', to: 'ke_iem_live_after_retirement', rel: 'RESOLVES' },
+  { id: 'e33', from: 'ke_iem_live_after_retirement', to: 'app_iem', rel: 'CAUSED_BY' },
+  { id: 'e34', from: 'rb_autoscale_restore', to: 'ke_vm_memory_pressure', rel: 'RESOLVES' },
+  { id: 'e35', from: 'ke_vm_memory_pressure', to: 'inf_azure_compute', rel: 'CAUSED_BY' },
+  { id: 'e36', from: 'rb_batch_window', to: 'ke_batch_contention', rel: 'RESOLVES' },
+  { id: 'e37', from: 'ke_batch_contention', to: 'db_sap_prod', rel: 'CAUSED_BY' },
 ]
 
 /* ---------------------------------- Agents --------------------------------- */

@@ -212,34 +212,51 @@ export function routeFor(
     return { attempt: false, toRole: 'resolver', because: 'No runbook in the graph resolves a known error on what this ticket names.' }
   }
 
-  // A runbook declares the classes it uses; the engine has to know them all.
-  const rb = runbooks[0]
-  const uses = String(rb.attrs.uses ?? '').split(/[,\s]+/).filter((x) => /^AC-\d+$/.test(x))
-  if (!uses.length) {
-    return { attempt: false, toRole: 'resolver', because: `${rb.id} names no action classes, so there is nothing it authorises.` }
-  }
-  const unknown = uses.filter((c) => !AC[c])
-  if (unknown.length) {
-    return { attempt: false, toRole: 'aieng', because: `${rb.id} uses ${unknown.join(', ')}, which the policy engine does not know.` }
-  }
-
-  const agent = AGENTS.find((a) => uses.every((c) => a.grants[c]) && a.towers.includes(args.tower))
-  if (!agent) {
+  // Every runbook on the thing, not just the first one found. Taking only the
+  // first meant a component with two runbooks could be refused because the
+  // arbitrary one happened to need a grant nobody holds, while the other was
+  // runnable — a refusal that would have been impossible to explain.
+  const blocked: string[] = []
+  for (const rb of runbooks) {
+    const uses = String(rb.attrs.uses ?? '').split(/[,\s]+/).filter((x) => /^AC-\d+$/.test(x))
+    if (!uses.length) {
+      blocked.push(`${rb.id} names no action classes, so there is nothing it authorises`)
+      continue
+    }
+    const unknown = uses.filter((c) => !AC[c])
+    if (unknown.length) {
+      blocked.push(`${rb.id} uses ${unknown.join(', ')}, which the policy engine does not know`)
+      continue
+    }
+    const agent = AGENTS.find((a) => uses.every((c) => a.grants[c]) && a.towers.includes(args.tower))
+    if (!agent) {
+      blocked.push(`no agent on this tower holds a grant for every class ${rb.id} uses (${uses.join(', ')})`)
+      continue
+    }
+    // The floor the policy engine will apply to the strictest class in it, so
+    // the narrative can say whether this will run or stop at a gate.
+    const floor = uses.map((c) => AC[c].floor).sort((a, b) => FLOOR_RANK.indexOf(a) - FLOOR_RANK.indexOf(b))[0]
     return {
-      attempt: false,
-      toRole: 'resolver',
-      because: `No agent on this tower holds a grant for every class ${rb.id} uses (${uses.join(', ')}).`,
+      attempt: true,
+      agentId: agent.id,
+      runbookId: rb.id,
+      actionClasses: uses,
+      because: `${rb.id} resolves a known error on what the ticket names, ${agent.name} is graded for ${uses.join(', ')}, and the strictest of those is floored at ${floor.replace(/_/g, '-')}.`,
     }
   }
 
+  // Every runbook was blocked, and the reasons are different problems: a
+  // missing grant is a governance gap, an unknown class is a configuration
+  // error, and saying which is the whole point.
   return {
-    attempt: true,
-    agentId: agent.id,
-    runbookId: rb.id,
-    actionClasses: uses,
-    because: `${rb.id} resolves a known error on what the ticket names, and ${agent.name} is graded for ${uses.join(', ')}.`,
+    attempt: false,
+    toRole: blocked.some((b) => b.includes('does not know')) ? 'aieng' : 'resolver',
+    because: blocked.length === 1 ? `Not attempted: ${blocked[0]}.` : `Not attempted — ${blocked.join('; ')}.`,
   }
 }
+
+/** Strictest first. */
+const FLOOR_RANK = ['advise', 'approve_first', 'supervised', 'autonomous']
 
 /**
  * The resolution target for a priority, from the contracted service levels.
@@ -294,21 +311,39 @@ export function towerForItems(nodeIds: string[]): string | null {
  * nothing and must go to a person.
  */
 export const INBOUND: InboundTicket[] = [
+  // Matches the client's largest recurring cluster by phrasing, lands on a
+  // component with a known error whose runbook uses AC-66 — floored at
+  // autonomous, so it runs. The whole path, unattended.
+  {
+    externalRef: 'INC0491208', system: 'ServiceNow', openedAt: '2027-02-18T09:06:00.000Z',
+    shortDescription: 'Expired login password after MFA re-enrolment — account locked', category: 'Access', subCategory: 'Lockout',
+    priority: 'P3', configurationItems: ['euc_entra'], reportedBy: 'T. Berglund',
+  },
+  // Matches by phrasing, and its runbook uses AC-49, which the policy engine
+  // floors at approve-first: it is attempted and then stops at a gate.
+  {
+    externalRef: 'INC0491205', system: 'ServiceNow', openedAt: '2027-02-18T09:31:00.000Z',
+    shortDescription: 'ADF failed pipelines overnight on the customer feed', category: 'Job failure', subCategory: 'Data pipeline',
+    priority: 'P2', configurationItems: ['pipe_datamart'], reportedBy: 'Monitoring',
+  },
+  // Classifies strongly, and its runbook decides rather than acts: AC-05 and
+  // AC-08 read and classify, so the attempt produces an answer, not a change.
   {
     externalRef: 'INC0491204', system: 'ServiceNow', openedAt: '2027-02-18T09:12:00.000Z',
     shortDescription: 'IEM login not working — expired password', category: 'Access', subCategory: 'Access IEM',
     priority: 'P3', configurationItems: ['app_iem'], reportedBy: 'J. Alvarez',
   },
-  {
-    externalRef: 'INC0491205', system: 'ServiceNow', openedAt: '2027-02-18T09:31:00.000Z',
-    shortDescription: 'ADF pipeline failed overnight on the customer feed', category: 'Job failure', subCategory: 'Data pipeline',
-    priority: 'P2', configurationItems: ['pipe_datamart'], reportedBy: 'Monitoring',
-  },
+  // A known error and a runbook both exist, but the phrasing only reaches the
+  // theme, so the match sits below the bar for acting unattended. Held for a
+  // person on confidence alone, which is the bar doing its job.
   {
     externalRef: 'INC0491206', system: 'ServiceNow', openedAt: '2027-02-18T09:44:00.000Z',
     shortDescription: 'Endpoint security agents contending for CPU on partner laptops', category: 'Performance', subCategory: 'Slowness',
     priority: 'P2', configurationItems: ['ke_triple_av'], reportedBy: 'R. Castellano',
   },
+  // A P1 the platform refuses to touch: nothing in the client's recorded
+  // history matches it and its application is not in the estate at all. The
+  // most credible thing here, and deliberately left unresolvable.
   {
     externalRef: 'INC0491207', system: 'ServiceNow', openedAt: '2027-02-18T09:58:00.000Z',
     shortDescription: 'Quarterly partner distribution model returning negative allocations', category: 'Application error', subCategory: 'Calculation',
