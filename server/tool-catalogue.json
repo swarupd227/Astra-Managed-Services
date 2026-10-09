@@ -131,6 +131,23 @@
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
     },
     {
+      "name": "receive_ticket", "agent": "agt_sentinel", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
+      "description": "Admit a ticket from the client's ticketing system — the integration point. Everything after the payload is computed on admission: the configuration items are resolved against the estate graph, the class is matched against the client's own ingested history (sub-category first, then the phrasing of clusters that recur in their extract, then the theme), the blast radius is walked from the dependency graph, the knowledge pack is assembled from assertions, known errors and the runbooks that resolve them, and the routing follows from what the platform actually holds. An attempt is made only where a runbook resolves a known error on something the ticket names AND an agent holds a grant for every class that runbook uses; otherwise the ticket goes to a named person with the reason. A ticket that matches nothing in the client's history is not classified at a low confidence — it is unclassified and held for a person. Call with no reference to admit the next sample waiting behind the connector.",
+      "describe": "Admit ticket {reference} from the client's ticketing system and triage it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "reference": { "type": "string", "description": "The ticketing system's reference, e.g. INC0491204. Omitted admits the next one waiting." }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_inbound", "agent": "agt_sentinel", "surfaces": ["run", "governance"],
+      "description": "What is waiting behind the ticketing connector and has not been admitted yet, with what the platform would make of each one if it were: the class it would be matched to and at what confidence, what that match was made on, whether its configuration items resolve to the estate, and whether it would be attempted by an agent or routed to a person. Read-only — nothing is admitted. The tickets themselves are a connector sample until the feed is wired; everything said about them is computed.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
       "name": "draft_procedure", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition"], "mutating": true, "approval": true,
       "description": "Draft a maintenance procedure for one of the areas the contract names, assembled from the client's own records: the shape of their ingested ticket history, the demand classes costed from it, their application inventory and configuration baselines, and the action classes the policy engine will actually enforce. Every step carries what it was read from, so a reviewer checks the draft against the record. The action classes on the draft are the ones whose domain covers the area and which an agent actually holds a grant for, and the verification pack is the one those classes already carry — a procedure cannot authorise what the gateway would refuse, and an area with no executable class is marked as deciding rather than acting. Refuses, naming what is missing, where no register behind the area has anything recorded: a template filled in with plausible sentences would be indistinguishable from one that was. Lands as a draft at version 0.1 for somebody to review into current.",
       "describe": "Draft a procedure for {area} from the client's own records, as a draft for review.",

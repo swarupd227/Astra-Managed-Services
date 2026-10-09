@@ -244,6 +244,13 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
+    id: 'ds_intake', name: 'Tickets arriving from the client’s ticketing system', origin: 'connector',
+    source: 'ServiceNow, via the service-management feed: the payload — reference, category and sub-category, priority, and the configuration items named on the ticket. Four samples stand behind the connector until it is wired',
+    routes: ['/operate/room', '/operate/board', '/operate/work'],
+    caution: 'The payloads are sampled; nothing derived from them is. On admission the configuration items are resolved against the estate graph, the class is matched against the client’s own ingested history, the blast radius is walked and the routing follows from the runbooks and grants the platform holds — and a ticket matching nothing is held for a person rather than classified at a low confidence',
+    maturity: 'live',
+  },
+  {
     id: 'ds_experiments', name: 'Recommendations funded as experiments, and what they moved', origin: 'platform_record',
     source: 'Written when somebody funds a recommendation: the count the condition held for at the time, the hypothesis, the success criterion and the window. The outcome is that same count re-derived afterwards',
     routes: ['/governance/recommendations'],

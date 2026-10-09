@@ -8,6 +8,9 @@ import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, sealChain, verifyChain, type ChainVerification } from './evidence'
 import { type Experiment } from './experiments'
+import { classify, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
+import { DEMAND_CLASSES } from './ledgers'
+import { knowledgeFor, knowledgeSummary, type WorkKnowledge } from './workContext'
 import { loadedRecords, recordEngagementId } from './config'
 import { EVIDENCE, NOW, RUNS, WORK_OBJECTS } from './workSeed'
 import { ASSERTIONS } from './knowledge'
@@ -215,6 +218,17 @@ interface State {
    * that finding has already been funded.
    */
   fundRecommendation: (e: Omit<Experiment, 'id' | 'fundedAt' | 'evidenceId'>) => Experiment | null
+  /**
+   * Admits a ticket from the client's ticketing system: the integration point.
+   * Returns the work object it became, and the reasoning behind it.
+   */
+  admitTicket: (ticket: InboundTicket) => {
+    workObject: WorkObject
+    duplicate: boolean
+    classification?: Classification
+    route?: Route
+    knowledge?: WorkKnowledge
+  }
   /** Writes a drafted procedure into the register, as a draft for review. */
   writeProcedureDraft: (
     p: Omit<Procedure, 'id' | 'state' | 'version' | 'lastReviewedAt'>,
@@ -1603,6 +1617,124 @@ export const useAstra = create<State>((set, get) => ({
    * the same finding twice is refused rather than duplicated: the second
    * record would have a baseline already moved by the first.
    */
+  /**
+   * Admits a ticket from the client's ticketing system.
+   *
+   * This is the integration point. The payload crosses it; everything after
+   * is computed here and now — the configuration items resolved against the
+   * estate graph, the class matched against the client's own history, the
+   * blast radius walked, the knowledge pack assembled, and the routing
+   * decided from what the platform actually holds.
+   *
+   * The work object lands triaged with that reasoning on its timeline and the
+   * classification sealed, or it lands with a named person on it and the
+   * reason it could not be attempted. Nothing is written twice: a ticket the
+   * platform has already admitted is returned rather than duplicated.
+   */
+  admitTicket: (ticket) => {
+    const s = get()
+    const already = Object.values(s.work).find((w) => w.source?.ref === ticket.externalRef)
+    if (already) return { workObject: already, duplicate: true }
+
+    const at = nowIso(s.clockOffsetMins)
+    const { resolved, unresolved } = resolveItems(ticket.configurationItems)
+    const classification = classify(ticket)
+    // Placed from the estate where the configuration items resolve, and from
+    // the costed class where they do not. Both are read; neither is assumed.
+    // A ticket that resolves to neither is admitted unplaced rather than
+    // dropped — it arrived, and losing it would be worse than holding it.
+    const classTower = classification.demandClass
+      ? DEMAND_CLASSES.find((d) => d.id === classification.demandClass)?.tower ?? null
+      : null
+    const tower = towerForItems(resolved) ?? classTower
+    const woId = `wo_${digest(ticket.externalRef).slice(0, 8)}`
+
+    const base: WorkObject = {
+      id: woId,
+      ref: ticket.externalRef,
+      type: 'incident',
+      title: ticket.shortDescription,
+      tower: tower ?? '',
+      service: tower ? TOWER_BY_ID[tower]?.name ?? tower : 'Not placed — nothing on the ticket resolved to the estate',
+      affected: resolved,
+      demandClass: classification.demandClass ?? 'unclassified',
+      classificationConfidence: classification.confidence,
+      priority: ticket.priority,
+      state: 'detected',
+      createdAt: ticket.openedAt,
+      slaTargetMins: targetFor(ticket.priority, tower ?? undefined).mins,
+      slaElapsedMins: Math.max(0, Math.round((Date.parse(at) - Date.parse(ticket.openedAt)) / 60_000)),
+      slaPaused: false,
+      breachProbability: 0,
+      assignee: null,
+      assigneeKind: null,
+      economics: { estManualMins: 0, actualAgentMins: 0, tokensUsd: 0, attribution: 'pending' },
+      evidenceHead: '',
+      narrative: [],
+      source: { system: ticket.system, ref: ticket.externalRef },
+      awaitingApproval: false,
+    }
+
+    const knowledge = knowledgeFor(base)
+    const route = routeFor({ classification, runbooks: knowledge.runbooks, tower: tower ?? '' })
+
+    const arrival = appendRecord(s.evidence, {
+      id: `ev_${digest('rx' + ticket.externalRef).slice(0, 10)}`,
+      at, kind: 'observation', actor: ticket.system,
+      summary: `Ticket ${ticket.externalRef} received from ${ticket.system}`,
+      payload: { category: ticket.category, subCategory: ticket.subCategory, priority: ticket.priority, configurationItems: ticket.configurationItems, unresolved },
+      sealed: true,
+    })
+    const classified = appendRecord([...s.evidence, arrival], {
+      id: `ev_${digest('cls' + ticket.externalRef).slice(0, 10)}`,
+      at, kind: 'observation', agentId: 'agt_sentinel', actor: 'Sentinel',
+      summary: classification.demandClass
+        ? `Classified ${ticket.externalRef} as ${classification.demandClass} at ${Math.round(classification.confidence * 100)}%`
+        : `${ticket.externalRef} could not be classified against the ingested history`,
+      payload: { classification, blastRadius: knowledge.blast.dependents, mostCriticalTier: knowledge.blast.maxTier, route },
+      sealed: true,
+    })
+
+    let seq = 0
+    const entry = (
+      actorKind: TimelineEntry['actorKind'], actor: string, text: string, evidenceId?: string,
+    ): TimelineEntry => ({
+      id: `tl_${digest(ticket.externalRef + ++seq).slice(0, 8)}`,
+      at, actorKind, actor, text, ...(evidenceId ? { evidenceId } : {}),
+    })
+
+    const wo: WorkObject = {
+      ...base,
+      state: 'triaged',
+      assignee: route.attempt ? route.agentId : ROLE_BY_ID[route.toRole]?.person ?? route.toRole,
+      assigneeKind: route.attempt ? 'agent' : 'human',
+      evidenceHead: classified.id,
+      narrative: [
+        entry('system', ticket.system, `Signal received from ${ticket.system} · ${ticket.externalRef}`, arrival.id),
+        entry('agent', 'Sentinel', classification.demandClass
+          ? `Classified as ${classification.demandClass} at ${Math.round(classification.confidence * 100)}% — matched on ${classification.evidence.map((e) => e.on.replace(/_/g, '-')).join(' and ')} in the client's own history. ${knowledgeSummary(knowledge)}`
+          : `Could not classify: ${classification.refusal} Held for a person rather than guessed.`, classified.id),
+        entry('agent', 'Sentinel', route.attempt
+          ? `Routed to an agent: ${route.because}`
+          : `Routed to a person: ${route.because}`, classified.id),
+        ...(unresolved.length
+          ? [entry('agent', 'Sentinel', `${unresolved.join(', ')} ${unresolved.length === 1 ? 'is' : 'are'} not in the estate graph, so nothing downstream of ${unresolved.length === 1 ? 'it' : 'them'} could be assessed.`)]
+          : []),
+      ],
+    }
+
+    set({ evidence: [...s.evidence, arrival, classified], work: { ...s.work, [woId]: wo } })
+    get().pushToast({
+      title: `${ticket.externalRef} received`,
+      body: route.attempt
+        ? `Classified ${wo.demandClass} at ${Math.round(classification.confidence * 100)}% and routed to an agent.`
+        : `Routed to a person — ${route.because}`,
+      tone: route.attempt ? 'ok' : 'warn',
+      evidenceId: classified.id,
+    })
+    return { workObject: wo, duplicate: false, classification, route, knowledge }
+  },
+
   writeProcedureDraft: (p) => {
     const s = get()
     const at = nowIso(s.clockOffsetMins)

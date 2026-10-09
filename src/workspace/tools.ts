@@ -13,6 +13,8 @@ import {
   type ContractArea, type ProcedureReading,
 } from '@/domain/procedures'
 import { draftProcedure, type ProcedureDraft } from '@/domain/procedureDrafts'
+import { INBOUND, classify, resolveItems, routeFor, towerForItems } from '@/domain/intake'
+import { knowledgeFor } from '@/domain/workContext'
 import { thresholdsFor } from '@/domain/thresholds'
 import { ORIGIN_LABEL as PROVENANCE_ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
 import {
@@ -736,6 +738,90 @@ export const EXECUTORS: Record<string, Executor> = {
         areasWeOfferNothingFor: after.unmapped.map((a) => a.name),
       },
       artifacts: [card('procedures', `${engagement.client} · procedures`, { engagement: engagementId }, '/governance/procedures')],
+    }
+  },
+
+  get_inbound: () => {
+    const st = useAstra.getState()
+    const admitted = new Set(Object.values(st.work).map((w) => w.source?.ref).filter(Boolean))
+    const waiting = INBOUND.filter((t) => !admitted.has(t.externalRef))
+    return {
+      payload: {
+        connector: 'The client’s ticketing system. The payloads are a connector sample until the feed is wired; everything computed about them below is read from the registers.',
+        waiting: waiting.length,
+        alreadyAdmitted: INBOUND.length - waiting.length,
+        tickets: waiting.map((t) => {
+          const c = classify(t)
+          const { resolved, unresolved } = resolveItems(t.configurationItems)
+          const tower = towerForItems(resolved)
+          const k = knowledgeFor({ affected: resolved, demandClass: c.demandClass ?? 'unclassified' })
+          const route = routeFor({ classification: c, runbooks: k.runbooks, tower: tower ?? '' })
+          return {
+            reference: t.externalRef, system: t.system, opened: t.openedAt, priority: t.priority,
+            shortDescription: t.shortDescription, filedUnder: `${t.category} / ${t.subCategory}`,
+            wouldClassifyAs: c.demandClass,
+            atConfidence: Math.round(c.confidence * 100),
+            matchedOn: c.evidence.map((e) => ({ on: e.on.replace(/_/g, '-'), value: e.value, arrivalsBehindIt: e.incidents ?? null })),
+            unclassifiedBecause: c.refusal ?? null,
+            configurationItems: { resolved, notInTheEstate: unresolved },
+            wouldBePlacedIn: tower,
+            knowledge: { assertions: k.assertions.length, humanVerified: k.humanVerified, runbooks: k.runbooks.map((r) => r.name), knownErrors: k.knownErrors.map((e) => e.name), priorArrivals: k.priors.reduce((n, p) => n + p.incidents, 0) },
+            blastRadius: { dependents: k.blast.dependents, services: k.blast.services, mostCriticalTier: k.blast.maxTier },
+            wouldBe: route.attempt ? `attempted by ${AGENT_BY_ID[route.agentId]?.name ?? route.agentId} under ${route.runbookId}` : `routed to ${ROLE_BY_ID[route.toRole]?.title ?? route.toRole}`,
+            because: route.because,
+          }
+        }),
+      },
+      artifacts: [],
+    }
+  },
+
+  receive_ticket: (input) => {
+    const want = str(input.reference)
+    const st = useAstra.getState()
+    const admitted = new Set(Object.values(st.work).map((w) => w.source?.ref).filter(Boolean))
+    const ticket = want
+      ? INBOUND.find((t) => t.externalRef.toLowerCase() === want.toLowerCase())
+      : INBOUND.find((t) => !admitted.has(t.externalRef))
+
+    if (!ticket) {
+      throw new ToolError(want
+        ? `Nothing with reference "${want}" is waiting behind the ticketing connector. Read the inbound queue to see what is.`
+        : 'Nothing is waiting behind the ticketing connector — every sample has been admitted.')
+    }
+
+    const result = st.admitTicket(ticket)
+    const wo = result.workObject
+    if (result.duplicate) {
+      throw new ToolError(`${ticket.externalRef} was already admitted as ${wo.id}. Open it rather than admitting it twice.`)
+    }
+
+    const c = result.classification!
+    const k = result.knowledge!
+    const route = result.route!
+    return {
+      payload: {
+        received: { reference: ticket.externalRef, from: ticket.system, opened: ticket.openedAt, filedUnder: `${ticket.category} / ${ticket.subCategory}`, priority: ticket.priority },
+        workObject: wo.id,
+        placedIn: wo.tower ? wo.service : 'not placed — nothing on the ticket resolved to the estate or to a costed class',
+        classified: c.demandClass,
+        confidence: Math.round(c.confidence * 100),
+        matchedOn: c.evidence.map((e) => ({ on: e.on.replace(/_/g, '-'), value: e.value, arrivalsBehindIt: e.incidents ?? null })),
+        unclassifiedBecause: c.refusal ?? null,
+        knowledgeAssembled: {
+          assertions: k.assertions.length, humanVerified: k.humanVerified, floor: k.floor,
+          runbooks: k.runbooks.map((r) => r.name), knownErrors: k.knownErrors.map((e) => e.name),
+          priorArrivals: k.priors.reduce((n, p) => n + p.incidents, 0),
+          notInTheEstate: k.unmapped,
+        },
+        blastRadius: { dependents: k.blast.dependents, services: k.blast.services, mostCriticalTier: k.blast.maxTier },
+        slaTargetMins: wo.slaTargetMins,
+        routedTo: route.attempt ? AGENT_BY_ID[route.agentId]?.name ?? route.agentId : ROLE_BY_ID[route.toRole]?.title ?? route.toRole,
+        attemptedByAnAgent: route.attempt,
+        because: route.because,
+        evidenceId: wo.evidenceHead,
+      },
+      artifacts: [card('workItem', `${wo.ref} · ${wo.title}`, { id: wo.id }, `/operate/work/${wo.id}`)],
     }
   },
 

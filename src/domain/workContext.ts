@@ -65,7 +65,14 @@ const causedBy = (nodeIds: Set<string>) =>
 const resolves = (errorIds: Set<string>) =>
   GRAPH_EDGES.filter((e) => e.rel === 'RESOLVES' && errorIds.has(e.to)).map((e) => e.from)
 
-export function knowledgeFor(wo: WorkObject, engagementId = ENGAGEMENT.id): WorkKnowledge {
+/**
+ * Takes only the two fields it reads, so a caller with a ticket in hand and
+ * no work object yet can ask the same question without a cast that pretends
+ * to be one.
+ */
+export type Classifiable = Pick<WorkObject, 'affected' | 'demandClass'>
+
+export function knowledgeFor(wo: Classifiable, engagementId = ENGAGEMENT.id): WorkKnowledge {
   const named = wo.affected ?? []
   const inPlayIds = new Set(named.filter((id) => BY_ID.has(id)))
   const unmapped = named.filter((id) => !BY_ID.has(id))
