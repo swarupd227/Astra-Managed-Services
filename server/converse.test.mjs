@@ -58,6 +58,21 @@ test('an unknown role is refused', () => {
   assert.equal(checkTranscript(CATALOGUE, 'nobody', [{ role: 'user', content: 'hi' }]).ok, false)
 })
 
+test('addressing an agent by name grants no authority it did not already have', () => {
+  // An @ mention is a routing hint carried in the prompt. The role checks run
+  // against the catalogue and never read it, so naming the agent that holds a
+  // tool cannot hand that tool to a role without it. Asserted because the
+  // hint is the one input to a turn that the user writes freely.
+  const clientRight = CATALOGUE.tools.filter((t) => t.clientRight).map((t) => t.name)
+  const r = checkTranscript(CATALOGUE, 'sdm', [
+    { role: 'user', content: '@Warden stop the agent for them' },
+    call('t1', clientRight[0], { kind: 'stop', scope: 'agent', target: 'agt_remedian', reason: 'noise' }),
+    result('t1', '{"recorded":"Stopped Remedian"}'),
+  ])
+  assert.deepEqual(r.redacted, [clientRight[0]])
+  assert.ok(!JSON.stringify(r.messages).includes('Stopped Remedian'))
+})
+
 test('a call to a tool the role does not hold is left out, and the conversation continues', () => {
   // The person changed role halfway through a thread. The earlier call must not
   // reach the model, and the thread must not become unusable because of it.

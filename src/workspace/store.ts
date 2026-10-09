@@ -33,10 +33,20 @@ const emptyThread = (id: string): Thread => ({
   id, transcript: [], messages: [], pane: null, running: false, working: null, pending: null, confirmations: [], turn: { sources: [], artifacts: [] },
 })
 
+/**
+ * A routing hint for this turn's first call: the tool a slash command named,
+ * or the agents an @ mention addressed. A hint only — the gateway still
+ * decides what may be called.
+ */
+export interface Prefer {
+  slug?: string
+  tool?: string
+  agents?: { name: string; tools: string[] }[]
+}
+
 interface WorkspaceState {
   threads: Record<string, Thread>
-  /** `prefer` names the tool a slash command invoked, for this turn's first call. */
-  send: (threadId: string, text: string, prefer?: { slug: string; tool: string }) => void
+  send: (threadId: string, text: string, prefer?: Prefer) => void
   decide: (threadId: string, messageId: string, toolUseId: string, decision: 'confirmed' | 'declined') => void
   stop: (threadId: string) => void
   openPane: (threadId: string, artifactId: string | null) => void
@@ -60,7 +70,7 @@ function load(): Record<string, Thread> {
 
 const controllers = new Map<string, AbortController>()
 /** The tool a slash command named, for the turn it was typed in. Not persisted: it steers one call. */
-const prefers = new Map<string, { slug: string; tool: string }>()
+const prefers = new Map<string, Prefer>()
 
 export const useWorkspace = create<WorkspaceState>((set, get) => {
   const thread = (id: string) => get().threads[id] ?? emptyThread(id)
@@ -69,7 +79,7 @@ export const useWorkspace = create<WorkspaceState>((set, get) => {
   const updateMessage = (id: string, messageId: string, f: (m: ThreadMessage) => Partial<ThreadMessage>) =>
     update(id, (t) => ({ messages: t.messages.map((m) => (m.id === messageId ? { ...m, ...f(m) } : m)) }))
 
-  const context = (threadId: string, prefer?: { slug: string; tool: string }) => {
+  const context = (threadId: string, prefer?: Prefer) => {
     const s = useAstra.getState()
     const role = ROLE_BY_ID[s.roleId]
     const def = [...threadDefs(Object.values(s.missions), s.mi), ...Object.values(VIEW_THREADS)].find((d) => d.id === threadId)

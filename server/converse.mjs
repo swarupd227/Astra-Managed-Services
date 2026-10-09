@@ -164,8 +164,9 @@ ${ctx.person ?? 'An operator'} · ${ctx.roleTitle ?? 'role unknown'}. The tools 
 
 THIS CONVERSATION
 ${ctx.thread ?? 'Ask Astra — the whole service'}${ctx.scope ? `\nScope: ${ctx.scope}` : ''}
-Estate time: ${ctx.now ?? 'unknown'}${ctx.prefer ? `
-The user invoked /${ctx.prefer.slug} rather than typing a question, which names ${ctx.prefer.tool} as the tool to call. Call it first, with whatever their words supply as its input. If their words ask for something it cannot answer, call it anyway and then say what it does not cover.` : ''}
+Estate time: ${ctx.now ?? 'unknown'}${ctx.prefer?.slug ? `
+The user invoked /${ctx.prefer.slug} rather than typing a question, which names ${ctx.prefer.tool} as the tool to call. Call it first, with whatever their words supply as its input. If their words ask for something it cannot answer, call it anyway and then say what it does not cover.` : ''}${ctx.prefer?.agents?.length ? `
+The user addressed ${ctx.prefer.agents.map((a) => a.name).join(' and ')} by name, which names whose tools to reach for first: ${ctx.prefer.agents.map((a) => `${a.name} answers ${a.tools.join(', ')}`).join('; ')}. Call from those unless the question needs something else, and if it does, call that too and say which agent answered. Being addressed grants no extra authority: the same role checks apply.` : ''}
 
 THE AGENTS
 ${roster}

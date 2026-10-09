@@ -9,7 +9,10 @@ import { Button, Chip, Dot } from '@/ui/primitives'
 import { cn } from '@/lib/format'
 import { ArtifactBody } from './cards/view'
 import { TOOL_BY_NAME, agentName, roleHolds } from './catalogue'
-import { matches, parse, typing, utteranceFor, type Command } from './commands'
+import {
+  matches, matchesMention, mentionedIn, mentionsFor, parse, typing, typingMention, utteranceFor,
+  type Command, type Mention,
+} from './commands'
 import { groundedOpeners } from './openers'
 import { useWorkspace } from './store'
 import { threadDefs, type ThreadDef } from './threads'
@@ -277,8 +280,17 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
   const roleId = useAstra((s) => s.roleId)
   const fragment = typing(input)
   const options = React.useMemo(() => (fragment === null ? [] : matches(roleId, fragment)), [roleId, fragment])
+  // A mention can sit anywhere in a sentence, so its list is offered on the
+  // fragment at the end of the line. Only one palette is ever open: a line
+  // beginning with a slash is a command, whatever else it contains.
+  const canMention = React.useMemo(() => mentionsFor(roleId).length > 0, [roleId])
+  const mentionFragment = fragment === null ? typingMention(input) : null
+  const mentionOptions = React.useMemo(
+    () => (mentionFragment === null ? [] : matchesMention(roleId, mentionFragment)),
+    [roleId, mentionFragment],
+  )
   const [sel, setSel] = React.useState(0)
-  React.useEffect(() => setSel(0), [fragment])
+  React.useEffect(() => setSel(0), [fragment, mentionFragment])
 
   const submit = (text: string) => {
     const t = text.trim()
@@ -286,8 +298,14 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
     // A slash command is the same turn as a typed question: it names the tool
     // and keeps whatever words follow it as the input.
     const invoked = parse(roleId, t)
-    if (invoked) send(threadId, utteranceFor(invoked.command, invoked.rest), { slug: invoked.command.slug, tool: invoked.command.tool.name })
-    else send(threadId, t)
+    if (invoked) {
+      send(threadId, utteranceFor(invoked.command, invoked.rest), { slug: invoked.command.slug, tool: invoked.command.tool.name })
+    } else {
+      // An @ mention names whose tools to reach for. The words go through
+      // unchanged — the handles read naturally in the transcript.
+      const named = mentionedIn(roleId, t)
+      send(threadId, t, named.length ? { agents: named.map((m) => ({ name: m.name, tools: m.tools })) } : undefined)
+    }
     setInput('')
   }
 
@@ -295,6 +313,9 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
     const rest = input.slice(input.split(/\s/, 1)[0].length).trim()
     setInput(`/${c.slug}${rest ? ` ${rest}` : ' '}`)
   }
+
+  /** Replaces the handle being typed, leaving the rest of the sentence alone. */
+  const pickMention = (m: Mention) => setInput(input.replace(/@[\w-]*$/, `@${m.handle} `))
 
   const lastAgent = [...messages].reverse().find((m) => m.author === 'agent')
 
@@ -351,6 +372,27 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
                 ))}
               </ul>
             )}
+            {mentionOptions.length > 0 && (
+              <ul
+                data-testid="mention-menu"
+                className="absolute bottom-full z-20 mb-1.5 max-h-72 w-full overflow-y-auto rounded-md border border-line-strong bg-raised py-1 shadow-xl"
+              >
+                {mentionOptions.map((m, i) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setSel(i)}
+                      onClick={() => pickMention(m)}
+                      className={cn('flex w-full items-start gap-2 px-2.5 py-1.5 text-left', i === sel && 'bg-brand/10')}
+                    >
+                      <span className="mt-[1px] w-40 shrink-0 truncate font-mono text-2xs text-ink">@{m.handle}</span>
+                      <span className="min-w-0 flex-1 truncate text-2xs text-ink-3">{m.codename}</span>
+                      <Chip>{m.tools.length} tool{m.tools.length === 1 ? '' : 's'}</Chip>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -361,11 +403,20 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
                   if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pick(options[sel]); return }
                   if (e.key === 'Escape') { e.preventDefault(); setInput(''); return }
                 }
+                if (mentionOptions.length) {
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setSel((n) => (n + 1) % mentionOptions.length); return }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); setSel((n) => (n - 1 + mentionOptions.length) % mentionOptions.length); return }
+                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pickMention(mentionOptions[sel]); return }
+                  // Escape drops the handle being typed, not the whole line.
+                  if (e.key === 'Escape') { e.preventDefault(); setInput(input.replace(/@[\w-]*$/, '')); return }
+                }
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(input) }
               }}
               rows={2}
               disabled={pending}
-              placeholder={pending ? 'Confirm or decline above' : `Message ${def.group === 'astra' ? 'Astra' : def.title} — or / for a tool`}
+              placeholder={pending
+                ? 'Confirm or decline above'
+                : `Message ${def.group === 'astra' ? 'Astra' : def.title} — or / for a tool${canMention ? ', @ for an agent' : ''}`}
               data-testid="workspace-composer"
               className="w-full resize-none rounded-md border border-line-strong bg-sunken px-3 py-2 pr-11 text-xs leading-relaxed text-ink placeholder:text-ink-3 focus:border-brand focus:outline-none disabled:opacity-60"
             />

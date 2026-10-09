@@ -1,4 +1,6 @@
 import { TOOLS, agentName, roleHolds, type ToolSpec } from './catalogue'
+import { AGENT_BY_ID } from '@/domain/estate'
+import { ROLE_BY_ID } from '@/domain/reference'
 
 /* ==========================================================================
    Slash commands.
@@ -93,3 +95,90 @@ export function parse(roleId: string, input: string): { command: Command; rest: 
  */
 export const utteranceFor = (command: Command, rest: string): string =>
   rest ? `${command.summary.replace(/\.$/, '')} — ${rest}` : command.summary
+
+/* ==========================================================================
+   Agent mentions.
+
+   `/` names a tool; `@` names whoever answers for a part of the service. It
+   is a routing hint and nothing more — the gateway still decides what may be
+   called, so mentioning an agent can never reach a tool the role does not
+   hold, and an agent that holds nothing this role can call is never offered.
+
+   Ours alone, deliberately. A client is owed an answer about their service,
+   not an org chart of whichever agent produced it, and making agent names the
+   way to ask would put that org chart in front of them. The roles inside
+   Artizent already see attribution on every answer, so for them the handles
+   name something they can already read.
+   ========================================================================== */
+
+export interface Mention {
+  /** The agent id, for the hint sent to the orchestrator. */
+  id: string
+  /** What the user types after the @. No spaces. */
+  handle: string
+  name: string
+  /** What it answers for. */
+  codename: string
+  /** The tools this role may call that this agent answers. */
+  tools: string[]
+}
+
+/** True for the roles on our side of the engagement. */
+const ours = (roleId: string) => ROLE_BY_ID[roleId]?.org === 'artizent'
+
+/**
+ * The agents a role may call by name: those answering at least one tool the
+ * role holds. Empty for every client role.
+ */
+export function mentionsFor(roleId: string): Mention[] {
+  if (!ours(roleId)) return []
+  const byAgent = new Map<string, string[]>()
+  for (const t of TOOLS) {
+    if (t.agent === 'astra' || !roleHolds(roleId, t)) continue
+    byAgent.set(t.agent, [...(byAgent.get(t.agent) ?? []), t.name])
+  }
+  return [...byAgent]
+    .map(([id, tools]) => {
+      const agent = AGENT_BY_ID[id]
+      return {
+        id,
+        handle: (agent?.name ?? id).replace(/\s+/g, ''),
+        name: agent?.name ?? agentName(id),
+        codename: agent?.codename ?? '',
+        tools,
+      }
+    })
+    .sort((a, b) => a.handle.localeCompare(b.handle))
+}
+
+/**
+ * The `@` fragment being typed, or null.
+ *
+ * Unlike a slash command a mention can sit anywhere in a sentence, so this
+ * looks at the end of the line rather than the start: "ask @cus" offers
+ * Custodian, and the list goes away once a space follows the handle.
+ */
+export function typingMention(input: string): string | null {
+  const m = /(?:^|\s)@([\w-]*)$/.exec(input)
+  return m ? m[1] : null
+}
+
+export function matchesMention(roleId: string, fragment: string): Mention[] {
+  const q = fragment.toLowerCase()
+  const all = mentionsFor(roleId)
+  if (!q) return all
+  return all
+    .filter((m) => m.handle.toLowerCase().includes(q) || m.codename.toLowerCase().includes(q))
+    .sort((a, b) => Number(b.handle.toLowerCase().startsWith(q)) - Number(a.handle.toLowerCase().startsWith(q)))
+}
+
+/** The agents a line names, each resolved against what this role may call. */
+export function mentionedIn(roleId: string, input: string): Mention[] {
+  const all = mentionsFor(roleId)
+  const found = new Map<string, Mention>()
+  for (const [, handle] of input.matchAll(/(?:^|\s)@([\w-]+)/g)) {
+    const hit = all.find((m) => m.handle.toLowerCase() === handle.toLowerCase())
+    if (hit) found.set(hit.id, hit)
+  }
+  return [...found.values()]
+}
