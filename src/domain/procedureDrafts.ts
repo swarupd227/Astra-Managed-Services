@@ -108,7 +108,13 @@ function authorises(standardAreaId: string): { classes: string[]; pack: string |
   const domains = AREA_DOMAINS[standardAreaId] ?? []
   const granted = new Set(AGENTS.flatMap((a) => Object.keys(a.grants)))
   const classes = ACTION_CLASSES.filter((c) => domains.includes(c.domain) && granted.has(c.id))
-  const agents = AGENTS.filter((a) => classes.some((c) => a.grants[c.id])).map((a) => a.id)
+  // Every class, not any of them. AC-05 (read and collect diagnostics) is
+  // granted to almost the whole fleet, so matching on any class named the
+  // client's own KYC bot as able to execute incident triage. An agent can
+  // carry out a procedure only if it holds everything the procedure does.
+  const agents = classes.length
+    ? AGENTS.filter((a) => classes.every((c) => a.grants[c.id])).map((a) => a.id)
+    : []
   // The strictest floor among them: a procedure is only as free as its
   // tightest step, and saying otherwise would overstate what it authorises.
   const floor = classes

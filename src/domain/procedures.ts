@@ -204,12 +204,25 @@ export function readProcedure(p: Procedure, nowMs: number, reviews: Review[]): P
   const lastReviewed = Date.parse(mine[0]?.at ?? p.lastReviewedAt)
   const dueInDays = Math.ceil((lastReviewed + p.reviewEveryDays * DAY - nowMs) / DAY)
   const executions = executionsOf(p)
+  // A person reviewing a draft and setting its version is what makes it
+  // current: that is the review the contract asks for, and the state is
+  // derived from it rather than stored, so the record stays append-only.
+  //
+  // Without this a draft stayed a draft however many times it was reviewed,
+  // so nothing the platform drafted could ever count as coverage and the
+  // procedures commitment could never be met.
+  const reviewed = Boolean(mine[0])
+  const state: ProcedureState = p.state === 'draft' && reviewed ? 'current' : p.state
+
   return {
-    procedure: mine[0] ? { ...p, version: mine[0].version, lastReviewedAt: mine[0].at } : p,
+    procedure: mine[0] ? { ...p, state, version: mine[0].version, lastReviewedAt: mine[0].at } : p,
     dueInDays,
-    stale: p.state === 'current' && dueInDays < 0,
+    // Both read the derived state, not the stored one: a draft a person has
+    // reviewed into current is subject to review cycles and dormancy like any
+    // other current procedure.
+    stale: state === 'current' && dueInDays < 0,
     executions,
-    dormant: p.state === 'current' && p.actionClasses.length > 0 && executions === 0,
+    dormant: state === 'current' && p.actionClasses.length > 0 && executions === 0,
     reviews: mine,
     unknownClasses: p.actionClasses.filter((c) => !KNOWN_CLASS.has(c)),
   }
