@@ -24,6 +24,7 @@ import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } fro
 import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
 import { PUBLISH_LABEL, publicationSummary } from '@/domain/publication'
 import { buildBoardDeck } from '@/domain/boardDeck'
+import { CAUSE_LABEL, KIND_LABEL, REPORTS, REPORT_BY_ID, explainDifference, financeClients } from '@/domain/finance'
 import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
@@ -143,6 +144,22 @@ function findData(idOrName: string) {
   const item = DATA_ITEM_BY_ID[idOrName] ?? DATA_ITEMS.find((i) => i.name.toLowerCase() === key || (i.aliases ?? []).some((a) => a.toLowerCase() === key))
   if (!item) throw new ToolError(`No data item has the id or name "${idOrName}".`)
   return item
+}
+
+/** Money, as a figure somebody reads aloud rather than a raw number. */
+const usd = (n: number) => {
+  const a = Math.abs(n)
+  const s = a >= 1_000_000 ? `$${(a / 1_000_000).toFixed(2)}M` : a >= 1_000 ? `$${(a / 1_000).toFixed(0)}k` : `$${a.toFixed(0)}`
+  return n < 0 ? `-${s}` : s
+}
+
+/** The refresh time each report stands at now, after any taken this session. */
+const latestRefreshes = (): Record<string, string> => {
+  const out: Record<string, string> = {}
+  for (const r of useAstra.getState().reportRefreshes) {
+    if (!out[r.reportId] || r.at > out[r.reportId]) out[r.reportId] = r.at
+  }
+  return out
 }
 
 export const EXECUTORS: Record<string, Executor> = {
@@ -567,6 +584,73 @@ export const EXECUTORS: Record<string, Executor> = {
         evidenceId: record.evidenceId ?? null,
       },
       artifacts: [card('publication', `${item.name} · publish gate`, { item: item.id }, '/operate/data')],
+    }
+  },
+
+  explain_difference: (input) => {
+    const client = str(input.client)
+    const period = str(input.period)
+    if (!client || !period) throw new ToolError('A difference needs a client and a period to be about.')
+    const known = financeClients()
+    const match = known.find((c) => c.toLowerCase() === client.toLowerCase())
+      ?? known.find((c) => c.toLowerCase().startsWith(client.toLowerCase().split(/\s+/)[0]))
+    if (!match) throw new ToolError(`The finance feed carries nothing for "${client}". It holds: ${known.join(', ')}.`)
+
+    const refreshedAt = latestRefreshes()
+    const d = explainDifference({
+      client: match, period,
+      aId: str(input.report_a) || undefined, bId: str(input.report_b) || undefined,
+      refreshedAt,
+    })
+    if (!d.causes.length && d.gap === 0) {
+      return {
+        payload: { client: match, period, agree: true, figure: usd(d.a.figure), note: 'Both reports give the same figure.' },
+        artifacts: [card('difference', `${match} ${period} · why they differ`, { client: match, period }, '/operate/data')],
+      }
+    }
+
+    return {
+      payload: {
+        client: match, period, measure: d.measure,
+        reports: [d.a, d.b].map((side) => ({
+          report: side.view.name,
+          figure: usd(side.figure),
+          lastRefreshed: side.refreshedAt.slice(0, 16).replace('T', ' '),
+          itsDefinitionIncludes: side.view.includes.map((k) => KIND_LABEL[k]),
+        })),
+        difference: usd(Math.abs(d.gap)),
+        causes: d.causes.map((c) => ({
+          worth: usd(Math.abs(c.amount)),
+          what: KIND_LABEL[c.entryKind],
+          why: CAUSE_LABEL[c.kind],
+          seenOnlyBy: c.seenBy,
+          rows: c.rows,
+          // The rows themselves, so somebody can check the arithmetic.
+          examples: c.examples.map((e) => `${e.id}: ${usd(e.amount)} booked ${e.bookedAt.slice(0, 16).replace('T', ' ')}`),
+        })),
+        // Zero by construction, computed anyway and reported.
+        unexplained: usd(d.unexplained),
+        theyAddUp: d.unexplained === 0,
+      },
+      artifacts: [card('difference', `${match} ${period} · why they differ`, { client: match, period }, '/operate/data')],
+    }
+  },
+
+  refresh_report: (input) => {
+    const id = str(input.report_id)
+    const view = REPORT_BY_ID[id] ?? REPORTS.find((r) => r.name.toLowerCase() === id.toLowerCase())
+    if (!view) throw new ToolError(`No report is called "${id}". There is ${REPORTS.map((r) => r.id).join(' and ')}.`)
+    const done = useAstra.getState().refreshReport(view.id, person())
+    if (!done) throw new ToolError(`${view.name} could not be refreshed.`)
+    return {
+      payload: {
+        report: view.name,
+        nowSees: `everything booked up to ${done.at.slice(0, 16).replace('T', ' ')}`,
+        refreshedBy: person(),
+        evidenceId: done.evidenceId,
+        note: 'A difference of definition survives a refresh. Read the difference again to see what remains.',
+      },
+      artifacts: [card('difference', 'Why they differ', {}, '/operate/data')],
     }
   },
 

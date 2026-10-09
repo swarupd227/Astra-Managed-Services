@@ -27,6 +27,7 @@ export const KINDS = {
   experiments: (r) => r.findingId,
   // One decision per load: the item and the moment it was gated.
   publishLog: (r) => `${r.itemId}:${r.at}`,
+  reportRefreshes: (r) => `${r.reportId}:${r.at}`,
   evidenceTail: (r) => r.id,
 }
 

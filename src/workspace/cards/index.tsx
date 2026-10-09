@@ -16,6 +16,7 @@ import { proceduresView } from './procedures'
 import { provenanceView } from './provenance'
 import { publicationView } from './publication'
 import { boardDeckView } from './boardDeck'
+import { differenceView } from './difference'
 import { recommendationsView } from './recommendations'
 import { successorPackView } from './successorPack'
 import { releasesView } from './releases'
@@ -54,6 +55,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   recommendations: recommendationsView,
   publication: publicationView,
   boardDeck: boardDeckView,
+  difference: differenceView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },

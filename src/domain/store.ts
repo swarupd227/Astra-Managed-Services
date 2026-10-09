@@ -11,6 +11,7 @@ import { type Experiment } from './experiments'
 import { runLoad, type Fault, type LoadResult } from './dataLoad'
 import { DATA_ITEM_BY_ID } from './dataEstate'
 import { type PublishRecord } from './publication'
+import { REPORT_BY_ID } from './finance'
 import { classify, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
 import { chainFrom, managerOf } from './escalation'
 import { DEMAND_CLASSES } from './ledgers'
@@ -99,6 +100,8 @@ interface State {
   procedures: Procedure[]
   /** Recommendations funded as experiments, each with the count it was struck against. */
   experiments: Experiment[]
+  /** When a report was refreshed on request, and by whom. */
+  reportRefreshes: { reportId: string; at: string; by: string; evidenceId?: string }[]
   /** What the publish gate decided about each load it saw. */
   publishLog: PublishRecord[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
@@ -241,6 +244,11 @@ interface State {
    * or null where no such item exists.
    */
   runDataLoad: (itemId: string, fault: Fault | null, by: string) => { load: LoadResult; record: PublishRecord } | null
+  /**
+   * Refreshes one report so it sees everything booked up to now. Returns the
+   * time it now stands at, or null where no such report exists.
+   */
+  refreshReport: (reportId: string, by: string) => { at: string; evidenceId: string } | null
   /** Writes a drafted procedure into the register, as a draft for review. */
   writeProcedureDraft: (
     p: Omit<Procedure, 'id' | 'state' | 'version' | 'lastReviewedAt'>,
@@ -298,6 +306,8 @@ interface SessionRecords {
   procedureReviews: Review[]
   procedures: Procedure[]
   experiments: Experiment[]
+  /** When a report was refreshed on request, and by whom. */
+  reportRefreshes: { reportId: string; at: string; by: string; evidenceId?: string }[]
   /** What the publish gate decided about each load it saw. */
   publishLog: PublishRecord[]
   /** Appended since the seeded backbone, without their hashes. */
@@ -307,7 +317,7 @@ interface SessionRecords {
 const EMPTY_SESSION: SessionRecords = {
   privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
   clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
-  publishLog: [], evidenceTail: [],
+  reportRefreshes: [], publishLog: [], evidenceTail: [],
 }
 
 /**
@@ -405,6 +415,7 @@ export const useAstra = create<State>((set, get) => ({
   procedureReviews: SESSION.procedureReviews,
   procedures: SESSION.procedures,
   experiments: SESSION.experiments,
+  reportRefreshes: SESSION.reportRefreshes,
   publishLog: SESSION.publishLog,
   lessons: [],
 
@@ -1746,6 +1757,23 @@ export const useAstra = create<State>((set, get) => ({
   },
 
   /**
+   * Refreshes one report, so it can see what has been booked since it last
+   * looked.
+   *
+   * A fix somebody chose, not one the platform applied on their behalf: it
+   * runs when they ask for it and it is recorded with their name, because a
+   * figure that moved needs somebody to have moved it.
+   */
+  refreshReport: (reportId: string, by: string) => {
+    const view = REPORT_BY_ID[reportId]
+    if (!view) return null
+    const at = nowIso(get().clockOffsetMins)
+    const evidenceId = get().logEvidence('action', by, `${view.name} refreshed`, { reportId, refreshedTo: at })
+    set({ reportRefreshes: [...get().reportRefreshes, { reportId, at, by, evidenceId }] })
+    return { at, evidenceId }
+  },
+
+  /**
    * Runs one load through the publish gate and records what it decided.
    *
    * The fault, where there is one, changes what the source hands over. Nothing
@@ -2089,7 +2117,7 @@ export const useOpenWork = () =>
  */
 const SAVED_KEYS = [
   'privacyLog', 'incidentNotices', 'exitLog', 'commitmentLog',
-  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments', 'publishLog',
+  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments', 'publishLog', 'reportRefreshes',
 ] as const
 
 let lastSaved: Record<string, unknown> = Object.fromEntries(
@@ -2178,7 +2206,7 @@ export async function clearSessionRecords(): Promise<number> {
   useAstra.setState({
     privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
     clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
-    publishLog: [],
+    reportRefreshes: [], publishLog: [],
     evidence: PRISTINE_EVIDENCE,
   })
   return removed

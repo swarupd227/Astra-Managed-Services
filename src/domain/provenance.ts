@@ -258,6 +258,13 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
+    id: 'ds_finance', name: 'Fees, expenses and credit notes, row by row', origin: 'connector',
+    source: 'The client’s finance system, via the engagement feed: one row per entry with the amount and when it reached the warehouse, plus what each report’s definition of net revenue includes and when it last refreshed. Sampled until that feed is connected',
+    routes: ['/operate/data'],
+    caution: 'The rows are a sample; the reconciliation over them is not. Every row is placed in exactly one bucket, so the causes sum to the difference by construction, and whatever they do not account for is reported as an unexplained remainder rather than absorbed',
+    maturity: 'live',
+  },
+  {
     id: 'ds_publication', name: 'What each consumer is reading, and what the gate decided', origin: 'platform_record',
     source: 'Written when a load is reconciled: the control totals the source declared with it, the totals counted after it ran, every measure that did not agree, and whether the load was published or held',
     routes: ['/operate/data'],

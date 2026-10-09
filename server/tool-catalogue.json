@@ -212,6 +212,32 @@
       }
     },
     {
+      "name": "explain_difference", "agent": "agt_custodian", "surfaces": ["run", "governance"],
+      "description": "Explain why two reports give different figures for the same client, period and measure, with the rows behind each reason. Every row is placed in exactly one bucket — seen by neither report, seen by both, or seen by one and not the other — so the causes sum to the difference as a property of the partition rather than as an assertion, and anything they do not account for is reported as an unexplained remainder rather than absorbed. A cause is one of three things: the rows were booked after one report last refreshed, the two reports define the measure differently, or both at once. Returns each report's figure, when it last refreshed, what its definition includes, and the rows behind every cause so the arithmetic can be checked.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "client": { "type": "string", "description": "The client the figures are about, e.g. Northwind Trading" },
+          "period": { "type": "string", "description": "The period, e.g. 2026-Q3" },
+          "report_a": { "type": "string", "description": "One report. Defaults to the engagement report." },
+          "report_b": { "type": "string", "description": "The other. Defaults to the finance dashboard." }
+        },
+        "required": ["client", "period"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "refresh_report", "agent": "agt_custodian", "surfaces": ["run", "governance"], "mutating": true, "approval": true, "canApprove": true,
+      "description": "Refresh one report so it sees everything booked up to now, and record who asked for it. This is a fix somebody chooses rather than one the platform applies on their behalf: a figure that moves needs a person behind it. Refreshing does not close a difference caused by the two reports defining the measure differently — that part survives the refresh and is reported as what remains.",
+      "describe": "Refresh {report_id} so it sees everything booked up to now.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "report_id": { "type": "string", "description": "The report to refresh, e.g. rep_finance" } },
+        "required": ["report_id"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "build_board_update", "agent": "agt_herald", "surfaces": ["governance", "run"],
       "description": "Assemble a board update from the published side of the publish gate, as a deck that can be downloaded. Figures come only from loads that reconciled against what the source declared: where the latest load is held, the last one that reconciled is used and the deck says on its face that it is showing earlier figures and why. Every slide prints what its figures were read from, the load each came from and when it landed, because a deck leaves the platform and nothing travels with it except what is printed on it. A load that is held gets a slide of its own naming it, the reason and the ticket. Returns what the deck will say; the download button on the card writes the file.",
       "describe": "Assemble the board update for {client} from the figures that reconciled.",
