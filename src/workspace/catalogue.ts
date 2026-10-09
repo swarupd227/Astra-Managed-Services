@@ -37,6 +37,32 @@ export function roleHolds(roleId: string, tool: ToolSpec): boolean {
 
 export const agentName = (id: string) => (id === 'astra' ? 'Astra' : AGENT_BY_ID[id]?.name ?? id)
 
+/** Leading verbs stripped to leave what the call was about. */
+const CALL_VERBS = [
+  'get_', 'set_', 'record_', 'run_', 'search_', 'produce_', 'declare_', 'build_', 'draft_',
+  'approve_', 'reject_', 'decide_', 'suspend_', 'reinstate_', 'accept_', 'verify_', 'admit_', 'fund_', 'review_',
+]
+
+/**
+ * What a call is named on screen, for the person reading it.
+ *
+ * Our own roles see the tool's identifier, because it is the thing they would
+ * grep for, name in a defect and find in the catalogue — and they already see
+ * which agent answered, so precision costs them nothing.
+ *
+ * The client sees what the call was about. `run_data_load` is an
+ * implementation detail of ours leaking into their conversation: it tells
+ * them nothing they can act on, and a row of snake_case identifiers under
+ * every answer reads as a system talking to itself. The agent is still named,
+ * because a team of agents answering for parts of the service is the product
+ * rather than an internal detail; the function signature is not.
+ */
+export function toolLabel(roleId: string, toolName: string): string {
+  if (ROLE_BY_ID[roleId]?.org === 'artizent') return toolName
+  const stripped = CALL_VERBS.reduce((n, v) => (n.startsWith(v) ? n.slice(v.length) : n), toolName).replace(/_/g, ' ')
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1)
+}
+
 /** The confirmation sentence, with the call's input substituted in. */
 export function describeCall(tool: ToolSpec, input: Record<string, unknown>): string {
   return (tool.describe ?? tool.name).replace(/\{(\w+)\}/g, (_, k) => {

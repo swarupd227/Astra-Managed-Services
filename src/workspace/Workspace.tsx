@@ -8,7 +8,7 @@ import { useAstra } from '@/domain/store'
 import { Button, Chip, Dot } from '@/ui/primitives'
 import { cn } from '@/lib/format'
 import { ArtifactBody } from './cards/view'
-import { TOOL_BY_NAME, agentName, roleHolds } from './catalogue'
+import { TOOL_BY_NAME, agentName, roleHolds, toolLabel } from './catalogue'
 import {
   matches, matchesMention, mentionedIn, mentionsFor, parse, typing, typingMention, utteranceFor,
   type Command, type Mention,
@@ -84,10 +84,11 @@ function ArtifactCard({ artifact, threadId, active, compact }: { artifact: Artif
 
 function ConfirmBlock({ c, threadId, messageId }: { c: Confirmation; threadId: string; messageId: string }) {
   const decide = useWorkspace((s) => s.decide)
+  const roleId = useAstra((s) => s.roleId)
   return (
     <div className={cn('rounded-md border px-3 py-2.5', c.state === 'pending' ? 'border-brand/60 bg-brand/[0.05]' : 'border-line bg-raised')}>
       <div className="flex flex-wrap items-center gap-1.5">
-        <Chip mono>{c.tool}</Chip>
+        <Chip mono>{toolLabel(roleId, c.tool)}</Chip>
         {c.state !== 'pending' && <Chip tone={c.state === 'declined' ? 'neutral' : c.state === 'running' ? 'warn' : 'ok'}>{c.state === 'declined' ? 'not now' : c.state}</Chip>}
       </div>
       <p className="mt-1.5 text-xs text-ink">{c.describe}</p>
@@ -102,6 +103,7 @@ function ConfirmBlock({ c, threadId, messageId }: { c: Confirmation; threadId: s
 }
 
 function MessageView({ m, threadId, pane, last, onSuggest, compact }: { m: ThreadMessage; threadId: string; pane: string | null; last: boolean; onSuggest: (s: string) => void; compact?: boolean }) {
+  const roleId = useAstra((s) => s.roleId)
   if (m.author === 'user') {
     return (
       <div className="flex justify-end">
@@ -130,7 +132,7 @@ function MessageView({ m, threadId, pane, last, onSuggest, compact }: { m: Threa
           <div className="flex flex-wrap items-center gap-1">
             <span className="label-cap mr-0.5">Sources</span>
             {m.sources.map((s) => (
-              <Chip key={s.tool} tone={s.ok ? 'neutral' : 'crit'} mono title={s.error}>{agentName(s.agent)} · {s.tool}</Chip>
+              <Chip key={s.tool} tone={s.ok ? 'neutral' : 'crit'} mono title={s.error}>{agentName(s.agent)} · {toolLabel(roleId, s.tool)}</Chip>
             ))}
           </div>
         )}
@@ -198,7 +200,7 @@ function Opening({ def, onSuggest }: { def: ThreadDef; onSuggest: (s: string) =>
         {brief && (
           <div className="flex flex-wrap items-center gap-1">
             <span className="label-cap mr-0.5">Sources</span>
-            <Chip mono>Herald · get_brief</Chip>
+            <Chip mono>Herald · {toolLabel(roleId, 'get_brief')}</Chip>
           </div>
         )}
         <div className="flex flex-wrap gap-1.5 pt-0.5">
