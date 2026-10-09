@@ -91,12 +91,43 @@ try {
       await query('insert into ticket_cluster (engagement_id, id, example, sub_category, incidents, months, class_id) values ($1,$2,$3,$4,$5,$6,$7)',
         [h.engagementId, c.id, c.example, c.subCategory, c.incidents, c.months, c.classId ?? null])
     }
-    for (const c of h.cannot) {
+    for (const c of h.cannot ?? []) {
       await query('insert into ticket_limitation (engagement_id, what, because) values ($1,$2,$3)',
         [h.engagementId, c.what, c.because])
     }
 
-    console.log(`${h.engagementId}: ${h.themes.length} themes, ${h.clusters.length} clusters, ${h.scope.inScope} in scope, ${h.cannot.length} stated limitations.`)
+    /* ------------------------------------------------------------------------
+       Read back what landed, and refuse to call it an ingest if it does not
+       match the extract.
+
+       The limitations went missing exactly this way: an earlier extract had
+       none, the load succeeded, and nothing afterwards noticed that the table
+       the application reads was empty. The limitations are the rows that make
+       the platform say what it cannot measure and why, so losing them silently
+       turns a refusal into a gap.
+       ------------------------------------------------------------------------ */
+    const expected = {
+      ticket_scope_line: h.scope.byLine.length,
+      ticket_theme: h.themes.length,
+      ticket_cluster: h.clusters.length,
+      ticket_limitation: (h.cannot ?? []).length,
+    }
+    const wrong = []
+    for (const [table, want] of Object.entries(expected)) {
+      const [row] = await query(`select count(*)::int as n from ${table} where engagement_id = $1`, [h.engagementId])
+      if (row.n !== want) wrong.push(`${table}: ${row.n} rows in the database against ${want} in the extract`)
+    }
+    if (wrong.length) {
+      throw new Error(`${h.engagementId} did not load as supplied — ${wrong.join('; ')}`)
+    }
+
+    console.log(
+      `${h.engagementId}: ${h.themes.length} themes, ${h.clusters.length} clusters, ` +
+      `${h.scope.inScope} in scope, ${h.cannot.length} stated limitations — all read back and matching.`,
+    )
+    if (!h.cannot?.length) {
+      console.warn(`  note: ${h.engagementId} states no limitations. Every measure will be scored as though the extract supports it.`)
+    }
   }
 } catch (err) {
   console.error('Ingest failed:', err instanceof Error ? err.message : err)
