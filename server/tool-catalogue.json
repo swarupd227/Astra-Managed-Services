@@ -131,6 +131,34 @@
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
     },
     {
+      "name": "draft_procedure", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition"], "mutating": true, "approval": true,
+      "description": "Draft a maintenance procedure for one of the areas the contract names, assembled from the client's own records: the shape of their ingested ticket history, the demand classes costed from it, their application inventory and configuration baselines, and the action classes the policy engine will actually enforce. Every step carries what it was read from, so a reviewer checks the draft against the record. The action classes on the draft are the ones whose domain covers the area and which an agent actually holds a grant for, and the verification pack is the one those classes already carry — a procedure cannot authorise what the gateway would refuse, and an area with no executable class is marked as deciding rather than acting. Refuses, naming what is missing, where no register behind the area has anything recorded: a template filled in with plausible sentences would be indistinguishable from one that was. Lands as a draft at version 0.1 for somebody to review into current.",
+      "describe": "Draft a procedure for {area} from the client's own records, as a draft for review.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "area": { "type": "string", "description": "The area to draft for: a standard area id such as sa_triage, or the client's own words for it" },
+          "engagement": { "type": "string", "description": "Engagement id, e.g. eng_kearney" },
+          "reference": { "type": "string", "description": "Where it will be written down, e.g. RB-B3-001" }
+        },
+        "required": ["area"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "preview_procedure_draft", "agent": "agt_archivist", "surfaces": ["governance", "run", "transition"],
+      "description": "Show what a procedure for one of the contract's areas would say, without writing it: the records it would be assembled from with their figures, the steps each of those records supports, the action classes an agent actually holds for it and the verification pack they carry. Where the registers hold nothing for the area, returns the refusal and what is missing instead. Read-only — nothing is recorded.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "area": { "type": "string", "description": "The area to preview: a standard area id such as sa_triage, or the client's own words for it" },
+          "engagement": { "type": "string", "description": "Engagement id, e.g. eng_kearney" }
+        },
+        "required": ["area"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "fund_recommendation", "agent": "agt_prospect", "surfaces": ["governance", "transform"], "mutating": true, "approval": true, "canApprove": true,
       "description": "Fund a recommendation as an experiment, so that what it returns can be measured rather than claimed. Records the count the condition currently holds for, the hypothesis, what would count as success, and how long it gets before the outcome is read. The outcome is then the same count re-derived after the window: the condition is cleared, moved, or did not budge. Deliberately records no currency figure — the registers behind these findings count datasets, applications and hours of recorded demand, and a dollar value derived from those would be asserted rather than measured. Funding the same finding twice is refused.",
       "describe": "Fund {recommendation_id} as an experiment over {window_days} days, against the condition as it stands today.",

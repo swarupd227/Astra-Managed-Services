@@ -63,7 +63,7 @@ export function groundedOpeners(roleId: string): string[] {
     attempt(out, () => {
       const l = commitmentLedger({
         remedies: s.commitmentLog, packExports: s.packExports,
-        procedures: { loads: s.areaLoads, reviews: s.procedureReviews },
+        procedures: { loads: s.areaLoads, reviews: s.procedureReviews, written: s.procedures },
         privacy: { log: s.privacyLog, notices: s.incidentNotices }, exitLog: s.exitLog, experiments: s.experiments,
       })
       if (l.byStatus.missed) return { text: `${l.byStatus.missed} commitment${l.byStatus.missed === 1 ? ' is past its' : 's are past their'} date — which, and what happens now?`, weight: 92 }
@@ -113,7 +113,7 @@ export function groundedOpeners(roleId: string): string[] {
 
   if (has('get_procedures')) {
     attempt(out, () => {
-      const p = readProcedures({ loads: s.areaLoads, reviews: s.procedureReviews })
+      const p = readProcedures({ loads: s.areaLoads, reviews: s.procedureReviews, procedures: s.procedures })
       if (!p.load) return { text: `The contract names ${ENGAGEMENT.procedureAreas?.areas.length ?? 0} procedure areas and none are adopted yet — what is missing?`, weight: 70 }
       if (p.gaps.length || p.staleCount) return { text: `${p.gaps.length} procedure areas have nothing current and ${p.staleCount} reviews are overdue — show me`, weight: 72 }
       return null

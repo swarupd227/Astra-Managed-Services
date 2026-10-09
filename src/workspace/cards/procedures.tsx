@@ -49,7 +49,8 @@ function useEngagement(props: CardProps['props']): [string, (id: string) => void
 function useRegister(engagementId: string): ProcedureRegister {
   const loads = useAstra((s) => s.areaLoads)
   const reviews = useAstra((s) => s.procedureReviews)
-  return React.useMemo(() => readProcedures({ engagementId, loads, reviews }), [engagementId, loads, reviews])
+  const written = useAstra((s) => s.procedures)
+  return React.useMemo(() => readProcedures({ engagementId, loads, reviews, procedures: written }), [engagementId, loads, reviews, written])
 }
 
 function ProcedureMetrics({ props, size }: CardProps) {

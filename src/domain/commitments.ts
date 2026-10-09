@@ -10,7 +10,7 @@ import { glidepathAttainment, verifiedVolumeCoverage, volumeRemoved } from './me
 import { privacySummary, type IncidentNotice, type LoggedAction } from './privacy'
 import { clustersWithCause, historyFor, recurring, refusal, themeOf, type Derivable, type TicketHistory } from './ticketHistory'
 import type { FleetLifecycle } from './agentLifecycle'
-import { readProcedures, type AreaLoad, type Review } from './procedures'
+import { readProcedures, type AreaLoad, type Procedure, type Review } from './procedures'
 import { readRecommendations } from './recommendations'
 import { thresholdsFor } from './thresholds'
 // Type only: the pack reads the commitment register, and this must not become a cycle.
@@ -57,7 +57,7 @@ export interface MeasureCtx {
   /** Successor packs produced, for the commitment that the pack is produced rather than promised. */
   packExports?: PackExport[]
   /** What the procedure register needs: the client's adopted areas, and the reviews recorded. */
-  procedures?: { loads: AreaLoad[]; reviews: Review[] }
+  procedures?: { loads: AreaLoad[]; reviews: Review[]; written?: Procedure[] }
   /**
    * What has been recorded against privacy — the actions logged on a request,
    * and the notices given on an incident.
@@ -327,7 +327,7 @@ export const MEASURES: Record<string, Measure> = {
     id: 'procedures_current', name: 'Contract procedure areas with a current, in-date procedure', unit: 'pct',
     needs: ['contract'], route: '/governance/procedures',
     read: ({ nowMs, procedures }) => {
-      const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [], nowMs })
+      const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [], procedures: procedures?.written ?? [], nowMs })
       // Nothing is scored against a list nobody has adopted: a coverage figure
       // over zero areas would read as perfect.
       if (!r.load) return unreadable(`The client's procedure areas have not been adopted into the register; ${r.engagement.procedureAreas?.areas.length ?? 0} are filed at ${r.engagement.procedureAreas?.reference ?? 'no stated clause'}`)
@@ -455,7 +455,7 @@ export const RECOVERY: Record<string, (ctx: MeasureCtx) => RecoveryStep[]> = {
     ]
   },
   procedures_current: ({ procedures }) => {
-    const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [] })
+    const r = readProcedures({ loads: procedures?.loads ?? [], reviews: procedures?.reviews ?? [], procedures: procedures?.written ?? [] })
     if (!r.load) return [{ what: `Adopt the ${r.engagement.procedureAreas?.areas.length ?? 0} procedure areas the contract files, against its clause`, owner: 'transition', route: '/governance/procedures' }]
     return [
       ...r.gaps.map((a) => ({ what: `Write a procedure for “${a.area.name}” — the area has nothing current`, owner: 'sdm', route: '/governance/procedures' })),
@@ -808,7 +808,7 @@ export function commitmentLedger(
   opts: {
     engagementId?: string; audience?: 'client' | 'all'; fleet?: FleetLifecycle
     remedies?: Remedy[]; packExports?: PackExport[]
-    procedures?: { loads: AreaLoad[]; reviews: Review[] }
+    procedures?: { loads: AreaLoad[]; reviews: Review[]; written?: Procedure[] }
     privacy?: { log: LoggedAction[]; notices: IncidentNotice[] }
     exitLog?: Settlement[]
     experiments?: Experiment[]

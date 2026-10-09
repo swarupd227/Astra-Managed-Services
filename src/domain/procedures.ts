@@ -268,6 +268,13 @@ export function readProcedures(
 
 export const agentName = (id: string) => AGENT_BY_ID[id]?.name ?? id
 
-/** Procedures attached to an area, for the refusal that stops a gap being deleted. */
-export const proceduresInArea = (engagementId: string, standardId?: string): Procedure[] =>
-  standardId ? PROCEDURES.filter((p) => p.engagementId === engagementId && p.standardAreaId === standardId && p.state !== 'retired') : []
+/**
+ * Procedures attached to an area, for the refusal that stops a gap being
+ * deleted by narrowing the list.
+ *
+ * Takes the register rather than reading the compiled one, which is empty:
+ * the guard that stops a narrower area list orphaning live procedures depends
+ * on this seeing what has actually been written.
+ */
+export const proceduresInArea = (engagementId: string, standardId?: string, register: Procedure[] = PROCEDURES): Procedure[] =>
+  standardId ? register.filter((p) => p.engagementId === engagementId && p.standardAreaId === standardId && p.state !== 'retired') : []

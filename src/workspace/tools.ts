@@ -9,9 +9,11 @@ import {
 } from '@/domain/clientControl'
 import { COMMITMENTS, REMEDY_LABEL, commitmentLedger, readCommitment, type RemedyKind } from '@/domain/commitments'
 import {
-  PROCEDURES, STANDARD_AREAS, STANDARD_BY_ID, proceduresInArea, readProcedure, readProcedures,
+  STANDARD_AREAS, STANDARD_BY_ID, proceduresInArea, readProcedure, readProcedures,
   type ContractArea, type ProcedureReading,
 } from '@/domain/procedures'
+import { draftProcedure, type ProcedureDraft } from '@/domain/procedureDrafts'
+import { thresholdsFor } from '@/domain/thresholds'
 import { ORIGIN_LABEL as PROVENANCE_ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
 import {
   DIMENSION_BY_ID, ORIGIN_LABEL, PROGRESS_LABEL, readRecommendations, type Recommendation,
@@ -21,7 +23,7 @@ import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
 import { reliabilitySummary, type ServiceReading } from '@/domain/dataReliability'
-import { ENGAGEMENT, ENGAGEMENTS, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
+import { ENGAGEMENT, ENGAGEMENTS, ENGAGEMENT_BY_ID, PACK_BY_ID, SERVICE_PACKS, STAGES, STAGE_BY_ID, notIngested } from '@/domain/engagement'
 import { EXIT_OBLIGATIONS, HOLDINGS, readExit } from '@/domain/exit'
 import { AGENTS, AGENT_BY_ID, BUNDLE_BY_ID, TOWERS, TOWER_BY_ID } from '@/domain/estate'
 import { SLAS } from '@/domain/ledgers'
@@ -74,6 +76,55 @@ function findWork(idOrRef: string): WorkObject {
 }
 
 const person = () => ROLE_BY_ID[useAstra.getState().roleId]?.person ?? 'operator'
+
+/**
+ * The area a drafting call is about.
+ *
+ * Accepts a standard area id, the platform's name for it, or the client's own
+ * words from their adopted list — somebody asking about "incident triage"
+ * should not have to know it is `sa_triage` here.
+ */
+function resolveArea(input: Record<string, unknown>): { engagementId: string; area: string } {
+  const engagementId = str(input.engagement) || ENGAGEMENT.id
+  if (!ENGAGEMENTS.some((e) => e.id === engagementId)) {
+    throw new ToolError(`No engagement has the id "${engagementId}". Engagements: ${ENGAGEMENTS.map((e) => e.id).join(', ')}.`)
+  }
+  const want = str(input.area).toLowerCase()
+  if (!want) throw new ToolError('Which area? The contract names its own; the platform holds thirteen standard ones.')
+
+  const standard = STANDARD_AREAS.find((a) => a.id.toLowerCase() === want || a.name.toLowerCase() === want)
+  if (standard) return { engagementId, area: standard.id }
+
+  // The client's own words, as adopted against the clause.
+  const st = useAstra.getState()
+  const load = [...st.areaLoads].filter((l) => l.engagementId === engagementId).sort((a, b) => b.at.localeCompare(a.at))[0]
+  const theirs = load?.areas.find((a) => a.name.toLowerCase() === want || a.id.toLowerCase() === want)
+  if (theirs?.standardId) return { engagementId, area: theirs.standardId }
+  if (theirs) throw new ToolError(`"${theirs.name}" is in the client's list but maps onto no standard area, so the platform has nothing to draft it from.`)
+
+  throw new ToolError(`No area matches "${str(input.area)}". The platform's are: ${STANDARD_AREAS.map((a) => a.id).join(', ')}.`)
+}
+
+/** A draft as a tool payload, said the same way whether or not it was written. */
+function describeDraft(d: ProcedureDraft, engagementId: string, written: boolean) {
+  return {
+    engagement: engagementId,
+    area: d.area.name,
+    standardAreaId: d.standardAreaId,
+    drafted: true,
+    written,
+    name: d.name,
+    theAreaMustCover: d.expects,
+    // The whole point: every step stands on one of these.
+    writtenFrom: d.basis.map((b) => ({ what: b.what, readFrom: b.readFrom })),
+    steps: d.steps,
+    authorises: d.actionClasses,
+    provedBy: d.verificationPack,
+    executableBy: d.agents.map((a) => AGENT_BY_ID[a]?.name ?? a),
+    strictestMode: d.floor,
+    decidesRatherThanActs: d.actionClasses.length === 0,
+  }
+}
 
 function findAgent(idOrName: string) {
   const key = idOrName.toLowerCase()
@@ -338,7 +389,7 @@ export const EXECUTORS: Record<string, Executor> = {
       fleet: await readReadiness(ctx.signal),
       remedies: useAstra.getState().commitmentLog,
       packExports: useAstra.getState().packExports,
-      procedures: { loads: useAstra.getState().areaLoads, reviews: useAstra.getState().procedureReviews },
+      procedures: { loads: useAstra.getState().areaLoads, reviews: useAstra.getState().procedureReviews, written: useAstra.getState().procedures },
       privacy: { log: useAstra.getState().privacyLog, notices: useAstra.getState().incidentNotices },
       exitLog: useAstra.getState().exitLog,
       experiments: useAstra.getState().experiments,
@@ -563,7 +614,7 @@ export const EXECUTORS: Record<string, Executor> = {
       throw new ToolError(`No engagement has the id "${engagementId}". Engagements: ${ENGAGEMENTS.map((e) => e.id).join(', ')}.`)
     }
     const st = useAstra.getState()
-    const r = readProcedures({ engagementId, loads: st.areaLoads, reviews: st.procedureReviews })
+    const r = readProcedures({ engagementId, loads: st.areaLoads, reviews: st.procedureReviews, procedures: st.procedures })
     const describe = (p: ProcedureReading) => ({
       id: p.procedure.id,
       procedure: p.procedure.name,
@@ -652,13 +703,13 @@ export const EXECUTORS: Record<string, Executor> = {
     }
 
     const st = useAstra.getState()
-    const before = readProcedures({ engagementId, loads: st.areaLoads, reviews: st.procedureReviews })
+    const before = readProcedures({ engagementId, loads: st.areaLoads, reviews: st.procedureReviews, procedures: st.procedures })
     // A list that drops an area with live procedures would improve coverage by
     // deleting the inconvenient row. Refused, with what stands in the way.
     const keeping = new Set(areas.map((a) => a.standardId).filter(Boolean))
     const orphaned = (before.load?.areas ?? [])
       .filter((a) => a.standardId && !keeping.has(a.standardId))
-      .map((a) => ({ area: a.name, procedures: proceduresInArea(engagementId, a.standardId).map((p) => p.name) }))
+      .map((a) => ({ area: a.name, procedures: proceduresInArea(engagementId, a.standardId, st.procedures).map((p) => p.name) }))
       .filter((x) => x.procedures.length)
     if (orphaned.length) {
       throw new ToolError(
@@ -669,7 +720,7 @@ export const EXECUTORS: Record<string, Executor> = {
     const had = new Set((before.load?.areas ?? []).map((a) => a.name))
     const now = new Set(areas.map((a) => a.name))
     st.loadProcedureAreas({ engagementId, by: person(), role: st.roleId, reference, areas })
-    const after = readProcedures({ engagementId, loads: useAstra.getState().areaLoads, reviews: st.procedureReviews })
+    const after = readProcedures({ engagementId, loads: useAstra.getState().areaLoads, reviews: st.procedureReviews, procedures: st.procedures })
     return {
       payload: {
         engagement: engagement.id,
@@ -688,9 +739,67 @@ export const EXECUTORS: Record<string, Executor> = {
     }
   },
 
+  preview_procedure_draft: (input) => {
+    const { engagementId, area } = resolveArea(input)
+    const result = draftProcedure(area, engagementId)
+    if ('refusal' in result) {
+      return {
+        payload: {
+          area: result.refusal.area?.name ?? result.refusal.standardAreaId,
+          drafted: false,
+          because: result.refusal.because,
+        },
+        artifacts: [],
+      }
+    }
+    return { payload: describeDraft(result.draft, engagementId, false), artifacts: [] }
+  },
+
+  draft_procedure: (input) => {
+    const { engagementId, area } = resolveArea(input)
+    const st = useAstra.getState()
+
+    const existing = st.procedures.filter((p) => p.engagementId === engagementId && p.standardAreaId === area && p.state !== 'retired')
+    if (existing.length) {
+      throw new ToolError(`${STANDARD_BY_ID[area]?.name ?? area} already has ${existing.length === 1 ? 'a procedure' : `${existing.length} procedures`}: ${existing.map((p) => `${p.id} (${p.state})`).join(', ')}. Review it rather than drafting over it.`)
+    }
+
+    const result = draftProcedure(area, engagementId)
+    if ('refusal' in result) throw new ToolError(result.refusal.because)
+    const d = result.draft
+
+    const written = st.writeProcedureDraft({
+      engagementId,
+      standardAreaId: d.standardAreaId,
+      name: d.name,
+      owner: 'sdm',
+      // The author is the agent whose watch read the records it was built from.
+      author: 'agt_archivist',
+      reviewEveryDays: thresholdsFor(engagementId).procedureReviewDays,
+      agents: d.agents,
+      actionClasses: d.actionClasses,
+      verificationPack: d.verificationPack,
+      reference: str(input.reference) || `${STANDARD_BY_ID[area]?.id ?? area} (no reference stated)`,
+    })
+
+    return {
+      payload: {
+        ...describeDraft(d, engagementId, true),
+        procedure: written.procedure.id,
+        state: written.procedure.state,
+        version: written.procedure.version,
+        reviewEveryDays: written.procedure.reviewEveryDays,
+        writtenDownAt: written.procedure.reference,
+        evidenceId: written.evidenceId,
+        nextStep: 'It stands at 0.1 as a draft. A person reviews it into current, and that review is a record.',
+      },
+      artifacts: [card('procedures', `${ENGAGEMENT_BY_ID[engagementId]?.client ?? 'Procedures'} · procedures`, { engagement: engagementId }, '/governance/procedures')],
+    }
+  },
+
   review_procedure: (input) => {
     const who = str(input.procedure), version = str(input.version), changed = str(input.changed)
-    const p = PROCEDURES.find((x) => x.id.toLowerCase() === who.toLowerCase() || x.name.toLowerCase() === who.toLowerCase())
+    const p = useAstra.getState().procedures.find((x) => x.id.toLowerCase() === who.toLowerCase() || x.name.toLowerCase() === who.toLowerCase())
     if (!p) throw new ToolError(`No procedure has the id or name "${who}".`)
     if (!version) throw new ToolError('A review states the version the procedure now stands at.')
     if (!changed) throw new ToolError('A review states what changed, or that nothing did. A review that records nothing is not a review.')
@@ -699,7 +808,7 @@ export const EXECUTORS: Record<string, Executor> = {
     const before = readProcedure(p, NOW.getTime(), st.procedureReviews)
     st.reviewProcedure({ procedureId: p.id, by: person(), role: st.roleId, changed, version })
     const after = readProcedure(p, NOW.getTime(), useAstra.getState().procedureReviews)
-    const r = readProcedures({ engagementId: p.engagementId, loads: st.areaLoads, reviews: useAstra.getState().procedureReviews })
+    const r = readProcedures({ engagementId: p.engagementId, loads: st.areaLoads, reviews: useAstra.getState().procedureReviews, procedures: useAstra.getState().procedures })
     return {
       payload: {
         procedure: p.id,

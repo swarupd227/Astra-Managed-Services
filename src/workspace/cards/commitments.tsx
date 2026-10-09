@@ -48,6 +48,7 @@ function useLedger(engagementId: string): Ledger {
   const packExports = useAstra((s) => s.packExports)
   const loads = useAstra((s) => s.areaLoads)
   const reviews = useAstra((s) => s.procedureReviews)
+  const written = useAstra((s) => s.procedures)
   const privacyLog = useAstra((s) => s.privacyLog)
   const notices = useAstra((s) => s.incidentNotices)
   const exitLog = useAstra((s) => s.exitLog)
@@ -56,9 +57,9 @@ function useLedger(engagementId: string): Ledger {
   return React.useMemo(
     () => commitmentLedger({
       engagementId, audience, fleet, remedies, packExports,
-      procedures: { loads, reviews }, privacy: { log: privacyLog, notices }, exitLog, experiments,
+      procedures: { loads, reviews, written }, privacy: { log: privacyLog, notices }, exitLog, experiments,
     }),
-    [engagementId, audience, fleet, remedies, packExports, loads, reviews, privacyLog, notices, exitLog, experiments],
+    [engagementId, audience, fleet, remedies, packExports, loads, reviews, written, privacyLog, notices, exitLog, experiments],
   )
 }
 
