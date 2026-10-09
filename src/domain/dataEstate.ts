@@ -159,6 +159,16 @@ export interface DataItem {
   /** The last finished run. Read from the run history for scheduled items. */
   lastRun?: 'succeeded' | 'failed'
   /** Days a record may be kept. Absent means no retention schedule. */
+  /**
+   * What the source declares each load carries — rows and the measures it
+   * totals for itself.
+   *
+   * The source's own figure, travelling with the feed, not something the
+   * platform computed. It is what the publish gate reconciles a load against,
+   * so an item without it cannot be gated and the gate says so rather than
+   * passing it quietly. See `src/domain/publication.ts`.
+   */
+  controlTotals?: { rows: number; measures: Record<string, number> }
   retentionDays?: number
   /** Age in days of the oldest record held. */
   oldestRecordDays?: number
@@ -230,6 +240,8 @@ export const DATA_ITEMS: DataItem[] = [
   // Pipelines
   {
     id: 'pl_engagement_ingest', name: 'Engagement ingest', kind: 'pipeline', tower: 'twr_dataplat', platform: 'Azure Data Factory',
+    // Declared by the source with each load, per the feed contract.
+    controlTotals: { rows: 10_412, measures: { revenue: 48_910_250.75, hours: 612_480 } },
     aliases: ['adf_engagement_ingest', 'nightly datamart refresh', 'ADF nightly load'], nodeId: 'pipe_datamart', appId: 'inv_adf',
     owner: 'KNet Data', steward: 'S. Okafor', classification: 'restricted',
     upstream: ['src_customer_feed', 'src_focus_extract'], lineage: 'mapped', telemetry: true,
@@ -241,6 +253,7 @@ export const DATA_ITEMS: DataItem[] = [
   },
   {
     id: 'pl_utilisation_load', name: 'Utilisation load', kind: 'pipeline', tower: 'twr_dataplat', platform: 'Azure Data Factory',
+    controlTotals: { rows: 7_890, measures: { hours: 418_220 } },
     aliases: ['utilization load'], appId: 'inv_adf', owner: 'KNet Data', steward: 'S. Okafor', classification: 'restricted',
     upstream: ['src_hcm_feed', 'src_focus_extract'], lineage: 'mapped', telemetry: true,
     contract: {

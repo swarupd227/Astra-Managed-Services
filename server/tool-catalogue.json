@@ -198,6 +198,29 @@
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
     },
     {
+      "name": "run_data_load", "agent": "agt_custodian", "surfaces": ["run", "governance"], "mutating": true, "approval": true, "canApprove": true,
+      "description": "Run one data load through the publish gate and record what the gate decided. The load is reconciled against the control totals the source declared with it: rows and each measure the source totals for itself. Totals that agree publish, and consumers read the new figures. Totals that disagree, or a load that landed nothing, are held — consumers keep reading the last set that did reconcile, labelled with when it landed, and exactly one ticket is raised through the ordinary intake, classified, routed and deduplicated like any other. An item whose feed declares no control totals cannot be reconciled and is held rather than passed quietly. A fault may be injected into what the source hands over, which is the one thing a demonstration may seed: late, schema_change, half_load or zero_rows. The platform's response to it is not seeded — the totals are counted, the reconciliation computed and the decision recorded.",
+      "describe": "Run the {item_id} load{fault} and let the publish gate decide whether it reaches a consumer.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "item_id": { "type": "string", "description": "The pipeline or dataset to load, e.g. pl_engagement_ingest" },
+          "fault": { "type": "string", "enum": ["late", "schema_change", "half_load", "zero_rows"], "description": "A fault to inject into what the source hands over. Omit for a clean run." }
+        },
+        "required": ["item_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_publication", "agent": "agt_custodian", "surfaces": ["run", "governance"],
+      "description": "What each data item's consumers are reading right now and whether it is the latest load. Per item: whether the gate published or held it, when, the control totals the source declared against what the load actually produced, every measure that did not reconcile with the size of the gap, the ticket raised where one was, and the last load that did reconcile — which is what a consumer is reading while a later one is held. An item the gate has never seen reads as neither held nor verified by it, and says so: no record and verified are not the same fact.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "item_id": { "type": "string", "description": "One item, or omit for every item the gate has seen" } },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_recommendations", "agent": "agt_prospect", "surfaces": ["governance", "transform", "run"],
       "description": "What the service proposed without being asked, read across both registers — agents' unprompted proposals about the estate and the innovation register — against the improvement dimensions the client's contract names. Per dimension: how many recommendations in the cadence window, how many in total, how long since the last one, the value realised, and whether it has gone silent. Per recommendation: what it is, who raised it and whether they were asked, when, what it projected and what it actually returned, and whether it is open, accepted, delivered, realised, declined or expired without anyone deciding. Also the two figures that cut both ways: dimensions nothing has been raised on, which is the supplier's to answer for, and recommendations that expired undecided, which is the client's. An engagement whose contract files no dimensions is not scored for cadence.",
       "input_schema": {

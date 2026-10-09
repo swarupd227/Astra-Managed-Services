@@ -21,6 +21,8 @@ import {
   DIMENSION_BY_ID, ORIGIN_LABEL, PROGRESS_LABEL, readRecommendations, type Recommendation,
 } from '@/domain/recommendations'
 import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } from '@/domain/experiments'
+import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
+import { PUBLISH_LABEL, publicationSummary } from '@/domain/publication'
 import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
@@ -527,6 +529,69 @@ export const EXECUTORS: Record<string, Executor> = {
         recommendations: r.all.map(describe),
       },
       artifacts: [card('recommendations', `${r.engagement.client} · recommendations`, { engagement: engagementId }, '/governance/recommendations')],
+    }
+  },
+
+  run_data_load: (input) => {
+    const itemId = str(input.item_id)
+    const item = DATA_ITEM_BY_ID[itemId] ?? Object.values(DATA_ITEM_BY_ID).find((i) => i.name.toLowerCase() === itemId.toLowerCase())
+    if (!item) throw new ToolError(`No data item is called "${itemId}". Read the data estate to see what can be loaded.`)
+    const fault = str(input.fault) as Fault | ''
+    if (fault && !(fault in FAULT_LABEL)) throw new ToolError(`"${fault}" is not a fault this can inject. Use late, schema_change, half_load or zero_rows.`)
+
+    const out = useAstra.getState().runDataLoad(item.id, fault || null, person())
+    if (!out) throw new ToolError(`${item.name} could not be loaded.`)
+    const { load, record } = out
+    const retryable = fault ? RETRYABLE[fault as Fault] : null
+
+    return {
+      payload: {
+        item: item.name,
+        ranFor: `${load.durationMins} minutes`,
+        injected: fault ? FAULT_LABEL[fault as Fault] : null,
+        outcome: load.outcome,
+        error: load.error ?? null,
+        // Whether a retry was earned, and why — checked before one runs.
+        retry: retryable ? { attempted: load.retried, because: retryable.because } : null,
+        declaredBySource: record.expected,
+        countedAfterTheLoad: record.observed,
+        reconciled: record.breaks.length === 0,
+        didNotReconcile: record.breaks.map((b) => ({
+          measure: b.measure, declared: b.expected, counted: b.observed,
+          gapPct: b.deltaPct === null ? null : Math.round(b.deltaPct * 10) / 10,
+        })),
+        decision: PUBLISH_LABEL[record.state],
+        heldBecause: record.reason ?? null,
+        ticketRaised: record.workObjectId ?? null,
+        evidenceId: record.evidenceId ?? null,
+      },
+      artifacts: [card('publication', `${item.name} · publish gate`, { item: item.id }, '/operate/data')],
+    }
+  },
+
+  get_publication: (input) => {
+    const itemId = str(input.item_id)
+    const log = useAstra.getState().publishLog
+    const ids = itemId ? [itemId] : [...new Set(log.map((p) => p.itemId))]
+    const s = publicationSummary(log, ids)
+    return {
+      payload: {
+        held: s.held,
+        published: s.published,
+        neverGated: s.ungated,
+        items: s.readings.map((r) => ({
+          item: r.name,
+          consumersAreReading: r.state === 'held' && r.lastGood
+            ? `the load of ${r.lastGood.at.slice(0, 16).replace('T', ' ')}, which reconciled`
+            : r.last ? 'the latest load' : 'nothing the gate has checked',
+          state: PUBLISH_LABEL[r.state],
+          at: r.last?.at ?? null,
+          heldBecause: r.last?.reason ?? null,
+          didNotReconcile: (r.last?.breaks ?? []).map((b) => `${b.measure}: ${b.observed} counted against ${b.expected} declared`),
+          ticket: r.last?.workObjectId ?? null,
+        })),
+      },
+      artifacts: [card('publication', 'Publish gate', {}, '/operate/data')],
     }
   },
 

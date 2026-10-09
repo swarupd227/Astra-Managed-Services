@@ -258,6 +258,13 @@ export const DATASETS: DataSet[] = [
     maturity: 'live',
   },
   {
+    id: 'ds_publication', name: 'What each consumer is reading, and what the gate decided', origin: 'platform_record',
+    source: 'Written when a load is reconciled: the control totals the source declared with it, the totals counted after it ran, every measure that did not agree, and whether the load was published or held',
+    routes: ['/operate/data'],
+    caution: 'The declared totals are the source’s own and travel with the feed; the counted totals and the decision between them are the platform’s. An item whose feed declares no totals cannot be reconciled and is held rather than passed',
+    maturity: 'live',
+  },
+  {
     id: 'ds_obligations', name: 'What the contract obliges, recurring', origin: 'client_extract',
     source: 'Read from the engagement database at start-up: what is owed, how often, what evidence discharges it, the clause, and the date it first fell due',
     routes: ['/governance/registers'],

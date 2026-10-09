@@ -14,6 +14,7 @@ import { exitView } from './exit'
 import { privacyObligationsView, privacyRequestView, privacyRequestsView } from './privacy'
 import { proceduresView } from './procedures'
 import { provenanceView } from './provenance'
+import { publicationView } from './publication'
 import { recommendationsView } from './recommendations'
 import { successorPackView } from './successorPack'
 import { releasesView } from './releases'
@@ -50,6 +51,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   successorPack: successorPackView,
   procedures: proceduresView,
   recommendations: recommendationsView,
+  publication: publicationView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },

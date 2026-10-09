@@ -8,6 +8,9 @@ import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { appendRecord, sealChain, verifyChain, type ChainVerification } from './evidence'
 import { type Experiment } from './experiments'
+import { runLoad, type Fault, type LoadResult } from './dataLoad'
+import { DATA_ITEM_BY_ID } from './dataEstate'
+import { type PublishRecord } from './publication'
 import { classify, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
 import { DEMAND_CLASSES } from './ledgers'
 import { knowledgeFor, knowledgeSummary, type WorkKnowledge } from './workContext'
@@ -95,6 +98,8 @@ interface State {
   procedures: Procedure[]
   /** Recommendations funded as experiments, each with the count it was struck against. */
   experiments: Experiment[]
+  /** What the publish gate decided about each load it saw. */
+  publishLog: PublishRecord[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
   lessons: Lesson[]
 
@@ -229,6 +234,12 @@ interface State {
     route?: Route
     knowledge?: WorkKnowledge
   }
+  /**
+   * Runs one load through the publish gate, optionally with a fault injected
+   * into what the source hands over. Returns what ran and what was decided,
+   * or null where no such item exists.
+   */
+  runDataLoad: (itemId: string, fault: Fault | null, by: string) => { load: LoadResult; record: PublishRecord } | null
   /** Writes a drafted procedure into the register, as a draft for review. */
   writeProcedureDraft: (
     p: Omit<Procedure, 'id' | 'state' | 'version' | 'lastReviewedAt'>,
@@ -286,13 +297,16 @@ interface SessionRecords {
   procedureReviews: Review[]
   procedures: Procedure[]
   experiments: Experiment[]
+  /** What the publish gate decided about each load it saw. */
+  publishLog: PublishRecord[]
   /** Appended since the seeded backbone, without their hashes. */
   evidenceTail: Omit<EvidenceRecord, 'hash' | 'prevHash' | 'tampered'>[]
 }
 
 const EMPTY_SESSION: SessionRecords = {
   privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
-  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [], evidenceTail: [],
+  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
+  publishLog: [], evidenceTail: [],
 }
 
 /**
@@ -390,6 +404,7 @@ export const useAstra = create<State>((set, get) => ({
   procedureReviews: SESSION.procedureReviews,
   procedures: SESSION.procedures,
   experiments: SESSION.experiments,
+  publishLog: SESSION.publishLog,
   lessons: [],
 
   brake: { global: false, towers: [] },
@@ -1610,6 +1625,77 @@ export const useAstra = create<State>((set, get) => ({
   },
 
   /**
+   * Runs one load through the publish gate and records what it decided.
+   *
+   * The fault, where there is one, changes what the source hands over. Nothing
+   * after that is scripted: the totals are counted, reconciled against what
+   * the source declared, and the decision follows. A load whose totals agree
+   * publishes; one whose totals disagree, or which landed nothing at all, is
+   * held and the consumer keeps reading the last set that did agree.
+   *
+   * A held load raises exactly one ticket, through the same intake any other
+   * ticket comes through — duplicate suppression included, so a retry of the
+   * same load on the same day does not raise a second.
+   */
+  runDataLoad: (itemId, fault, by) => {
+    const s = get()
+    const item = DATA_ITEM_BY_ID[itemId]
+    if (!item) return null
+    const startedAt = nowIso(s.clockOffsetMins)
+    const load = runLoad(itemId, startedAt, fault)
+
+    // No declared totals is not a pass. The gate cannot stand behind a load it
+    // has nothing to check, and says so rather than publishing it quietly.
+    const unreconcilable = load.expected === null
+    const held = load.outcome === 'failed' || unreconcilable || load.reconciliation?.matches === false
+    const reason = load.outcome === 'failed'
+      ? load.error
+      : unreconcilable
+        ? 'The feed declares no control totals, so nothing could be reconciled against it'
+        : `${load.reconciliation?.breaks.length} measure${load.reconciliation?.breaks.length === 1 ? '' : 's'} did not reconcile against the source's declared totals`
+
+    const evidenceId = get().logEvidence(
+      held ? 'decision' : 'verification',
+      by,
+      held ? `Load held: ${item.name}` : `Load published: ${item.name}`,
+      {
+        itemId, fault, outcome: load.outcome, durationMins: load.durationMins, retried: load.retried,
+        expected: load.expected, observed: load.observed, breaks: load.reconciliation?.breaks ?? [], reason: held ? reason : undefined,
+      },
+    )
+
+    let workObjectId: string | undefined
+    if (held) {
+      // One ticket per load per day, through the ordinary intake so it is
+      // classified, routed and deduplicated like anything else.
+      const admitted = get().admitTicket({
+        externalRef: `DL-${itemId}-${startedAt.slice(0, 10)}`,
+        system: 'Azure Data Factory',
+        openedAt: startedAt,
+        shortDescription: `${item.name}: load held — ${reason}`,
+        category: 'Data',
+        subCategory: fault === 'schema_change' ? 'Schema change' : fault === 'late' ? 'Late arrival' : 'Pipeline failure',
+        priority: 'P2',
+        configurationItems: [item.id],
+      })
+      workObjectId = admitted.workObject.id
+    }
+
+    const record: PublishRecord = {
+      id: `pub_${digest(itemId + startedAt).slice(0, 8)}`,
+      itemId, at: startedAt, by,
+      state: held ? 'held' : 'published',
+      ...(held ? { reason } : {}),
+      expected: load.expected ?? { rows: 0, measures: {} },
+      observed: load.observed ?? { rows: 0, measures: {} },
+      breaks: load.reconciliation?.breaks ?? [],
+      workObjectId, evidenceId,
+    }
+    set({ publishLog: [...get().publishLog, record] })
+    return { load, record }
+  },
+
+  /**
    * Funds a recommendation as an experiment.
    *
    * The count the condition currently holds for is recorded with it, because
@@ -1882,7 +1968,7 @@ export const useOpenWork = () =>
  */
 const SAVED_KEYS = [
   'privacyLog', 'incidentNotices', 'exitLog', 'commitmentLog',
-  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments',
+  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments', 'publishLog',
 ] as const
 
 let lastSaved: Record<string, unknown> = Object.fromEntries(
@@ -1971,6 +2057,7 @@ export async function clearSessionRecords(): Promise<number> {
   useAstra.setState({
     privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
     clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
+    publishLog: [],
     evidence: PRISTINE_EVIDENCE,
   })
   return removed

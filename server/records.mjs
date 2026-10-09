@@ -25,6 +25,8 @@ export const KINDS = {
   // One experiment per finding: the key is the finding so a second funding of
   // the same condition converges rather than doubling.
   experiments: (r) => r.findingId,
+  // One decision per load: the item and the moment it was gated.
+  publishLog: (r) => `${r.itemId}:${r.at}`,
   evidenceTail: (r) => r.id,
 }
 
