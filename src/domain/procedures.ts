@@ -216,7 +216,14 @@ export function readProcedure(p: Procedure, nowMs: number, reviews: Review[]): P
 }
 
 export function readProcedures(
-  opts: { engagementId?: string; loads?: AreaLoad[]; reviews?: Review[]; nowMs?: number } = {},
+  opts: {
+    engagementId?: string
+    loads?: AreaLoad[]
+    reviews?: Review[]
+    /** The procedures written so far. Defaults to the compiled register, which is empty. */
+    procedures?: Procedure[]
+    nowMs?: number
+  } = {},
 ): ProcedureRegister {
   const engagementId = opts.engagementId ?? ENGAGEMENT.id
   const engagement = ENGAGEMENT_BY_ID[engagementId] ?? ENGAGEMENT
@@ -227,7 +234,7 @@ export function readProcedures(
     .filter((l) => l.engagementId === engagementId)
     .sort((a, b) => b.at.localeCompare(a.at))[0] ?? null
 
-  const procedures = PROCEDURES
+  const procedures = (opts.procedures ?? PROCEDURES)
     .filter((p) => p.engagementId === engagementId && p.state !== 'retired')
     .map((p) => readProcedure(p, nowMs, reviews))
 

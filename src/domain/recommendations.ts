@@ -1,6 +1,6 @@
 import { ENGAGEMENT, ENGAGEMENT_BY_ID, type Engagement } from './engagement'
 import { readExperiments, type Experiment, type ExperimentLedger, type ExperimentReading, type Outcome } from './experiments'
-import { estateFindings, type Finding } from './watches'
+import { estateWatch, type Finding } from './watches'
 import { AGENT_BY_ID } from './estate'
 import { INNOVATION } from './ledgers'
 import { PROPOSALS, proposalValue, type Proposal } from './proposals'
@@ -288,9 +288,12 @@ export function readRecommendations(
   const windowDays = opts.windowDays ?? thresholdsFor(engagementId).recommendationWindowDays
 
   // The watches run once and both readers use the result: the findings
-  // themselves, and the experiments measured against what they now derive.
-  const findings = estateFindings()
-  const funded = readExperiments(opts.experiments ?? [], nowMs, findings)
+  // themselves, and the experiments measured against what they now derive —
+  // including which watches managed to run, which is how a cleared condition
+  // is told apart from a register that could not be read.
+  const watch = estateWatch()
+  const findings = watch.findings
+  const funded = readExperiments(opts.experiments ?? [], nowMs, watch)
 
   const all = [
     ...PROPOSALS.map((p) => fromProposal(p, nowMs)),

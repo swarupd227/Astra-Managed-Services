@@ -389,43 +389,67 @@ export const WATCH_AGENT: Record<string, string> = {
   operational_efficiency: 'agt_prospect',
 }
 
+/** Custodian's data-quality findings, in the shape every other watch uses. */
+function dataQualityAdapted(): Finding[] {
+  return dataQualityFindings().map((f) => ({
+    id: f.id,
+    dimensionId: 'data_quality',
+    agentId: 'agt_custodian',
+    title: f.title,
+    count: f.items,
+    readFrom: f.readFrom,
+    fix: f.fix,
+    examples: f.examples,
+    route: '/operate/data',
+    exposure: { consumers: f.consumersExposed, largestAudience: f.largestAudience },
+  }))
+}
+
+const WATCHES: { dimensionId: string; run: () => Finding[] }[] = [
+  { dimensionId: 'data_quality', run: dataQualityAdapted },
+  { dimensionId: 'platform_capability', run: capabilityFindings },
+  { dimensionId: 'automation', run: automationFindings },
+  { dimensionId: 'performance', run: performanceFindings },
+  { dimensionId: 'security', run: securityFindings },
+  { dimensionId: 'operational_efficiency', run: efficiencyFindings },
+]
+
+export interface EstateWatch {
+  findings: Finding[]
+  /**
+   * The dimensions whose watch completed, whether or not it found anything.
+   *
+   * This has to be stated rather than inferred from the findings, because the
+   * two cases it separates look identical in the output: a watch that ran and
+   * found nothing left to report, and a watch that could not read its register
+   * at all. Anything measuring a condition's disappearance — see
+   * `src/domain/experiments.ts` — must only credit the first.
+   */
+  read: Set<string>
+}
+
 /**
  * Every standing finding the estate supports right now, across every
- * dimension that has a watch.
+ * dimension that has a watch, and which watches managed to run.
  *
  * Empty where the estate is in order, which is the point: the list is the
  * estate's state and not a quota. A watch that throws takes its own dimension
  * silent rather than the whole register with it — a register that cannot be
- * read at all would otherwise lose five dimensions to one bad row.
+ * read at all would otherwise lose five dimensions to one bad row — and is
+ * left out of `read` so nothing downstream mistakes its silence for success.
  */
-export function estateFindings(): Finding[] {
-  const watches: (() => Finding[])[] = [
-    () => dataQualityFindings().map((f) => ({
-      id: f.id,
-      dimensionId: 'data_quality',
-      agentId: 'agt_custodian',
-      title: f.title,
-      count: f.items,
-      readFrom: f.readFrom,
-      fix: f.fix,
-      examples: f.examples,
-      route: '/operate/data',
-      exposure: { consumers: f.consumersExposed, largestAudience: f.largestAudience },
-    })),
-    capabilityFindings,
-    automationFindings,
-    performanceFindings,
-    securityFindings,
-    efficiencyFindings,
-  ]
-
-  const out: Finding[] = []
-  for (const watch of watches) {
+export function estateWatch(): EstateWatch {
+  const findings: Finding[] = []
+  const read = new Set<string>()
+  for (const watch of WATCHES) {
     try {
-      out.push(...watch())
+      findings.push(...watch.run())
+      read.add(watch.dimensionId)
     } catch {
       /* A register that cannot be read contributes nothing, and says nothing. */
     }
   }
-  return out
+  return { findings, read }
 }
+
+export const estateFindings = (): Finding[] => estateWatch().findings

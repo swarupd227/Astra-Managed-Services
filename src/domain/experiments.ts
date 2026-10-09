@@ -1,4 +1,4 @@
-import { estateFindings, type Finding } from './watches'
+import { estateWatch, type EstateWatch } from './watches'
 
 /* ==========================================================================
    Experiments — a recommendation somebody decided to try.
@@ -103,11 +103,11 @@ const DAY = 86_400_000
 /**
  * One experiment against the register as it stands now.
  *
- * `findings` is passed in rather than re-derived per experiment so that a
- * page reading twenty of them does not walk every watch twenty times.
+ * The watch result is passed in rather than re-derived per experiment so that
+ * a page reading twenty of them does not walk every watch twenty times.
  */
-export function readExperiment(e: Experiment, findings: Finding[], nowMs: number): ExperimentReading {
-  const live = findings.find((f) => f.id === e.findingId) ?? null
+export function readExperiment(e: Experiment, watch: EstateWatch, nowMs: number): ExperimentReading {
+  const live = watch.findings.find((f) => f.id === e.findingId) ?? null
   const daysElapsed = Math.floor((nowMs - Date.parse(e.fundedAt)) / DAY)
   const elapsed = daysElapsed >= e.windowDays
   const daysLeft = elapsed ? null : e.windowDays - daysElapsed
@@ -116,7 +116,13 @@ export function readExperiment(e: Experiment, findings: Finding[], nowMs: number
   // was cleared: the watch behind it may simply be unable to read its register
   // today, and crediting that as a success would be the worst kind of
   // measurement. Only a watch that ran and found nothing clears a condition.
-  const watchRan = findings.some((f) => f.dimensionId === e.dimensionId)
+  //
+  // Which is why this asks the watch whether it ran, rather than looking for
+  // its other findings. Inferring it from the output got the one case that
+  // matters most exactly backwards: an experiment that cleared the last open
+  // condition in its dimension left that dimension with no findings at all,
+  // and total success was reported as a register that could not be read.
+  const watchRan = watch.read.has(e.dimensionId)
   const currentCount = live ? live.count : watchRan ? 0 : null
 
   const outcome: Outcome =
@@ -158,9 +164,9 @@ export interface ExperimentLedger {
   fundedFindingIds: Set<string>
 }
 
-export function readExperiments(log: Experiment[], nowMs: number, findings = estateFindings()): ExperimentLedger {
+export function readExperiments(log: Experiment[], nowMs: number, watch = estateWatch()): ExperimentLedger {
   const readings = log
-    .map((e) => readExperiment(e, findings, nowMs))
+    .map((e) => readExperiment(e, watch, nowMs))
     .sort((a, b) => b.experiment.fundedAt.localeCompare(a.experiment.fundedAt))
 
   const by = (o: Outcome) => readings.filter((r) => r.outcome === o).length

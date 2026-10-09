@@ -1,7 +1,7 @@
 import type { IncidentNotice, LoggedAction } from './privacy'
 import { describeDirective, type Directive } from './clientControl'
 import { REMEDY_LABEL, type Remedy } from './commitments'
-import type { AreaLoad, Review } from './procedures'
+import type { AreaLoad, Procedure, Review } from './procedures'
 import { buildPack, manifestOf, type PackExport } from './successorPack'
 import type { Settlement } from './exit'
 import { create } from 'zustand'
@@ -88,6 +88,8 @@ interface State {
   areaLoads: AreaLoad[]
   /** Procedure reviews recorded this session. */
   procedureReviews: Review[]
+  /** The procedures written for this engagement. Empty until one is drafted. */
+  procedures: Procedure[]
   /** Recommendations funded as experiments, each with the count it was struck against. */
   experiments: Experiment[]
   /** Newest first. What the workforce has been taught, and what each lesson reached. */
@@ -213,6 +215,10 @@ interface State {
    * that finding has already been funded.
    */
   fundRecommendation: (e: Omit<Experiment, 'id' | 'fundedAt' | 'evidenceId'>) => Experiment | null
+  /** Writes a drafted procedure into the register, as a draft for review. */
+  writeProcedureDraft: (
+    p: Omit<Procedure, 'id' | 'state' | 'version' | 'lastReviewedAt'>,
+  ) => { procedure: Procedure; evidenceId: string }
 
   /** D8 — record a correction and compute what it reaches. Returns the lesson. */
   teach: (kind: LessonKind, targetId: string, by: string, correction: string) => Lesson | null
@@ -264,6 +270,7 @@ interface SessionRecords {
   packExports: PackExport[]
   areaLoads: AreaLoad[]
   procedureReviews: Review[]
+  procedures: Procedure[]
   experiments: Experiment[]
   /** Appended since the seeded backbone, without their hashes. */
   evidenceTail: Omit<EvidenceRecord, 'hash' | 'prevHash' | 'tampered'>[]
@@ -271,7 +278,7 @@ interface SessionRecords {
 
 const EMPTY_SESSION: SessionRecords = {
   privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
-  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], experiments: [], evidenceTail: [],
+  clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [], evidenceTail: [],
 }
 
 /**
@@ -367,6 +374,7 @@ export const useAstra = create<State>((set, get) => ({
   packExports: SESSION.packExports,
   areaLoads: SESSION.areaLoads,
   procedureReviews: SESSION.procedureReviews,
+  procedures: SESSION.procedures,
   experiments: SESSION.experiments,
   lessons: [],
 
@@ -1595,6 +1603,24 @@ export const useAstra = create<State>((set, get) => ({
    * the same finding twice is refused rather than duplicated: the second
    * record would have a baseline already moved by the first.
    */
+  writeProcedureDraft: (p) => {
+    const s = get()
+    const at = nowIso(s.clockOffsetMins)
+    const id = `pr_${digest(p.standardAreaId + p.engagementId + at).slice(0, 8)}`
+    const evidenceId = get().logEvidence(
+      'knowledge', p.author,
+      `Procedure drafted for ${p.standardAreaId}: ${p.name}`,
+      { standardAreaId: p.standardAreaId, actionClasses: p.actionClasses, verificationPack: p.verificationPack, reference: p.reference },
+    )
+    // It lands as a draft, never as current: the platform assembled it from
+    // the records, and somebody still has to put their name to it. That is the
+    // distinction the contract's develop / document / maintain / review rests
+    // on, and making a draft current is a review, recorded as one.
+    const record: Procedure = { ...p, id, lastReviewedAt: at, state: 'draft', version: '0.1' }
+    set({ procedures: [...s.procedures, record] })
+    return { procedure: record, evidenceId }
+  },
+
   fundRecommendation: (e) => {
     const s = get()
     if (s.experiments.some((x) => x.findingId === e.findingId)) return null
@@ -1724,7 +1750,7 @@ export const useOpenWork = () =>
  */
 const SAVED_KEYS = [
   'privacyLog', 'incidentNotices', 'exitLog', 'commitmentLog',
-  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'experiments',
+  'clientDirectives', 'packExports', 'areaLoads', 'procedureReviews', 'procedures', 'experiments',
 ] as const
 
 let lastSaved: Record<string, unknown> = Object.fromEntries(
@@ -1812,7 +1838,7 @@ export async function clearSessionRecords(): Promise<number> {
   lastEvidenceLength = PRISTINE_EVIDENCE.length
   useAstra.setState({
     privacyLog: [], incidentNotices: [], exitLog: [], commitmentLog: [],
-    clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], experiments: [],
+    clientDirectives: [], packExports: [], areaLoads: [], procedureReviews: [], procedures: [], experiments: [],
     evidence: PRISTINE_EVIDENCE,
   })
   return removed
