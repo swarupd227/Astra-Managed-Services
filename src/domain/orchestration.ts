@@ -56,20 +56,45 @@ export interface Orchestration {
   multiAgent: boolean
 }
 
-/** The agent holding a class on a tower, preferring one not already used. */
-function holder(ac: string, tower: string | null, prefer_not: string[]): Agent | null {
+/**
+ * The agent holding a class on a tower.
+ *
+ * Preference, not avoidance. The first cut avoided any agent already used,
+ * which spread a plan across the whole fleet — four different agents taking
+ * one read step each, and a mutating step handed to an agent the routing had
+ * not chosen while the one that had been chosen sat idle. Separation belongs
+ * in exactly one place, between classifying and checking the classification;
+ * everywhere else continuity is what you want, because a handoff costs
+ * context and should happen only when the next class demands it.
+ */
+function holder(
+  ac: string,
+  tower: string | null,
+  opts: { prefer?: string[]; avoid?: string[] } = {},
+): Agent | null {
   const eligible = AGENTS.filter((a) => a.grants[ac] && (!tower || a.towers.includes(tower)))
-  return eligible.find((a) => !prefer_not.includes(a.id)) ?? eligible[0] ?? null
+  for (const id of opts.prefer ?? []) {
+    const match = eligible.find((a) => a.id === id)
+    if (match) return match
+  }
+  const notAvoided = eligible.find((a) => !(opts.avoid ?? []).includes(a.id))
+  return notAvoided ?? eligible[0] ?? null
 }
 
-function stage(did: string, ac: string | null, tower: string | null, used: string[], note = ''): Stage {
+function stage(
+  did: string,
+  ac: string | null,
+  tower: string | null,
+  opts: { prefer?: string[]; avoid?: string[] },
+  note = '',
+): Stage {
   if (!ac) {
     return { did, needs: null, agent: null, because: note || 'No action class governs this stage' }
   }
   if (!AC[ac]) {
     return { did, needs: ac, agent: null, because: `${ac} is not a class the policy engine knows, so nothing may be granted for it` }
   }
-  const agent = holder(ac, tower, used)
+  const agent = holder(ac, tower, opts)
   return {
     did,
     needs: ac,
@@ -94,7 +119,7 @@ export function orchestrate(args: {
   /** The agent the model routed to, used only to seed the preference order. */
   routedAgent?: string
 }): Orchestration {
-  const { tower, steps = [] } = args
+  const { tower, steps = [], routedAgent } = args
   const used: string[] = []
   const stages: Stage[] = []
 
@@ -105,15 +130,25 @@ export function orchestrate(args: {
 
   // Classify first. Deliberately not the routed agent: the model's own choice
   // of who should answer is not evidence that it may.
-  push(stage('Correlate the signals and classify the request', 'AC-08', tower, []))
-  // Context next, and from a different agent where one exists, so a
-  // misreading is not confirmed by whoever made it.
-  push(stage('Assemble the decision context from the graph', 'AC-05', tower, used))
+  const classifier = stage('Correlate the signals and classify the request', 'AC-08', tower, {})
+  push(classifier)
+  // The one place separation matters: whoever checks the classification must
+  // not be whoever made it.
+  push(stage('Assemble the decision context from the graph', 'AC-05', tower, {
+    avoid: classifier.agent ? [classifier.agent.id] : [],
+  }))
 
+  // The plan prefers to stay in one pair of hands — the routed agent first,
+  // then whoever has already taken a step — and changes hands only when the
+  // next class demands it.
+  const carrying: string[] = []
   let blockedAt: Stage | null = null
   for (const [i, st] of steps.entries()) {
-    const s = stage(`Step ${i + 1}: ${st.label}`, st.action_class, tower, used)
+    const s = stage(`Step ${i + 1}: ${st.label}`, st.action_class, tower, {
+      prefer: [...carrying, ...(routedAgent ? [routedAgent] : [])],
+    })
     push(s)
+    if (s.agent && !carrying.includes(s.agent.id)) carrying.push(s.agent.id)
     if (!s.agent) {
       // Everything after the gap is unreachable, so it is not described as
       // though somebody will get to it.
@@ -135,5 +170,12 @@ export function describeChain(o: Orchestration): string {
   if (!o.multiAgent) {
     return `${o.agents[0].name} holds every grant this needs, so it carried the whole of it.`
   }
-  return `${o.agents.map((a) => a.name).join(' → ')}: ${o.stages.filter((s) => s.agent).map((s) => `${s.agent!.name} ${s.needs}`).join(', ')}.`
+  // Each agent once, with what it is carrying. Listing a stage per line
+  // repeated the same name four times for a plan that stayed in one pair of
+  // hands, which read as four handoffs rather than one.
+  const carried = o.agents.map((a) => {
+    const classes = [...new Set(o.stages.filter((s) => s.agent?.id === a.id).map((s) => s.needs).filter(Boolean))]
+    return `${a.name} (${classes.join(', ')})`
+  })
+  return `${o.agents.map((a) => a.name).join(' → ')} — ${carried.join(', ')}.`
 }
