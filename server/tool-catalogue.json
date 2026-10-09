@@ -212,6 +212,23 @@
       }
     },
     {
+      "name": "raise_ticket", "agent": "agt_sentinel", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
+      "description": "Raise a ticket into the client's ticketing system from this conversation, for something the platform found rather than something the client reported. Distinct from admitting one: there is no client reference yet, so the platform carries a provisional one until the ticketing system assigns its own. Everything an admitted ticket gets, this gets too — the configuration items are resolved against the estate graph, the class is matched against the client's own ingested history so genuinely similar past tickets are linked by the phrasing that recurs in their extract, the blast radius is walked and the knowledge pack assembled. Give it what was checked and what it found: a ticket raised from a conversation should need no further investigation to pick up.",
+      "describe": "Raise a ticket with the client's service desk: {short_description}",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "short_description": { "type": "string", "description": "What is wrong, in one line, as a resolver would read it" },
+          "what_was_checked": { "type": "string", "description": "The checks already run and what each found, so nobody repeats them" },
+          "priority": { "type": "string", "enum": ["P1", "P2", "P3", "P4"], "description": "Defaults to P3" },
+          "configuration_items": { "type": "array", "items": { "type": "string" }, "description": "Estate items the ticket is about, by id or name" },
+          "sub_category": { "type": "string", "description": "The client's own sub-category, where it is known" }
+        },
+        "required": ["short_description", "what_was_checked"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "explain_difference", "agent": "agt_custodian", "surfaces": ["run", "governance"],
       "description": "Explain why two reports give different figures for the same client, period and measure, with the rows behind each reason. Every row is placed in exactly one bucket — seen by neither report, seen by both, or seen by one and not the other — so the causes sum to the difference as a property of the partition rather than as an assertion, and anything they do not account for is reported as an unexplained remainder rather than absorbed. A cause is one of three things: the rows were booked after one report last refreshed, the two reports define the measure differently, or both at once. Returns each report's figure, when it last refreshed, what its definition includes, and the rows behind every cause so the arithmetic can be checked.",
       "input_schema": {

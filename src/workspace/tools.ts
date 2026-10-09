@@ -25,6 +25,8 @@ import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
 import { PUBLISH_LABEL, publicationSummary } from '@/domain/publication'
 import { buildBoardDeck } from '@/domain/boardDeck'
 import { CAUSE_LABEL, KIND_LABEL, REPORTS, REPORT_BY_ID, explainDifference, financeClients } from '@/domain/finance'
+import { digest } from '@/domain/rng'
+import type { Priority } from '@/domain/types'
 import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
@@ -584,6 +586,53 @@ export const EXECUTORS: Record<string, Executor> = {
         evidenceId: record.evidenceId ?? null,
       },
       artifacts: [card('publication', `${item.name} · publish gate`, { item: item.id }, '/operate/data')],
+    }
+  },
+
+  raise_ticket: (input) => {
+    const summary = str(input.short_description)
+    const checked = str(input.what_was_checked)
+    if (!summary) throw new ToolError('A ticket needs a one-line description of what is wrong.')
+    if (!checked) throw new ToolError('A ticket raised from a conversation must carry what was already checked, or whoever picks it up starts again.')
+    const priority = (str(input.priority) || 'P3') as Priority
+    const cis = Array.isArray(input.configuration_items) ? (input.configuration_items as unknown[]).map(String) : []
+
+    const at = new Date(NOW.getTime() + useAstra.getState().clockOffsetMins * 60_000).toISOString()
+    // Provisional until the ticketing system assigns its own. The platform
+    // does not invent a reference in the client's numbering.
+    const ref = `AST-${digest(summary + at).slice(0, 6).toUpperCase()}`
+    const admitted = useAstra.getState().admitTicket({
+      externalRef: ref,
+      system: 'Astra (raised)',
+      openedAt: at,
+      shortDescription: summary,
+      category: 'Data',
+      subCategory: str(input.sub_category) || 'Reported figure in question',
+      priority,
+      configurationItems: cis,
+      reportedBy: person(),
+    })
+
+    const c = admitted.classification
+    return {
+      payload: {
+        raised: ref,
+        workObject: admitted.workObject.id,
+        duplicateOfSomethingAlreadyOpen: admitted.duplicate,
+        priority,
+        whatWasChecked: checked,
+        // The link to what the client has sent before, by their own phrasing.
+        matchedAgainstTheirHistory: c?.demandClass
+          ? {
+            demandClass: c.demandClass,
+            confidence: Math.round((c.confidence ?? 0) * 100) / 100,
+            on: (c.evidence ?? []).map((e) => `${e.on}: ${e.value}${e.incidents ? ` — ${e.incidents} arrivals behind it` : ''}`),
+          }
+          : { refused: c?.refusal ?? 'Nothing in the client’s history matches this closely enough to link' },
+        routedTo: admitted.route ?? null,
+        reference: 'Provisional until the client’s ticketing system assigns its own',
+      },
+      artifacts: [card('workItem', `${ref} · raised`, { id: admitted.workObject.id }, '/operate/work')],
     }
   },
 
