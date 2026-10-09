@@ -2,6 +2,7 @@ import { evaluate, type ActionContext, type EngineResult } from './policyEngine'
 import { missionCeiling, missionFor, type Mission } from './missions'
 import { AGENTS, AGENT_BY_ID, CLIENT, GRAPH_EDGES, GRAPH_NODES, POLICIES, SKILLS, TOWERS, TOWER_BY_ID, policyForTower } from './estate'
 import { DATA_ITEMS, contractState, descendants, itemsNamedIn, policyAsset, withoutContract } from './dataEstate'
+import { runPack } from './verification'
 import { holdsOn } from './privacy'
 import { ACTION_CLASSES, AC } from './reference'
 import { DEMAND_CLASSES, SLAS } from './ledgers'
@@ -30,7 +31,8 @@ export type Beat =
   | { t: 'mission'; missionId: string; name: string; goal: string; from: ExecutionMode; to: ExecutionMode; reason: string }
   | { t: 'gate'; role: string; timeoutSec: number; escalatesTo: string }
   | { t: 'exec'; stepIndex: number; detail: string; ms: number }
-  | { t: 'verify'; pack: string; probes: string[]; result: 'green' | 'amber' }
+  /** Red is a real outcome: a pack that cannot fail is not a verification. */
+  | { t: 'verify'; pack: string; probes: string[]; result: 'green' | 'amber' | 'red' }
   | { t: 'evidence'; summary: string; kind: EvidenceKind }
   | { t: 'ledger'; hours: number; attribution: string; note: string }
   | { t: 'answer'; agent: string; text: string; streaming?: boolean }
@@ -620,13 +622,31 @@ export async function execute(
 
   await new Promise((r) => setTimeout(r, 500))
   if (signal.aborted) return
+
+  // The pack is run rather than asserted. It reads the registers behind what
+  // was acted on, and it is allowed to come back amber or red — the three
+  // fixed probe strings and the constant 'green' meant an agent could restart
+  // the wrong thing and still be certified as having worked.
+  // The same resolution the decision used: the items the plan names, in its
+  // steps, its finding or its citations.
+  const acted = itemsNamedIn([
+    ...proposal.steps.flatMap((s) => [s.label, s.compensation]),
+    proposal.finding?.title ?? '', proposal.finding?.detail ?? '', ...(proposal.context_used?.cited ?? []),
+  ].join('\n')).map((i) => i.id)
+  const verification = runPack(cls?.verificationPack, acted, { confidence: proposal.plan_confidence })
   onBeat({
     t: 'verify',
-    pack: cls?.verificationPack ?? 'health_probe_v4',
-    probes: ['health probe green', 'objective recovered', 'synthetic checks pass'],
-    result: 'green',
+    pack: verification.pack,
+    probes: verification.probes.map((p) => `${p.what} — ${p.outcome === 'pass' ? 'passed' : p.outcome === 'fail' ? 'FAILED' : 'could not be read'} (${p.readFrom})`),
+    result: verification.result,
   })
-  onBeat({ t: 'evidence', summary: 'Execution and verification sealed to the evidence chain', kind: 'verification' })
+  onBeat({
+    t: 'evidence',
+    summary: verification.result === 'green'
+      ? `Execution and verification sealed — ${verification.summary}`
+      : `Execution sealed, verification ${verification.result === 'red' ? 'failed' : 'incomplete'} — ${verification.summary}`,
+    kind: 'verification',
+  })
 
   // The outcome narrative is written by the model, not by the client.
   let outcome = ''

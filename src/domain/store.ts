@@ -14,6 +14,7 @@ import { type PublishRecord } from './publication'
 import { REPORT_BY_ID } from './finance'
 import { classify, resolveItems, routeFor, targetFor, towerForItems, type Classification, type InboundTicket, type Route } from './intake'
 import { chainFrom, managerOf } from './escalation'
+import { runPack } from './verification'
 import { DEMAND_CLASSES } from './ledgers'
 import { knowledgeFor, knowledgeSummary, type WorkKnowledge } from './workContext'
 import { loadedRecords, recordEngagementId } from './config'
@@ -472,6 +473,9 @@ export const useAstra = create<State>((set, get) => ({
       // Gates whose timeout elapsed this tick, recorded after the walk so the
       // evidence and the timeline are written once rather than per field.
       const timedOut: { id: string; from: string; to: string; waitedMins: number }[] = []
+      // Work whose verification did not pass, so it goes to a person instead
+      // of closing. Collected and written once, like the timeouts above.
+      const held: { id: string; result: 'amber' | 'red'; summary: string }[] = []
       const open: WorkState[] = ['detected', 'triaged', 'planned', 'gated', 'executing', 'verifying']
 
       for (const id of Object.keys(work)) {
@@ -522,6 +526,21 @@ export const useAstra = create<State>((set, get) => ({
         if (s.mi.active && ['planned', 'executing'].includes(wo.state)) continue
         const next = NEXT_STATE[wo.state]
         if (!next) continue
+
+        // Leaving verifying is the one transition that has to be earned. The
+        // pack runs against the registers behind what was acted on, and a
+        // failure sends the work to a person rather than closing it — which is
+        // the branch the lifecycle never had, because verification could only
+        // ever pass.
+        if (wo.state === 'verifying') {
+          const pack = wo.autonomy?.actionClasses.map((c) => AC[c]?.verificationPack).find((p) => p && p !== 'none' && p !== 'n/a')
+          const v = runPack(pack, wo.affected, { confidence: wo.classificationConfidence })
+          if (v.result !== 'green') {
+            held.push({ id: wo.id, result: v.result, summary: v.summary })
+            continue
+          }
+        }
+
         work[wo.id] = {
           ...wo,
           state: next,
@@ -574,7 +593,41 @@ export const useAstra = create<State>((set, get) => ({
         }
       }
 
-      return { tick: t, clockOffsetMins: offset, work, runs, ...(timedOut.length ? { evidence } : {}) }
+      // A verification that did not pass is a decision too: the work stops
+      // where it is, a person takes it, and the failing probe is on the record.
+      for (const hd of held) {
+        const wo = work[hd.id]
+        const at = nowIso(offset)
+        const record = appendRecord(evidence, {
+          id: `ev_${digest('vfail' + hd.id + t).slice(0, 10)}`,
+          at, kind: 'verification', workObjectId: hd.id, runId: wo.runId,
+          actionClass: wo.autonomy?.actionClasses[0], actor: 'Verification pack',
+          summary: `Verification ${hd.result === 'red' ? 'failed' : 'could not be completed'} — not closed`,
+          payload: { result: hd.result, detail: hd.summary }, sealed: true,
+        })
+        evidence = [...evidence, record]
+        work[hd.id] = {
+          ...wo,
+          state: 'triaged',
+          assigneeKind: 'human',
+          assignee: ROLE_BY_ID.resolver?.person ?? 'Resolver on shift',
+          narrative: [...wo.narrative, {
+            id: `t_${t}_vf`, at, actorKind: 'system', actor: 'Verification pack',
+            text: `${hd.summary} Not closed — it goes to a person with the failing probe attached.`,
+            evidenceId: record.id, level: hd.result === 'red' ? 'crit' : 'warn',
+          }],
+        }
+        if (wo.runId && runs[wo.runId]) {
+          const run = runs[wo.runId]
+          runs[wo.runId] = {
+            ...run,
+            state: 'aborted',
+            steps: run.steps.map((st) => (st.kind === 'verify' ? { ...st, state: 'failed' as const, detail: hd.summary } : st)),
+          }
+        }
+      }
+
+      return { tick: t, clockOffsetMins: offset, work, runs, ...(timedOut.length || held.length ? { evidence } : {}) }
     }),
 
   /* ------------------------------- approvals ------------------------------ */

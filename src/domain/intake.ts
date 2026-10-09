@@ -165,6 +165,16 @@ export function classify(t: InboundTicket, engagementId = ENGAGEMENT.id): Classi
 
 /* --------------------------------- Routing ---------------------------------- */
 
+/**
+ * How well an arriving ticket must match the client's own history before the
+ * platform will act on it unattended.
+ *
+ * One definition, used by the routing that decides whether to attempt and by
+ * the verification that checks the classification afterwards — the two must
+ * not be able to disagree about what "confident enough" means.
+ */
+export const UNATTENDED_BAR = 0.6
+
 export type Route =
   | { attempt: true; agentId: string; runbookId: string; actionClasses: string[]; because: string }
   | { attempt: false; toRole: string; because: string }
@@ -201,7 +211,7 @@ export function routeFor(
   if (!classification.demandClass) {
     return { attempt: false, toRole: 'resolver', because: classification.refusal ?? 'Unclassified, so no runbook can be selected.' }
   }
-  if (classification.confidence < 0.6) {
+  if (classification.confidence < UNATTENDED_BAR) {
     return {
       attempt: false,
       toRole: 'resolver',
