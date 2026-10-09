@@ -101,6 +101,28 @@ create table if not exists engagement_obligation (
   primary key (engagement_id, id)
 );
 
+-- ---------------------------------------------------------------------------
+-- Which generation of records a browser is holding.
+--
+-- The records are shared per engagement, so a browser keeps its own copy and
+-- saves what the database does not have yet. That is union-merge, and it is
+-- right for two people recording at once — but it makes a reset impossible to
+-- hold: the clear empties the table, and the next save from any other tab
+-- still holding the old rows writes every one of them straight back, while
+-- reporting success to the person who asked for the reset.
+--
+-- So a clear bumps the generation. A save carries the generation it read, and
+-- one from an older generation is refused rather than merged. The stale
+-- browser is told, drops what it holds and reloads. The invariant is simply
+-- that a write may only carry records from the generation it read.
+-- ---------------------------------------------------------------------------
+create table if not exists record_epoch (
+  engagement_id text primary key references engagement(id) on delete cascade,
+  epoch         integer not null default 1,
+  cleared_at    timestamptz,
+  cleared_by    text
+);
+
 create index if not exists engagement_filed_item_kind on engagement_filed_item (engagement_id, kind, position);
 create index if not exists engagement_service_line_order on engagement_service_line (engagement_id, position);
 create index if not exists engagement_obligation_order on engagement_obligation (engagement_id, position);

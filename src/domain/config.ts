@@ -40,6 +40,18 @@ export function setRecords(registers: Record<string, unknown[]>) {
 
 export const loadedRecords = (): Record<string, unknown[]> => records
 
+/**
+ * The generation of records this browser is holding.
+ *
+ * Every save carries it, and the gateway refuses a save from an older one —
+ * which is what stops a tab left open across a reset from writing the old
+ * records back over it. See the note on `record_epoch` in server/schema.sql.
+ */
+let epoch = 1
+
+export const recordEpoch = () => epoch
+export const setRecordEpoch = (next: number) => { epoch = Number.isFinite(next) ? next : epoch }
+
 /** The engagement records are written against. */
 export const recordEngagementId = () => engagementId
 

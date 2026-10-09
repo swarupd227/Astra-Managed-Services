@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'
-import { setConfig, setRecords, setTicketHistories } from './domain/config'
+import { setConfig, setRecordEpoch, setRecords, setTicketHistories } from './domain/config'
 import type { Engagement } from './domain/engagement'
 
 /* ==========================================================================
@@ -54,8 +54,11 @@ async function start() {
     const body = await recs.json().catch(() => ({}))
     throw new Error(body.detail ?? body.error ?? `/api/records answered ${recs.status}`)
   }
-  const { registers } = (await recs.json()) as { registers: Record<string, unknown[]> }
+  // The generation travels with them: every save this browser makes carries
+  // it, and the gateway refuses one from before a reset.
+  const { registers, epoch } = (await recs.json()) as { registers: Record<string, unknown[]>; epoch?: number }
   setRecords(registers)
+  if (typeof epoch === 'number') setRecordEpoch(epoch)
 
   // Imported only now: everything below reads the configuration as it loads.
   const { Root } = await import('./app/Root')

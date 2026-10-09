@@ -31,6 +31,22 @@ export const KINDS = {
   evidenceTail: (r) => r.id,
 }
 
+/**
+ * The generation this engagement's records are in.
+ *
+ * Created on first read rather than seeded, so an engagement nobody has
+ * cleared is simply at one.
+ */
+export async function readEpoch(engagementId) {
+  const rows = await query(
+    `insert into record_epoch (engagement_id) values ($1)
+     on conflict (engagement_id) do update set engagement_id = excluded.engagement_id
+     returning epoch`,
+    [engagementId],
+  )
+  return rows[0]?.epoch ?? 1
+}
+
 export async function readRecords(engagementId) {
   const rows = await query(
     'select kind, payload, recorded_at from record where engagement_id = $1 order by recorded_at, key',
@@ -46,7 +62,26 @@ export async function readRecords(engagementId) {
  * was added, so a caller can tell the difference between a quiet success and
  * a write that silently did nothing.
  */
-export async function appendRecords(engagementId, registers, by, role) {
+/**
+ * Raised when a browser offers records from a generation that has since been
+ * cleared. Carries the current generation so the caller can tell it.
+ */
+export class StaleEpoch extends Error {
+  constructor(held, current) {
+    super(`These records are from generation ${held}; the engagement is now at ${current}.`)
+    this.name = 'StaleEpoch'
+    this.held = held
+    this.current = current
+  }
+}
+
+export async function appendRecords(engagementId, registers, by, role, epoch) {
+  // A save that does not say which generation it read cannot be trusted not
+  // to be stale, so it is refused rather than merged.
+  const current = await readEpoch(engagementId)
+  if (epoch === undefined || epoch === null) throw new StaleEpoch(null, current)
+  if (Number(epoch) !== current) throw new StaleEpoch(Number(epoch), current)
+
   const added = {}
   for (const [kind, keyOf] of Object.entries(KINDS)) {
     const rows = Array.isArray(registers?.[kind]) ? registers[kind] : []
@@ -81,7 +116,17 @@ export async function appendRecords(engagementId, registers, by, role) {
  * is worse: a reset that cleared the browser but left the database would hand
  * everything back on the next reload while reporting that it had gone.
  */
-export async function clearRecords(engagementId) {
+export async function clearRecords(engagementId, by = 'unknown') {
   const rows = await query('delete from record where engagement_id = $1 returning kind', [engagementId])
-  return rows.length
+  // The generation moves whether or not anything was deleted: a browser
+  // holding records against an engagement that now has none is exactly the
+  // case this exists for.
+  const bumped = await query(
+    `insert into record_epoch (engagement_id, epoch, cleared_at, cleared_by) values ($1, 2, now(), $2)
+     on conflict (engagement_id) do update
+       set epoch = record_epoch.epoch + 1, cleared_at = now(), cleared_by = excluded.cleared_by
+     returning epoch`,
+    [engagementId, by],
+  )
+  return { removed: rows.length, epoch: bumped[0]?.epoch ?? 1 }
 }

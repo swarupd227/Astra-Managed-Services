@@ -21,7 +21,7 @@ import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } f
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
 import { configured as dbConfigured, ping } from './db.mjs'
 import { readEngagements, readTicketHistories } from './config.mjs'
-import { appendRecords, clearRecords, readRecords } from './records.mjs'
+import { appendRecords, clearRecords, readEpoch, readRecords } from './records.mjs'
 
 /**
  * Detect App Service from WEBSITE_SITE_NAME, which the platform always sets,
@@ -763,8 +763,10 @@ http
     // What people have recorded, for the engagement the browser is reading.
     if (req.method === 'GET' && url.startsWith('/api/records')) {
       const id = new URL(url, 'http://local').searchParams.get('engagement') ?? ''
-      return readRecords(id)
-        .then((registers) => json(res, 200, { engagement: id, registers }))
+      // The generation travels with the records: whatever a browser saves
+      // later has to say which one it read.
+      return Promise.all([readRecords(id), readEpoch(id)])
+        .then(([registers, epoch]) => json(res, 200, { engagement: id, epoch, registers }))
         .catch((err) => json(res, 503, { error: 'The records could not be read.', detail: String(err?.message ?? err) }))
     }
 
@@ -855,17 +857,22 @@ http
         if (url === '/api/records/clear') {
           const id = String(body?.engagement ?? '')
           if (!id) return json(res, 400, { error: 'An engagement is required.' })
-          return clearRecords(id)
-            .then((removed) => json(res, 200, { removed }))
+          return clearRecords(id, String(body?.by ?? 'unknown'))
+            .then(({ removed, epoch }) => json(res, 200, { removed, epoch }))
             .catch((err) => json(res, 503, { error: 'The records could not be cleared.', detail: String(err?.message ?? err) }))
         }
 
         if (url === '/api/records') {
-          const { engagement, registers, by, role } = body ?? {}
+          const { engagement, registers, by, role, epoch } = body ?? {}
           if (!engagement || !registers) return json(res, 400, { error: 'An engagement and its registers are required.' })
-          return appendRecords(String(engagement), registers, String(by ?? 'unknown'), String(role ?? 'unknown'))
+          return appendRecords(String(engagement), registers, String(by ?? 'unknown'), String(role ?? 'unknown'), epoch)
             .then((added) => json(res, 200, { added }))
-            .catch((err) => json(res, 503, { error: 'The records could not be written.', detail: String(err?.message ?? err) }))
+            .catch((err) => (err?.name === 'StaleEpoch'
+              // 409, not 503: nothing is broken. This browser is holding
+              // records from before a reset and must drop them rather than
+              // write them back over it.
+              ? json(res, 409, { error: 'These records are from before a reset.', detail: err.message, epoch: err.current })
+              : json(res, 503, { error: 'The records could not be written.', detail: String(err?.message ?? err) })))
         }
 
         if (url === '/api/agent/classify') {
