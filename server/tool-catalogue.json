@@ -234,7 +234,7 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "client": { "type": "string", "description": "The client the figures are about, e.g. Northwind Trading" },
+          "client": { "type": "string", "description": "The client the figures are about, e.g. Kearney Global" },
           "period": { "type": "string", "description": "The period, e.g. 2026-Q3" },
           "report_a": { "type": "string", "description": "One report. Defaults to the engagement report." },
           "report_b": { "type": "string", "description": "The other. Defaults to the finance dashboard." }

@@ -76,14 +76,14 @@ export const REPORT_BY_ID = Object.fromEntries(REPORTS.map((r) => [r.id, r])) as
 
 /* ---------------------------------- The feed --------------------------------- */
 
-const CLIENTS = ['Northwind Trading', 'Calder & Boyd', 'Pennington Group', 'Ashby Logistics', 'Marchetti Partners']
+const CLIENTS = ['Kearney Global', 'Calder & Boyd', 'Pennington Group', 'Ashby Logistics', 'Marchetti Partners']
 const PERIODS = ['2026-Q3', '2026-Q4', '2027-Q1']
 
 /**
  * The rows the finance system has sent.
  *
  * Deterministic, so the same question gives the same answer every run. The
- * Northwind Q3 rows are set explicitly rather than drawn: that engagement is
+ * Kearney Global Q3 rows are set explicitly rather than drawn: that engagement is
  * the one carrying a difference worth explaining, and a demonstration whose
  * numbers move between runs cannot be checked by the person watching it.
  */
@@ -104,7 +104,7 @@ function build(): FinanceRow[] {
     }
   }
 
-  // Northwind Q3 — the engagement a partner is about to ask about.
+  // Kearney Global Q3 — the engagement a partner is about to ask about.
   //
   // Fees and expenses were booked before either report last looked. The credit
   // notes were raised on the Wednesday, after the finance dashboard's last

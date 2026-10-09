@@ -23,7 +23,7 @@ const when = (iso: string) => iso.slice(0, 16).replace('T', ' ')
 
 function useDifference(props: Record<string, unknown>) {
   const refreshes = useAstra((s) => s.reportRefreshes)
-  const client = (props.client as string) ?? 'Northwind Trading'
+  const client = (props.client as string) ?? 'Kearney Global'
   const period = (props.period as string) ?? '2026-Q3'
   return React.useMemo(() => {
     const refreshedAt: Record<string, string> = {}
