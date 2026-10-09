@@ -1,4 +1,5 @@
 import { Rng, digest } from './rng'
+import { blastRadiusFor } from './blastRadius'
 import { AGENTS, TOWERS, policyForTower } from './estate'
 import { AC } from './reference'
 import type {
@@ -102,15 +103,21 @@ const HUMANS = ['A. Fernandes', 'K. Mehta', 'M. Okonkwo', 'R. Venkatesh', 'P. Li
 
 /* --------------------------- Autonomy decision stub ------------------------- */
 
-function decisionFor(tower: string, acs: string[], agentId: string, tier: number, conf: number): AutonomyDecision {
+function decisionFor(tower: string, acs: string[], agentId: string, tier: number, conf: number, affected: string[] = []): AutonomyDecision {
   const policy = policyForTower(tower)
   const agent = AGENTS.find((a) => a.id === agentId)!
   const primary = AC[acs[0]]
+  // Walked from the dependency graph, not drawn. The tier the traversal finds
+  // governs the floor, so a made-up dependent count was gating real actions.
+  const blast = blastRadiusFor(affected, acs)
   const grades: Record<string, 'A' | 'B' | 'C' | 'D'> = {}
   acs.forEach((c) => { grades[c] = agent.grants[c] ?? 'C' })
 
   let mode: AutonomyDecision['mode'] = primary?.floor ?? 'advise'
-  if (primary?.tier0Floor && tier === 0) mode = primary.tier0Floor
+  // The graph decides whether a tier-0 service is in reach, not the ticket's
+  // own tier: an action on a tier-2 component that a tier-0 service depends on
+  // is a tier-0 action.
+  if (primary?.tier0Floor && blast.maxTier === 0) mode = primary.tier0Floor
   if (conf < 0.8 && mode === 'supervised') mode = 'approve_first'
 
   const gates =
@@ -123,13 +130,15 @@ function decisionFor(tower: string, acs: string[], agentId: string, tier: number
     policyId: policy.id,
     policyVersion: policy.version,
     actionClasses: acs,
-    blastRadius: { services: tier === 0 ? 1 : rng.int(1, 4), dependents: rng.int(0, 6), maxTier: tier, dataMutation: acs.some((c) => ['AC-44', 'AC-49', 'AC-71'].includes(c)) },
+    blastRadius: blast,
     agentGrades: grades,
     planConfidence: conf,
     gates,
     reasons: [
       `${primary?.id} platform floor is ${primary?.floor.replace(/_/g, '-')}`,
-      tier === 0 ? 'Tier-0 blast radius applies the stricter floor' : `Blast radius tier ${tier}`,
+      blast.maxTier === 0
+        ? `Tier-0 service in reach across ${blast.dependents} dependent${blast.dependents === 1 ? '' : 's'} — the stricter floor applies`
+        : `Blast radius walked from the graph: ${blast.dependents} dependent${blast.dependents === 1 ? '' : 's'}, most critical tier ${blast.maxTier}`,
       `Agent grade ${grades[acs[0]]} on ${acs[0]}`,
     ],
     evaluatedInMs: rng.float(11, 38, 1),
@@ -297,7 +306,7 @@ function generate(): { work: WorkObject[]; runs: Run[] } {
       }
 
       if (!inTransition && state !== 'detected') {
-        wo.autonomy = decisionFor(tower.id, acs, agentId, tier, conf)
+        wo.autonomy = decisionFor(tower.id, acs, agentId, tier, conf, wo.affected)
         if (state === 'gated') wo.autonomy.mode = 'approve_first'
       }
       wo.narrative = narrativeFor(wo, acs)

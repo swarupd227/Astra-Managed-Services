@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CircleDot, OctagonX, PlayCircle, Undo2 } from 'lucide-react'
 import { useAstra } from '@/domain/store'
-import { AGENT_BY_ID, GRAPH_EDGES, GRAPH_NODES, TOWER_BY_ID } from '@/domain/estate'
+import { AGENT_BY_ID, TOWER_BY_ID } from '@/domain/estate'
 import { AC, ROLE_BY_ID } from '@/domain/reference'
 import { ApprovalCard } from './ApprovalCard'
 import {
@@ -10,25 +10,52 @@ import {
 } from '@/ui/domain'
 import { Button, Card, Chip, Dot, Empty, Metric, Tabs } from '@/ui/primitives'
 import { cn, ago, dateTime, mins, pct, usd } from '@/lib/format'
-import type { RunStep } from '@/domain/types'
+import { knowledgeFor, knowledgeSummary } from '@/domain/workContext'
+import type { RunStep, WorkObject } from '@/domain/types'
 
 /* ------------------------------ Causal chain -------------------------------- */
 
-function CausalChain({ affected, demandClass }: { affected: string[]; demandClass: string }) {
-  const nodes = GRAPH_NODES.filter((n) => affected.includes(n.id))
-  const neighbours = GRAPH_EDGES
-    .filter((e) => affected.includes(e.from) || affected.includes(e.to))
-    .map((e) => (affected.includes(e.from) ? e.to : e.from))
-    .filter((id, i, arr) => arr.indexOf(id) === i && !affected.includes(id))
-    .map((id) => GRAPH_NODES.find((n) => n.id === id))
-    .filter(Boolean)
+/**
+ * The chain, read from the knowledge pack.
+ *
+ * Every link used to be a constant: the same symptom, the same change
+ * reference and the same "7 prior occurrences" on every ticket in the estate.
+ * Each link now either names a record or is left out, so a chain with a gap
+ * shows the gap instead of filling it.
+ */
+function CausalChain({ wo }: { wo: WorkObject }) {
+  const k = React.useMemo(() => knowledgeFor(wo), [wo])
+  const surface = k.inPlay[0] ?? null
+  const error = k.knownErrors[0] ?? null
+  const downstream = k.blast.hop1[0] ?? null
+  const nodes = k.inPlay
+  const neighbours = [...k.blast.hop1, ...k.blast.hop2]
 
   const chain = [
-    { label: 'Symptom', value: 'Latency SLO breach', tone: 'crit' as const, detail: 'p99 > 1,800 ms for 3 evaluations' },
-    { label: 'Surface', value: nodes[0]?.name ?? affected[0], tone: 'warn' as const, detail: nodes[0] ? `${nodes[0].type} · tier ${nodes[0].tier}` : '' },
-    { label: 'Component', value: nodes[1]?.name ?? neighbours[0]?.name ?? '—', tone: 'warn' as const, detail: 'connection pool saturated' },
-    { label: 'Cause', value: 'chg_5511 reduced conn_pool.max 500 → 200', tone: 'crit' as const, detail: 'change applied 2027-02-16 21:14' },
-    { label: 'Class', value: demandClass, tone: 'info' as const, detail: 'known error ke_pool_5511 · 7 prior occurrences' },
+    { label: 'Symptom', value: wo.title, tone: 'crit' as const, detail: `${wo.ref} · ${wo.priority} · raised ${ago(wo.createdAt)}` },
+    ...(surface
+      ? [{ label: 'Surface', value: surface.name, tone: 'warn' as const, detail: `${surface.type} · tier ${surface.tier}` }]
+      : [{ label: 'Surface', value: wo.affected.join(', ') || '—', tone: 'neutral' as const, detail: 'not in the graph, so nothing can be read about it' }]),
+    ...(downstream
+      ? [{ label: 'Downstream', value: downstream.name, tone: 'warn' as const, detail: `${k.blast.dependents} dependent${k.blast.dependents === 1 ? '' : 's'} walked from the graph` }]
+      : []),
+    ...(error
+      ? [{
+        label: 'Known error',
+        value: error.name,
+        tone: 'crit' as const,
+        detail: [error.attrs.first_seen ? `first seen ${error.attrs.first_seen}` : null, error.attrs.occurrences ? `${error.attrs.occurrences} occurrences` : null]
+          .filter(Boolean).join(' · ') || 'recorded against the component',
+      }]
+      : []),
+    ...(k.demandClass
+      ? [{
+        label: 'Class',
+        value: k.demandClass.name,
+        tone: 'info' as const,
+        detail: k.demandClass.cause || `${k.priors.reduce((n, p) => n + p.incidents, 0)} prior arrivals in the extract`,
+      }]
+      : [{ label: 'Class', value: wo.demandClass, tone: 'neutral' as const, detail: 'no costed class in the ledger for this' }]),
   ]
 
   return (
@@ -56,11 +83,13 @@ function CausalChain({ affected, demandClass }: { affected: string[]; demandClas
             </Chip>
           ))}
         </div>
-        <p className="mt-2 text-2xs leading-relaxed text-ink-3">
-          Context package assembled at a <span className="text-ink-2">machine-corroborated</span> confidence floor: 27 assertions
-          (11 human-verified), 2 runbooks, 3 prior incidents — fitted inside a 6,000-token budget by decision relevance rather than
-          document dumping. The floor applied is recorded in evidence.
-        </p>
+        <p className="mt-2 text-2xs leading-relaxed text-ink-3">{knowledgeSummary(k)}</p>
+        {k.runbooks.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1 border-t border-line pt-2">
+            <span className="label-cap mr-1">Runbooks that resolve it</span>
+            {k.runbooks.map((r) => <Chip key={r.id} tone="ok" mono>{r.name}</Chip>)}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -231,7 +260,7 @@ export function WorkObjectDetail() {
               </ol>
             )}
 
-            {tab === 'causal' && <CausalChain affected={wo.affected} demandClass={wo.demandClass} />}
+            {tab === 'causal' && <CausalChain wo={wo} />}
 
             {tab === 'economics' && (
               <div className="space-y-3">
