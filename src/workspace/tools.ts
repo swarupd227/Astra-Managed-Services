@@ -23,6 +23,7 @@ import {
 import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } from '@/domain/experiments'
 import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
 import { PUBLISH_LABEL, publicationSummary } from '@/domain/publication'
+import { buildBoardDeck } from '@/domain/boardDeck'
 import { estateFindings } from '@/domain/watches'
 import { OWNERSHIP_LABEL, PACK_PARTS, WITHHELD } from '@/domain/successorPack'
 import { DERIVABLE_LABEL, recurring } from '@/domain/ticketHistory'
@@ -566,6 +567,27 @@ export const EXECUTORS: Record<string, Executor> = {
         evidenceId: record.evidenceId ?? null,
       },
       artifacts: [card('publication', `${item.name} · publish gate`, { item: item.id }, '/operate/data')],
+    }
+  },
+
+  build_board_update: () => {
+    const log = useAstra.getState().publishLog
+    const itemIds = [...new Set(log.map((p) => p.itemId))]
+    const deck = buildBoardDeck({ publishLog: log, itemIds })
+    return {
+      payload: {
+        client: deck.client,
+        slides: deck.slides.length,
+        dataBehindIt: deck.trust,
+        showingEarlierFigures: deck.showingEarlierFigures,
+        // What it will say, so the reply can be checked against the file.
+        figures: deck.slides.flatMap((s) => (s.figures ?? []).map((f) => ({ figure: f.label, value: f.value, from: f.readFrom }))),
+        recommending: deck.slides.find((s) => s.title.startsWith('What we are recommending'))?.bullets ?? [],
+        held: deck.slides.find((s) => s.title.startsWith('What is held'))?.bullets ?? [],
+        readFrom: deck.readFrom,
+        provenanceOnEverySlide: true,
+      },
+      artifacts: [card('boardDeck', `${deck.client} · board update`, { items: itemIds }, '/governance/executive')],
     }
   },
 

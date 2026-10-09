@@ -212,6 +212,18 @@
       }
     },
     {
+      "name": "build_board_update", "agent": "agt_herald", "surfaces": ["governance", "run"],
+      "description": "Assemble a board update from the published side of the publish gate, as a deck that can be downloaded. Figures come only from loads that reconciled against what the source declared: where the latest load is held, the last one that reconciled is used and the deck says on its face that it is showing earlier figures and why. Every slide prints what its figures were read from, the load each came from and when it landed, because a deck leaves the platform and nothing travels with it except what is printed on it. A load that is held gets a slide of its own naming it, the reason and the ticket. Returns what the deck will say; the download button on the card writes the file.",
+      "describe": "Assemble the board update for {client} from the figures that reconciled.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "client": { "type": "string", "description": "The engagement it is for. Defaults to the one in view." }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_publication", "agent": "agt_custodian", "surfaces": ["run", "governance"],
       "description": "What each data item's consumers are reading right now and whether it is the latest load. Per item: whether the gate published or held it, when, the control totals the source declared against what the load actually produced, every measure that did not reconcile with the size of the gap, the ticket raised where one was, and the last load that did reconcile — which is what a consumer is reading while a later one is held. An item the gate has never seen reads as neither held nor verified by it, and says so: no record and verified are not the same fact.",
       "input_schema": {
