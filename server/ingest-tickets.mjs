@@ -98,6 +98,16 @@ try {
     `${r.period.from} to ${r.period.to}, ${r.subCategories} sub-categories ` +
     `(${r.declared} declared against a costed class) — all read back and matching.`,
   )
+  if (r.placed) console.log(`  ${r.placed} sub-categories carry a component, ${r.declared} of them a costed class.`)
+  if (r.unstated.length) {
+    // Kept, not erased — but named, because deleting a line from the
+    // configuration is not how a declaration is withdrawn.
+    console.warn(
+      `  ${r.unstated.length} declaration(s) in the database were not restated by this load and are left standing: ` +
+      `${r.unstated.map((u) => `${u.key}${u.classId ? ` (${u.classId})` : ''}`).join(', ')}. ` +
+      `To withdraw one, keep its sub-category in the configuration and drop the class from it.`,
+    )
+  }
   if (r.unreadable) console.warn(`  ${r.unreadable} row(s) had no reference or no readable timestamp and are not loaded.`)
   if (r.foldedRows) {
     console.warn(`  ${r.foldedRows.toLocaleString('en-GB')} row(s) across ${r.foldedKeys} sub-categories were counted together despite differing in case only.`)

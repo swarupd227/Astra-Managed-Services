@@ -167,15 +167,26 @@ export async function writeDump(config, prepared) {
        values ($1,$2,$3,$4,$5,$6,$7,$8)
        on conflict (engagement_id, key) do update set
          category = excluded.category, sub_category = excluded.sub_category, incidents = excluded.incidents,
-         class_id = coalesce(excluded.class_id, ticket_subcategory.class_id),
-         -- Set whenever this load states components, kept otherwise. Gated on
-         -- the class before, which meant a component-only declaration was
-         -- silently discarded.
-         node_ids = case when cardinality(excluded.node_ids) > 0 then excluded.node_ids else ticket_subcategory.node_ids end,
-         declared_by = coalesce(excluded.declared_by, ticket_subcategory.declared_by)`,
+         /* ------------------------------------------------------------------
+            A sub-category this load speaks about is set from what it says,
+            including to nothing. One it says nothing about keeps what it had.
+
+            The first cut coalesced instead, so a stated null never overwrote
+            an existing class — which protected a declaration from being lost
+            to a recount, and made a withdrawal impossible to express. Three
+            declarations turned out to be wrong on the evidence of the
+            tickets, and withdrawing them in the configuration would have
+            changed nothing in the database: the class the tickets disproved
+            would have quietly survived every reload.
+            ------------------------------------------------------------------ */
+         class_id    = case when $9 then excluded.class_id    else ticket_subcategory.class_id end,
+         node_ids    = case when $9 then excluded.node_ids    else ticket_subcategory.node_ids end,
+         declared_by = case when $9 then excluded.declared_by else ticket_subcategory.declared_by end`,
       [
         engagementId, r.key, r.category, r.subCategory, r.incidents,
         declared?.classId ?? null, declared?.nodeIds ?? [], declared ? confirmedBy : null,
+        // Whether this load states anything about this sub-category at all.
+        Boolean(declared),
       ],
     )
   }
@@ -196,8 +207,19 @@ export async function writeDump(config, prepared) {
   const [[{ n: landed }], [{ n: subs }], [{ n: classed }], [{ n: placed }], [span]] = await Promise.all([
     query('select count(*)::int as n from ticket where engagement_id = $1', [engagementId]),
     query('select count(*)::int as n from ticket_subcategory where engagement_id = $1', [engagementId]),
-    query('select count(*)::int as n from ticket_subcategory where engagement_id = $1 and class_id is not null', [engagementId]),
-    query('select count(*)::int as n from ticket_subcategory where engagement_id = $1 and cardinality(node_ids) > 0', [engagementId]),
+    // Only the sub-categories this load spoke about. Counting every declared
+    // row would fail the read-back on declarations the load deliberately left
+    // standing, which are kept rather than erased.
+    query(
+      `select count(*)::int as n from ticket_subcategory
+        where engagement_id = $1 and class_id is not null and key = any($2::text[])`,
+      [engagementId, [...declarations.keys()]],
+    ),
+    query(
+      `select count(*)::int as n from ticket_subcategory
+        where engagement_id = $1 and cardinality(node_ids) > 0 and key = any($2::text[])`,
+      [engagementId, [...declarations.keys()]],
+    ),
     query('select min(opened_at) as a, max(opened_at) as b from ticket where engagement_id = $1', [engagementId]),
   ])
 
@@ -213,8 +235,27 @@ export async function writeDump(config, prepared) {
   if (placed !== wantPlaced) wrong.push(`declared components: ${placed} rows against ${wantPlaced} stated`)
   if (wrong.length) throw new Error(`the load did not match the dump — ${wrong.join('; ')}`)
 
+  /* ------------------------------------------------------------------------
+     Declarations the database holds that this load said nothing about.
+
+     Those are kept, because a load that does not restate the declarations
+     should not erase them. But a person who deletes a line from the
+     configuration expecting it to be withdrawn would get silence, so the
+     ones left standing are named. Withdrawing a class means keeping the
+     sub-category and dropping the class from it, not deleting the entry.
+     ------------------------------------------------------------------------ */
+  const held = await query(
+    `select key, class_id from ticket_subcategory
+      where engagement_id = $1 and (class_id is not null or cardinality(node_ids) > 0)`,
+    [engagementId],
+  )
+  const unstated = held
+    .filter((row) => !declarations.has(row.key))
+    .map((row) => ({ key: row.key, classId: row.class_id }))
+
   const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null)
   return {
+    unstated,
     engagementId,
     source,
     tickets: landed,
