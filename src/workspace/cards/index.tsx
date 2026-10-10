@@ -19,6 +19,7 @@ import { boardDeckView } from './boardDeck'
 import { differenceView } from './difference'
 import { lineageView } from './lineage'
 import { entitlementView } from './entitlement'
+import { incidentFeedView } from './incidentFeed'
 import { ownerNoticeView } from './ownerNotice'
 import { recommendationsView } from './recommendations'
 import { successorPackView } from './successorPack'
@@ -35,6 +36,7 @@ import { techDebtView } from './techDebt'
 
 export const CARDS: Record<CardKind, ArtifactView> = {
   estateOverview: { Body: EstateOverviewCard },
+  incidentFeed: incidentFeedView,
   brief: { Body: BriefCard },
   workQueue: { Body: WorkQueueCard },
   workItem: { Body: WorkItemCard },

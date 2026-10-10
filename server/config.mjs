@@ -177,14 +177,31 @@ export async function readTickets(args = {}) {
   const { engagementId, limit = 50, offset = 0, subCategory, state, q, priority, ref } = args
   const where = ['engagement_id = $1']
   const params = [engagementId]
+  // Every $n in the clause, not just the first: a filter that reads its value
+  // twice is ordinary, and replacing one of them leaves the other as literal
+  // text for the planner to choke on.
   const add = (clause, value) => {
     params.push(value)
-    where.push(clause.replace('$n', `$${params.length}`))
+    where.push(clause.replaceAll('$n', `$${params.length}`))
   }
   // Asked for by the client's own reference, which is how a person refers to
   // a ticket out loud. Case-insensitive because they will type it either way.
   if (ref) add('lower(ref) = lower($n)', ref)
-  if (subCategory) add('lower(sub_category) = lower($n)', subCategory)
+  // Either the sub-category on its own or the way it is written on screen and
+  // said out loud — "Outlook" or "Software / Outlook". Matching only the bare
+  // form meant asking for the thing exactly as the platform displays it
+  // returned nothing at all, which reads as "no such demand" rather than "not
+  // how I index it". Spacing around the slash is not something to be strict
+  // about either.
+  if (subCategory) {
+    // Parenthesised: the clauses are joined with AND, which binds tighter than
+    // OR, so a bare alternation here would have matched the second form across
+    // every engagement.
+    add(
+      "(lower(sub_category) = lower($n) or lower(category) || '/' || lower(sub_category) = lower(replace($n, ' / ', '/')))",
+      subCategory,
+    )
+  }
   if (state) add('lower(state) = lower($n)', state)
   if (priority) add('priority = $n', priority)
   if (q) add('short_description ilike $n', `%${q}%`)

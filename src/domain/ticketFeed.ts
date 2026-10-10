@@ -112,3 +112,82 @@ export const RECURS_AT = 10
 /** The largest declared sub-category, which the volume signal is scaled against. */
 export const largestDeclared = (engagementId = ENGAGEMENT.id) =>
   Math.max(...declaredVolumes(engagementId).map((s) => s.incidents), 1)
+
+/* ==========================================================================
+   What the feed is, as something a person can be shown.
+
+   The load report existed only in the terminal of whoever ran the ingest,
+   which is the wrong place for the provenance of the largest dataset the
+   platform reads. Two figures matter and they are deliberately not the same
+   figure: how much of the book is *placed* — resolved to a component, so it
+   lands on a tower under a policy — and how much is *identified*, meaning a
+   costed class says what it is. Reporting one number for both would be the
+   flattering version, and the gap between them is the honest finding.
+   ========================================================================== */
+
+export interface FeedCoverage {
+  /** Sub-categories carrying it. */
+  count: number
+  /** Arrivals behind them. */
+  arrivals: number
+  /** Share of the loaded book, 0–100. */
+  pct: number
+}
+
+export interface FeedReading {
+  feed: TicketFeed
+  arrivals: number
+  subCategories: number
+  /** A component is declared, so a ticket can be placed on a tower. */
+  placed: FeedCoverage
+  /** A costed class is declared, so the ledger can say what it is. */
+  identified: FeedCoverage
+  /** Neither, largest first — where the next declaration is worth most. */
+  undeclared: SubCategoryVolume[]
+  undeclaredArrivals: number
+  /** Which column fed which field, with what the profiler said where it did. */
+  mapping: { field: string; column: string; confidence: number | null; on: string | null; why: string | null }[]
+  /** The client's priority words and what each was declared to mean. */
+  priorities: { value: string; priority: Priority }[]
+}
+
+export function feedReading(engagementId = ENGAGEMENT.id): FeedReading | null {
+  const feed = feedFor(engagementId)
+  if (!feed) return null
+
+  const subs = feed.subCategories
+  const arrivals = feed.loaded.tickets || 1
+  const cover = (rows: SubCategoryVolume[]): FeedCoverage => {
+    const n = rows.reduce((t, s) => t + s.incidents, 0)
+    return { count: rows.length, arrivals: n, pct: Math.round((n / arrivals) * 100) }
+  }
+
+  const placed = subs.filter((s) => (s.nodeIds ?? []).length)
+  const identified = subs.filter((s) => s.classId)
+  const undeclared = subs
+    .filter((s) => !s.classId && !(s.nodeIds ?? []).length)
+    .sort((a, b) => b.incidents - a.incidents)
+
+  return {
+    feed,
+    arrivals: feed.loaded.tickets,
+    subCategories: subs.length,
+    placed: cover(placed),
+    identified: cover(identified),
+    undeclared,
+    undeclaredArrivals: undeclared.reduce((t, s) => t + s.incidents, 0),
+    mapping: Object.entries(feed.columnMap).map(([field, column]) => {
+      const b = feed.because?.[field]
+      return {
+        field,
+        column,
+        // Absent where a mapping was confirmed directly rather than from a
+        // profile. Saying nothing is better than implying a score nobody gave.
+        confidence: b ? Math.round(b.confidence * 100) : null,
+        on: b?.on ?? null,
+        why: b?.why ?? null,
+      }
+    }),
+    priorities: Object.entries(feed.priorities).map(([value, priority]) => ({ value, priority })),
+  }
+}
