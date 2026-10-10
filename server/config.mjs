@@ -156,8 +156,12 @@ export async function readTicketFeeds() {
       subCategory: s.sub_category,
       incidents: s.incidents,
       // Counted and declared, kept apart: the volume is measured from the
-      // dump, the class and component are somebody's decision.
-      ...(s.class_id ? { classId: s.class_id, nodeIds: s.node_ids, declaredBy: s.declared_by } : {}),
+      // dump, the class and component are somebody's decision — and those two
+      // are separable. A sub-category can have a component declared and no
+      // class, which places its tickets without claiming to identify them.
+      ...(s.class_id ? { classId: s.class_id } : {}),
+      ...(s.node_ids?.length ? { nodeIds: s.node_ids } : {}),
+      ...(s.class_id || s.node_ids?.length ? { declaredBy: s.declared_by } : {}),
     })),
   }))
 }

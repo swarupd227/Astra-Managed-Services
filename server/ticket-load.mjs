@@ -53,7 +53,27 @@ export function checkDump(args) {
   if (!tickets.length) faults.push('the dump maps to no tickets at all')
 
   const counted = countSubCategories(tickets)
-  const declarations = new Map(subCategoryClasses.filter((d) => d.classId).map((d) => [d.key, d]))
+  /* ------------------------------------------------------------------------
+     A declaration may name a class, a component, or both.
+
+     The first cut required a class, which made the two halves inseparable and
+     threw away the half that is usually available. The client's dump has
+     2,951 arrivals under Outlook, Teams, PowerPoint, Office ProPlus and
+     Exchange: nobody can say which costed class those belong to, because the
+     demand ledger was built from an extract that analysed only application
+     and data management and prices none of them. But everybody can say which
+     component they are about — Microsoft 365 — and that is the half that
+     decides the tower, and therefore the policy, the service level and the
+     knowledge pack.
+
+     So the two are declarable apart. Naming the component without the class
+     places a ticket correctly and leaves it classified no further than its
+     theme, which is the honest outcome: we know what it is about and not
+     what it is.
+     ------------------------------------------------------------------------ */
+  const declarations = new Map(
+    subCategoryClasses.filter((d) => d.classId || (d.nodeIds ?? []).length).map((d) => [d.key, d]),
+  )
   const orphans = [...declarations.keys()].filter((k) => !counted.rows.some((r) => r.key === k))
   if (orphans.length) {
     // A declaration against a sub-category that is not in the dump is either
@@ -148,7 +168,10 @@ export async function writeDump(config, prepared) {
        on conflict (engagement_id, key) do update set
          category = excluded.category, sub_category = excluded.sub_category, incidents = excluded.incidents,
          class_id = coalesce(excluded.class_id, ticket_subcategory.class_id),
-         node_ids = case when excluded.class_id is null then ticket_subcategory.node_ids else excluded.node_ids end,
+         -- Set whenever this load states components, kept otherwise. Gated on
+         -- the class before, which meant a component-only declaration was
+         -- silently discarded.
+         node_ids = case when cardinality(excluded.node_ids) > 0 then excluded.node_ids else ticket_subcategory.node_ids end,
          declared_by = coalesce(excluded.declared_by, ticket_subcategory.declared_by)`,
       [
         engagementId, r.key, r.category, r.subCategory, r.incidents,
@@ -170,17 +193,24 @@ export async function writeDump(config, prepared) {
   )
 
   /* ------------------------------- Read it back ---------------------------- */
-  const [[{ n: landed }], [{ n: subs }], [{ n: mapped }], [span]] = await Promise.all([
+  const [[{ n: landed }], [{ n: subs }], [{ n: classed }], [{ n: placed }], [span]] = await Promise.all([
     query('select count(*)::int as n from ticket where engagement_id = $1', [engagementId]),
     query('select count(*)::int as n from ticket_subcategory where engagement_id = $1', [engagementId]),
     query('select count(*)::int as n from ticket_subcategory where engagement_id = $1 and class_id is not null', [engagementId]),
+    query('select count(*)::int as n from ticket_subcategory where engagement_id = $1 and cardinality(node_ids) > 0', [engagementId]),
     query('select min(opened_at) as a, max(opened_at) as b from ticket where engagement_id = $1', [engagementId]),
   ])
+
+  // Counted apart, because the two halves of a declaration are now separable
+  // and a read-back that checked only one would miss the other going missing.
+  const wantClassed = [...declarations.values()].filter((d) => d.classId).length
+  const wantPlaced = [...declarations.values()].filter((d) => (d.nodeIds ?? []).length).length
 
   const wrong = []
   if (landed !== tickets.length) wrong.push(`ticket: ${landed} rows in the database against ${tickets.length} mapped from the dump`)
   if (subs !== counted.rows.length) wrong.push(`ticket_subcategory: ${subs} rows against ${counted.rows.length} counted`)
-  if (mapped !== declarations.size) wrong.push(`declared classes: ${mapped} rows against ${declarations.size} stated`)
+  if (classed !== wantClassed) wrong.push(`declared classes: ${classed} rows against ${wantClassed} stated`)
+  if (placed !== wantPlaced) wrong.push(`declared components: ${placed} rows against ${wantPlaced} stated`)
   if (wrong.length) throw new Error(`the load did not match the dump — ${wrong.join('; ')}`)
 
   const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null)
@@ -189,7 +219,8 @@ export async function writeDump(config, prepared) {
     source,
     tickets: landed,
     subCategories: subs,
-    declared: mapped,
+    declared: classed,
+    placed,
     unreadable: unreadable.length,
     foldedRows: counted.foldedRows,
     foldedKeys: counted.foldedKeys,

@@ -25,7 +25,11 @@
     { "value": "5 - Planning", "priority": "P4" }
   ],
 
-  "_comment_subCategoryClasses": "The declaration a person owns: which of the client's sub-categories corresponds to a class the ledger prices, and which component in the estate that demand lands on. Not guesswork — the estate's known errors already record their own occurrence counts, and 2,484, 926 and 658 are exactly the volumes of three of these sub-categories in the dump. The link was already in the data and simply written nowhere the classifier could read it; the first three recover it and the rest follow the same rule. A sub-category with no defensible component is left out rather than attached to the nearest one, because a wrong component resolves a ticket onto the wrong tower and so under the wrong approval policy.",
+  "_comment_subCategoryClasses": "The declaration a person owns, in two separable halves. classId says which class the ledger prices this demand as; nodeIds says which component in the estate it lands on. Either may be stated without the other, and the difference matters: the component decides the tower and therefore the policy, the service level and the knowledge pack, while the class decides what it is and what it costs. A sub-category with a component and no class is placed correctly and classified no further than its theme — which is the honest outcome when we know what a ticket is about and not what it is.",
+
+  "_comment_withdrawn": "Three declarations were withdrawn after reading what the tickets actually say rather than what the sub-category is called. Each keeps its component and carries _was and _because so the reversal is on the record rather than a silent deletion.",
+  "_comment_componentOnly": "The demand ledger's 24 costed classes were derived from an extract that analysed application and data management alone — 2,721 of the 28,028 incidents. It prices none of the digital-workplace volume, which is why those entries carry a component and no class. Naming a class for them would mean inventing one, and the extract cannot support the effort figure a costed class needs: it supplies no resolution or close timestamp, so handling time is not derivable at all.",
+  "_comment_classed": "Where a costed class genuinely corresponds. The first three recover a link already in the data: the estate's known errors record 2,484, 926 and 658 occurrences, exactly the volumes of Account Lock-Out, M365-OneDrive and IEM in this dump. The rest were checked against what the tickets actually say, not against the sub-category's name.",
   "subCategoryClasses": [
     { "key": "security|account lock-out", "classId": "dc_pwd_reset", "nodeIds": ["euc_entra"] },
     { "key": "change/add/move|domain password reset", "classId": "dc_pwd_reset", "nodeIds": ["euc_entra"] },
@@ -34,10 +38,24 @@
     { "key": "applications|iem", "classId": "dc_iem_ghost", "nodeIds": ["app_iem"] },
     { "key": "software|cisco secure client – zero trust (sase)", "classId": "dc_zta_sync_break", "nodeIds": ["net_sase_edge"] },
     { "key": "software|cisco secure client", "classId": "dc_zta_sync_break", "nodeIds": ["net_sase_edge"] },
-    { "key": "security|cisco amp for endpoints", "classId": "dc_triple_av", "nodeIds": ["net_sase_edge"] },
-    { "key": "security|cisco amp - definition update", "classId": "dc_triple_av", "nodeIds": ["net_sase_edge"] },
     { "key": "infrastructure|servers - oracle", "classId": "dc_oracle_blindspot", "nodeIds": ["da_oracle_dm"] },
     { "key": "applications|azure apps (solutions factory)", "classId": "dc_pipeline_fail", "nodeIds": ["pipe_datamart"] },
-    { "key": "technical support|software maintenance", "classId": "dc_sw_provision", "nodeIds": ["app_catalog"] }
+
+    { "_was": "dc_triple_av", "_because": "dc_triple_av is costed at 41 incidents a year and names agents contending for CPU. These 1,567 are failed Cisco Secure Endpoint Tetra definition updates, which is a different failure entirely — and the class would have offered them the agent de-duplication runbook.", "key": "security|cisco amp - definition update", "nodeIds": ["net_sase_edge"] },
+    { "_was": "dc_triple_av", "_because": "These 674 read \"Office apps login blocked by Cisco AMP\" and \"Cannot login to any MS office app\" — access blocked by the agent, not CPU contention.", "key": "security|cisco amp for endpoints", "nodeIds": ["net_sase_edge"] },
+    { "_was": "dc_sw_provision", "_because": "dc_sw_provision is catalogue software provisioning. These 264 read \"Unable to turn on PC / Blue screen\", \"WiFi driver not functioning\" and \"Dell PC sound not working\" — device faults, not provisioning.", "key": "technical support|software maintenance", "nodeIds": ["svc_workplace"] },
+
+    { "key": "software|outlook", "nodeIds": ["app_m365"] },
+    { "key": "software|microsoft office 365 - teams", "nodeIds": ["app_m365"] },
+    { "key": "software|m365 - powerpoint online", "nodeIds": ["app_m365"] },
+    { "key": "software|microsoft office 365 proplus", "nodeIds": ["app_m365"] },
+    { "key": "messaging|exchange", "nodeIds": ["app_m365"] },
+    { "key": "security|cisco amp for endpoints - threat detected", "nodeIds": ["net_sase_edge"] },
+    { "key": "technical support|hardware maintenance", "nodeIds": ["svc_workplace"] },
+    { "key": "technical support|driver update", "nodeIds": ["svc_workplace"] },
+    { "key": "technical support|os optimization - system slow", "nodeIds": ["svc_workplace"] },
+    { "key": "software|microsoft windows", "nodeIds": ["svc_workplace"] },
+    { "key": "applications|focus/sap-hana", "nodeIds": ["app_focus"] },
+    { "key": "applications|hr/ess", "nodeIds": ["app_hcm"] }
   ]
 }

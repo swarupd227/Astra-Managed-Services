@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { countSubCategories, mapRows, profile, proposePriorities, readDelimited, sniffDelimiter } from './ticket-feed.mjs'
+import { checkDump } from './ticket-load.mjs'
 
 /* ==========================================================================
    Whether a dump can be read without knowing whose dump it is.
@@ -152,6 +153,49 @@ test('the client’s own word for a priority is kept alongside what it was decla
   // rather than defaulting to a level nobody chose.
   assert.equal(tickets[3].priorityRaw, '4 - Low')
   assert.equal(tickets[3].priority, null)
+})
+
+test('a sub-category may be given a component without being given a class', () => {
+  // The half that is usually available. Nobody can say which costed class an
+  // Outlook ticket belongs to when the ledger prices no such class, but
+  // everybody can say it is about Microsoft 365 — and that half is what
+  // decides the tower, and so the policy the ticket arrives under.
+  const rows = readDelimited(SERVICENOW)
+  const prepared = checkDump({
+    rows,
+    columnMap: profile(rows).columnMap,
+    subCategoryClasses: [
+      { key: 'applications|iem', classId: 'dc_iem_ghost', nodeIds: ['app_iem'] },
+      { key: 'software|m365 - onedrive', nodeIds: ['app_m365'] },
+    ],
+  })
+  assert.deepEqual(prepared.faults, [])
+  assert.equal(prepared.declarations.size, 2, 'the component-only one is kept, not discarded')
+  assert.equal(prepared.declarations.get('software|m365 - onedrive').classId, undefined)
+  assert.deepEqual(prepared.declarations.get('software|m365 - onedrive').nodeIds, ['app_m365'])
+})
+
+test('a declaration naming neither a class nor a component is not a declaration', () => {
+  const rows = readDelimited(SERVICENOW)
+  const prepared = checkDump({
+    rows,
+    columnMap: profile(rows).columnMap,
+    subCategoryClasses: [{ key: 'applications|iem' }],
+  })
+  assert.equal(prepared.declarations.size, 0)
+})
+
+test('a class declared for a sub-category the dump does not contain refuses the whole load', () => {
+  // Either a typo or a dump from the wrong period, and both are worth
+  // stopping for rather than loading most of it.
+  const rows = readDelimited(SERVICENOW)
+  const prepared = checkDump({
+    rows,
+    columnMap: profile(rows).columnMap,
+    subCategoryClasses: [{ key: 'applications|nothing like this', classId: 'dc_iem_ghost' }],
+  })
+  assert.equal(prepared.faults.length, 1)
+  assert.match(prepared.faults[0], /which this dump does not contain/)
 })
 
 test('a description containing a newline stays one ticket', () => {

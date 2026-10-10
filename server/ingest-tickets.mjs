@@ -65,17 +65,24 @@ if (prepared.faults.length) {
 }
 
 if (DRY_RUN) {
-  const declared = [...prepared.declarations.values()]
   const counted = prepared.counted
-  const biggest = counted.rows.filter((r) => prepared.declarations.has(r.key))
+  const declared = counted.rows.filter((r) => prepared.declarations.has(r.key))
+  const sum = (rows) => rows.reduce((n, r) => n + r.incidents, 0)
+  const classed = declared.filter((r) => prepared.declarations.get(r.key).classId)
+  const placedOnly = declared.filter((r) => !prepared.declarations.get(r.key).classId)
+
   console.log(
     `${config.source} checks out against the configuration — ${prepared.tickets.length.toLocaleString('en-GB')} tickets ` +
-    `would load, ${counted.rows.length} sub-categories, ${declared.length} declared against a costed class ` +
-    `(${biggest.reduce((n, r) => n + r.incidents, 0).toLocaleString('en-GB')} of the arrivals). Nothing was written.`,
+    `would load across ${counted.rows.length} sub-categories. ` +
+    `${classed.length} declared against a costed class (${sum(classed).toLocaleString('en-GB')} arrivals), ` +
+    `${placedOnly.length} given a component only (${sum(placedOnly).toLocaleString('en-GB')} arrivals). ` +
+    `${(sum(declared) / prepared.tickets.length * 100).toFixed(0)}% of the book is placed, ` +
+    `${(sum(classed) / prepared.tickets.length * 100).toFixed(0)}% identified. Nothing was written.`,
   )
-  for (const r of biggest.sort((a, b) => b.incidents - a.incidents)) {
+  for (const r of declared.sort((a, b) => b.incidents - a.incidents)) {
     const d = prepared.declarations.get(r.key)
-    console.log(`  ${String(r.incidents).padStart(5)}  ${r.category} / ${r.subCategory}  ->  ${d.classId} on ${(d.nodeIds ?? []).join(', ') || 'no component'}`)
+    const what = d.classId ?? 'placed only — no costed class exists for this demand'
+    console.log(`  ${String(r.incidents).padStart(5)}  ${`${r.category} / ${r.subCategory}`.padEnd(52)} ${(d.nodeIds ?? []).join(', ') || 'no component'}  ${what}`)
   }
   if (prepared.unreadable.length) console.warn(`  ${prepared.unreadable.length} row(s) could not be read.`)
   if (counted.foldedRows) console.warn(`  ${counted.foldedRows.toLocaleString('en-GB')} row(s) across ${counted.foldedKeys} sub-categories differ only in case and are counted together.`)
