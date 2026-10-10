@@ -391,7 +391,7 @@
     {
       "name": "set_procedure_areas", "agent": "agt_archivist", "surfaces": ["transition", "platform"], "mutating": true, "approval": true,
       "description": "Adopt the client's procedure areas into the register, against the clause they come from. Give nothing but the engagement to adopt the list its contract already files, in the client's own words and order; give areas to state a different list. Sealed to the evidence chain with the adopter's name, because this sets what coverage is measured against. Refused without a clause reference, and refused where it would drop an area that current procedures are attached to — coverage must not improve by deleting the inconvenient row. The diff is shown before it is written.",
-      "describe": "Adopt {count} procedure areas for {engagement} from {reference}.",
+      "describe": "Adopt {areas} procedure areas for {engagement} from {reference}.",
       "input_schema": {
         "type": "object",
         "properties": {

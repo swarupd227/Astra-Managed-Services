@@ -63,10 +63,20 @@ export function toolLabel(roleId: string, toolName: string): string {
   return stripped.charAt(0).toUpperCase() + stripped.slice(1)
 }
 
-/** The confirmation sentence, with the call's input substituted in. */
+/**
+ * The confirmation sentence, with the call's input substituted in.
+ *
+ * A list renders as how many, because this sentence is read on a Confirm card
+ * and "Adopt 7 procedure areas" is the question; the seven names are on the
+ * card beneath it. A placeholder naming nothing in the input is a defect in
+ * the catalogue rather than a thing to render — the test beside it refuses one
+ * — and it still falls back to a dash rather than throwing, because a broken
+ * sentence on an approval is better than no approval at all.
+ */
 export function describeCall(tool: ToolSpec, input: Record<string, unknown>): string {
   return (tool.describe ?? tool.name).replace(/\{(\w+)\}/g, (_, k) => {
     const v = input[k]
+    if (Array.isArray(v)) return String(v.length)
     return typeof v === 'boolean' ? (v ? 'on' : 'off') : String(v ?? '—')
   })
 }
