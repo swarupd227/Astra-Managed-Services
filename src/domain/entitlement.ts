@@ -90,6 +90,15 @@ export interface Product {
   eligibleRoles: string[]
   /** What one seat costs a year, as the client states it. */
   annualCost: number
+  /**
+   * How the product is actually written in the client's tickets.
+   *
+   * Not a nicety. In Kearney's own extract the requests say "PowerBI License
+   * Request" and "Needs Altery License" — no space, and a dropped letter. A
+   * reader that only knows the vendor's catalogue spelling asks "which
+   * product?" about a ticket that plainly says which product.
+   */
+  aliases: string[]
 }
 
 export const PRODUCTS: Product[] = [
@@ -97,11 +106,13 @@ export const PRODUCTS: Product[] = [
     id: 'alteryx', name: 'Alteryx Designer', seatsTotal: 40,
     eligibleRoles: ['Analyst', 'Data Engineer', 'Senior Consultant', 'Manager', 'Principal'],
     annualCost: 4_950,
+    aliases: ['alteryx', 'altery'],
   },
   {
     id: 'powerbi_pro', name: 'Power BI Pro', seatsTotal: 250,
     eligibleRoles: ROLES,
     annualCost: 120,
+    aliases: ['power bi', 'powerbi', 'power-bi', 'pbi'],
   },
 ]
 
@@ -144,6 +155,18 @@ export interface Rules {
   approvalOverMonths: number
   /** Contractors are approved by a person rather than by policy. */
   contractorNeedsApproval: boolean
+  /**
+   * What a request is granted for when it states no term.
+   *
+   * Measured against the client's own licence traffic: of 42 texts mentioning
+   * a licence, none stated a duration, because a ServiceNow short description
+   * is a title and nobody writes "for twelve months" in a title. A reader that
+   * demands a term from that channel asks every time and never acts. So the
+   * policy carries one, and the decision says it applied it — a declared
+   * default on the record is a different thing from a duration invented to
+   * fill a gap.
+   */
+  termWhenUnstatedMonths: number
 }
 
 /**
@@ -157,6 +180,7 @@ export const RULE_DEFAULTS: Rules = {
   renewalWithinDays: 90,
   approvalOverMonths: 12,
   contractorNeedsApproval: true,
+  termWhenUnstatedMonths: 12,
 }
 
 export const RULE_META: Record<keyof Rules, { label: string; because: string }> = {
@@ -172,6 +196,10 @@ export const RULE_META: Record<keyof Rules, { label: string; because: string }> 
     label: 'A contractor needs their manager',
     because: 'A contractor’s access should end when their engagement does, and only their manager knows when that is',
   },
+  termWhenUnstatedMonths: {
+    label: 'A request that states no term gets the standard one',
+    because: 'The channel these arrive on is a one-line title and never carries a duration; asking for one every time is how a request sits unanswered for a week',
+  },
 }
 
 /* -------------------------------- Deciding --------------------------------- */
@@ -179,7 +207,7 @@ export const RULE_META: Record<keyof Rules, { label: string; because: string }> 
 export type Verdict = 'granted' | 'needs_approval' | 'refused'
 
 export interface RuleCheck {
-  rule: keyof Rules | 'eligible_role' | 'seats_available' | 'known_person'
+  rule: keyof Rules | 'eligible_role' | 'seats_available' | 'known_person' | 'term_source'
   passed: boolean
   /** What was checked, with the figures it was checked against. */
   detail: string
@@ -213,10 +241,23 @@ export function decide(opts: {
   months: number
   assigned: SeatAssignment[]
   rules?: Rules
+  /** False where the term came from policy rather than from the requester. */
+  termStated?: boolean
 }): Decision {
   const r = opts.rules ?? RULE_DEFAULTS
   const free = seatsFree(opts.product.id, opts.assigned)
   const checks: RuleCheck[] = []
+
+  // Where the term came from is part of the decision, not a footnote to it.
+  // An approver who cannot tell the requester's twelve months from the
+  // platform's is reading a number with no author.
+  if (opts.termStated === false) {
+    checks.push({
+      rule: 'term_source',
+      passed: true,
+      detail: `No term stated, so the standard ${r.termWhenUnstatedMonths} months was applied — the platform’s policy, not the requester’s words`,
+    })
+  }
 
   checks.push({
     rule: 'known_person',
@@ -294,6 +335,55 @@ export function decide(opts: {
 
 /* ----------------------------- Reading a request ---------------------------- */
 
+/**
+ * Products the client's own licence traffic names and no pool is held for.
+ *
+ * Read off the 42 licence-mentioning texts in Kearney's incident extract.
+ * They are here so the reader can give the true answer — no seat pool exists
+ * for Visio — instead of asking which product it is when it already knows.
+ * Naming them is not the same as holding seats in them: nothing here carries a
+ * count, because the platform has not been told one.
+ */
+export const UNPOOLED_PRODUCTS: string[] = [
+  'Tableau', 'TeamViewer', 'Adobe Pro', 'Adobe Acrobat', 'MS Visio', 'Visio', 'MS Project',
+  'Webex', 'Copilot', 'ChatGPT Enterprise', 'ChatGPT', 'Thinkcell', 'Efficient Elements',
+  'monday.com', 'Exact Globe', 'Windows', 'Excel', 'Teams', 'Office', 'O365', 'Claude',
+]
+
+/**
+ * Words that mean something is broken rather than being asked for.
+ *
+ * Taken from the client's own traffic, where roughly thirty of the forty-two
+ * licence texts are faults or monitoring alerts: an expired activation, a
+ * product prompting for a key, a nightly group-sync job failing. Reading one
+ * of those as a request for a new seat is the worst thing this can do — it is
+ * confidently wrong, and it spends a seat.
+ */
+const FAULT_CUES = [
+  'issue', 'error', 'not working', 'unable to', 'cannot', 'can not', "can't", 'failed',
+  'expired', 'expiring soon', 'freezing', 'frozen', 'prompt', 'delays', 'problem', 'broken',
+  // "Windows License Activation" and "Webex Licence Activation" are both a
+  // product refusing to activate. Nobody asks for an activation; they ask for
+  // a licence and report an activation. An explicit ask still overrides it.
+  'activation', 'activate',
+]
+
+/** Monitoring output and licensing admin, not a person asking for anything. */
+const JOB_CUES = [
+  'group id job', 'groupid job', 'group - group id', 'jobs failed', 'job failed', 'update notification',
+  // Moving a group between licence SKUs is platform work on somebody's behalf.
+  'license switch', 'licence switch',
+]
+
+/** An explicit ask, which outranks a fault word in the same sentence. */
+const ASK_CUES = [
+  'request', 'requesting', 'need a', 'needs a', 'needs ', 'need ', 'please provide', 'please assign',
+  'additional', 'provision',
+  // "Issue of Excel license on my VM" is issuance, not a malfunction. Without
+  // this the word "issue" reads the request as its own opposite.
+  'issue of',
+]
+
 const CUES: { type: RequestType; words: string[] }[] = [
   { type: 'renewal', words: ['renew', 'renewal', 'expiring', 'expires', 'extend my existing', 're-issue'] },
   { type: 'extension', words: ['extend', 'extension', 'longer', 'another year', 'more months'] },
@@ -301,6 +391,13 @@ const CUES: { type: RequestType; words: string[] }[] = [
   { type: 'access', words: ['access to', 'permission', 'add me to', 'cannot open', 'unlock'] },
   { type: 'new', words: ['new licence', 'new license', 'need a licence', 'need a license', 'request a', 'please provide'] },
 ]
+
+export interface NotARequest {
+  kind: 'fault' | 'platform_job'
+  because: string
+  /** The words it was read off, so a wrong refusal is arguable. */
+  on: string[]
+}
 
 export interface RequestReading {
   type: RequestType
@@ -310,6 +407,22 @@ export interface RequestReading {
   on: string[]
   /** Set where the text does not say enough to act. */
   missing: string[]
+  /** Set where the text is not asking for an entitlement at all. */
+  notARequest: NotARequest | null
+  /** A product the text names that no seat pool is held for. */
+  unpooled: string | null
+  /** False where the term came from the policy rather than from the text. */
+  termStated: boolean
+  /**
+   * The duration phrase the text states and this could not read.
+   *
+   * Kept apart from stating none at all, and it is the difference between a
+   * default and an over-grant: "Needs Altery License for a few weeks" names a
+   * short term, and quietly granting the standard year against it would be the
+   * platform spending four thousand nine hundred and fifty pounds on a word it
+   * did not parse.
+   */
+  termUnreadable: string | null
 }
 
 /**
@@ -329,22 +442,47 @@ export function readLicenceRequest(text: string): RequestReading {
     if (hit) { type = c.type; on.push(hit); break }
   }
 
-  const product = PRODUCTS.find((p) => t.includes(p.name.toLowerCase()) || t.includes(p.id)) ?? null
+  const product = PRODUCTS.find(
+    (p) => t.includes(p.name.toLowerCase()) || t.includes(p.id) || p.aliases.some((a) => t.includes(a)),
+  ) ?? null
+  const unpooled = product
+    ? null
+    : UNPOOLED_PRODUCTS.find((n) => t.includes(n.toLowerCase())) ?? null
 
   // "a year" and "12 months" are the same request. A reader that understands
-  // only the second asks a question it already has the answer to.
+  // only the second asks a question it already has the answer to. Weeks are
+  // here because the client's traffic uses them; a vague "a few weeks" stays
+  // unread rather than being rounded into a number nobody said.
   const WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, six: 6, twelve: 12, eighteen: 18 }
-  const m = /(\d+|a|an|one|two|three|six|twelve|eighteen)\s*(month|months|year|years)/.exec(t)
+  const m = /(\d+|a|an|one|two|three|six|twelve|eighteen)\s*(week|weeks|month|months|year|years)/.exec(t)
   const n = m ? (Number.isNaN(Number(m[1])) ? WORDS[m[1]] ?? null : Number(m[1])) : null
-  const months = n === null ? null : m![2].startsWith('year') ? n * 12 : n
+  const months = n === null
+    ? null
+    : m![2].startsWith('year') ? n * 12
+      : m![2].startsWith('week') ? Math.max(1, Math.round(n / 4.345))
+        : n
 
-  // Only the kinds that hold a seat for a period need one. Asking how long an
-  // install is for is a question with no answer.
-  const needsDuration = type === 'new' || type === 'renewal' || type === 'extension'
+  // Is this a request at all? Asked after the type, because the words that
+  // answer it are the same words, and asked before anything is decided,
+  // because a fault read as a request spends a seat on a broken install.
+  const asked = ASK_CUES.find((w) => t.includes(w)) ?? null
+  const job = JOB_CUES.find((w) => t.includes(w)) ?? null
+  const fault = FAULT_CUES.find((w) => t.includes(w)) ?? null
+  const notARequest: NotARequest | null = job
+    ? { kind: 'platform_job', because: 'Monitoring output from a scheduled job, not a person asking for anything', on: [job] }
+    : fault && !asked
+      ? { kind: 'fault', because: 'Something they already have is not working, which is an incident and not an entitlement request', on: [fault] }
+      : null
+
+  // A term the text states and this could not read. Only where no term was
+  // parsed, so "for 6 months" does not trip it, and only on the kinds that
+  // hold a seat for a period.
+  const unreadable = /\b((?:a\s+few|a\s+couple(?:\s+of)?|several|some|few|ongoing|permanent|indefinite)\s+(?:weeks?|months?|years?))\b/.exec(t)
+  const termUnreadable = months === null && unreadable ? unreadable[1].trim() : null
 
   const missing: string[] = []
-  if (!product) missing.push('which product')
-  if (needsDuration && months === null) missing.push('how long for')
+  if (!product && !unpooled) missing.push('which product')
+  if (termUnreadable) missing.push('how long for')
 
-  return { type, product, months, on, missing }
+  return { type, product, months, on, missing, notARequest, unpooled, termStated: months !== null, termUnreadable }
 }

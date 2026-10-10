@@ -601,39 +601,93 @@ export const EXECUTORS: Record<string, Executor> = {
     if (!text) throw new ToolError('A licence request needs the words the person actually wrote.')
     const read = readLicenceRequest(text)
 
-    const product = read.product
-      ?? PRODUCTS.find((p) => p.name.toLowerCase() === str(input.product).toLowerCase())
-      ?? PRODUCTS.find((p) => p.id === str(input.product).toLowerCase())
-    const months = read.months ?? (typeof input.months === 'number' ? Math.round(input.months) : null)
-
-    // One question, not an assumption — and only where the answer is needed:
-    // an install holds no seat for a period, so its duration is not asked for.
-    const needsDuration = read.type === 'new' || read.type === 'renewal' || read.type === 'extension'
-    if (!product || (needsDuration && months === null)) {
+    // Most of what mentions a licence is not asking for one. Measured against
+    // the client's own extract: of 42 licence texts, around 30 are faults or
+    // monitoring output. Granting a seat for a broken activation is the one
+    // outcome here that is worse than doing nothing.
+    if (read.notARequest) {
       return {
         payload: {
-          read: { type: REQUEST_LABEL[read.type], matchedOn: read.on, product: product?.name ?? null, months },
-          needsOneAnswer: !product ? 'Which product is it for?' : 'How long is it needed for?',
-          note: 'Not assumed: a licence granted for a duration nobody asked for is still granted wrongly.',
+          read: text,
+          notARequest: read.notARequest.because,
+          readOff: read.notARequest.on,
+          goesTo: read.notARequest.kind === 'platform_job'
+            ? 'Monitoring, not the service desk queue — no person is waiting on it'
+            : 'The incident queue, as a fault against something they already hold',
+          noSeatTouched: true,
         },
         artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
       }
     }
 
+    const product = read.product
+      ?? PRODUCTS.find((p) => p.name.toLowerCase() === str(input.product).toLowerCase())
+      ?? PRODUCTS.find((p) => p.id === str(input.product).toLowerCase())
+
+    // A product the client's traffic names and no pool is held for has a true
+    // answer, and it is not a question back to the requester.
+    if (!product && read.unpooled) {
+      return {
+        payload: {
+          read: { type: REQUEST_LABEL[read.type], matchedOn: read.on, product: read.unpooled },
+          refused: `No seat pool is held for ${read.unpooled}. The platform holds ${PRODUCTS.map((p) => p.name).join(' and ')}; everything else is bought per request.`,
+          goesTo: 'Procurement, with the requester named — there is no pool to draw from',
+          notTheSameAs: 'Having no seats left: there is no pool at all, and the platform has not been told of one',
+        },
+        artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+      }
+    }
+
+    if (!product) {
+      return {
+        payload: {
+          read: { type: REQUEST_LABEL[read.type], matchedOn: read.on, product: null },
+          needsOneAnswer: 'Which product is it for?',
+          note: 'Not assumed: a seat granted in the wrong product is still a seat spent.',
+        },
+        artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+      }
+    }
+
+    // The term, where the text states one; otherwise the policy's, which the
+    // decision then names as the policy's rather than the requester's.
+    const stated = read.months ?? (typeof input.months === 'number' ? Math.round(input.months) : null)
+
+    // Except where the text states a term this could not read. Taking the
+    // standard year against "for a few weeks" is not a default, it is an
+    // over-grant, so this is the one question still worth asking.
+    if (stated === null && read.termUnreadable) {
+      return {
+        payload: {
+          read: { type: REQUEST_LABEL[read.type], product: product.name, saidAboutTheTerm: read.termUnreadable },
+          needsOneAnswer: `How many months is “${read.termUnreadable}”?`,
+          note: `A term was stated and could not be read. The standard ${RULE_DEFAULTS.termWhenUnstatedMonths} months is for requests that state none, and applying it here would grant longer than was asked for.`,
+        },
+        artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+      }
+    }
+
+    const months = stated ?? RULE_DEFAULTS.termWhenUnstatedMonths
+
     const who = str(input.requester) || text
     const subject = personByName(who) ?? DIRECTORY.find((p) => text.toLowerCase().includes(p.name.toLowerCase().split(/\s+/).pop()!.toLowerCase())) ?? null
     const st = useAstra.getState()
-    const d = decide({ product, person: subject, type: read.type, months: months ?? 0, assigned: st.seatAssignments })
+    const d = decide({
+      product, person: subject, type: read.type, months,
+      assigned: st.seatAssignments,
+      termStated: stated !== null,
+    })
 
     const assigned = d.verdict === 'granted' ? st.assignSeat(d, person()) : null
 
     return {
       payload: {
         readAs: REQUEST_LABEL[d.type],
-        matchedOn: read.on.length ? read.on : ['nothing specific — read as a new request'],
+        matchedOn: read.on.length ? read.on : ['nothing specific — a product and the word licence, read as a new request'],
         requester: d.person ? `${d.person.name}, ${d.person.role}, ${d.person.practice}${d.person.contractor ? ' (contractor)' : ''}` : null,
         product: d.product.name,
         months: d.months,
+        termFrom: stated !== null ? 'the request' : 'the platform’s standard policy; the request stated none',
         decision: d.verdict,
         // Everything checked, passes included.
         checks: d.checks.map((c) => `${c.passed ? '✓' : '✗'} ${c.detail}`),
