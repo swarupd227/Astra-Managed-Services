@@ -24,7 +24,8 @@ import {
 } from '@/domain/recommendations'
 import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } from '@/domain/experiments'
 import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
-import { PUBLISH_LABEL, publicationSummary } from '@/domain/publication'
+import { PUBLISH_LABEL, publicationSummary, readPublication } from '@/domain/publication'
+import { draftOwnerNotices } from '@/domain/ownerNotice'
 import { buildBoardDeck } from '@/domain/boardDeck'
 import { CAUSE_LABEL, KIND_LABEL, REPORTS, REPORT_BY_ID, explainDifference, financeClients } from '@/domain/finance'
 import { digest } from '@/domain/rng'
@@ -669,6 +670,40 @@ export const EXECUTORS: Record<string, Executor> = {
         })),
       },
       artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+    }
+  },
+
+  draft_owner_notice: (input) => {
+    const item = findData(str(input.item))
+    const log = useAstra.getState().publishLog
+    const pub = readPublication(log, item.id)
+    const draft = draftOwnerNotices(item.id, pub.state === 'held' ? pub.last : null)
+    if (!draft) throw new ToolError(`${item.name} is not in the estate register.`)
+    if (!draft.notices.length) {
+      return {
+        payload: {
+          item: item.name,
+          // An unmapped item and an item with no owners are different
+          // answers, and the second must never be read as the first.
+          refused: draft.affected.length
+            ? `${draft.affected.length} things downstream are affected, and the register names an owner for none of them, so there is nobody to draft to.`
+            : 'The lineage maps nothing downstream of it. That is an unknown, not a confirmation that nobody needs telling — map it before relying on this answer.',
+          unassigned: draft.unassigned.map((u) => u.name),
+        },
+        artifacts: [card('ownerNotice', `${item.name} · who to tell`, { id: item.id }, '/operate/data')],
+      }
+    }
+    return {
+      payload: {
+        item: item.name,
+        // Stated first and plainly, because the next question is always
+        // whether it went out.
+        sent: false,
+        note: 'Drafted only. Nothing has been sent, and this platform does not send.',
+        drafts: draft.notices.map((n) => ({ to: n.to, subject: n.subject, affected: n.owns.length, body: n.body })),
+        nobodyToTell: draft.unassigned.map((u) => u.name),
+      },
+      artifacts: [card('ownerNotice', `${item.name} · who to tell`, { id: item.id }, '/operate/data')],
     }
   },
 

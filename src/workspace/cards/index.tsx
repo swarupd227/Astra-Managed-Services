@@ -19,6 +19,7 @@ import { boardDeckView } from './boardDeck'
 import { differenceView } from './difference'
 import { lineageView } from './lineage'
 import { entitlementView } from './entitlement'
+import { ownerNoticeView } from './ownerNotice'
 import { recommendationsView } from './recommendations'
 import { successorPackView } from './successorPack'
 import { releasesView } from './releases'
@@ -60,6 +61,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   difference: differenceView,
   lineage: lineageView,
   entitlement: entitlementView,
+  ownerNotice: ownerNoticeView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },

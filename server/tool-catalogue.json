@@ -273,6 +273,16 @@
       "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
     },
     {
+      "name": "draft_owner_notice", "agent": "agt_herald", "surfaces": ["run", "governance"],
+      "description": "Draft a message to each owner of anything downstream of a failing item, from the lineage and the publish gate's own record. One message per owner naming only what that owner owns, rather than one broadcast listing everybody's problems. It states what happened, what it reaches of theirs, whether their figures are stale or possibly wrong, which of them send data outside the estate, the widest readership affected and the ticket where one exists. It writes no estimate of when the data will be back, because nothing on record supports one. Anything affected whose owner the register does not name is listed separately as nobody to tell, rather than quietly dropped. Drafts only: this does not send, and says so on its face.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "item": { "type": "string", "description": "The failing item by id or name, e.g. src_hcm_feed" } },
+        "required": ["item"],
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "get_blast_radius", "agent": "agt_archivist", "surfaces": ["run", "governance"],
       "description": "What breaks if one thing in the data estate fails, walked from the lineage the platform already holds rather than reconstructed by hand. Returns everything downstream of it — datasets, semantic models, reports, applications and external recipients — with what each one is, who answers for it by role, and how many people read the far end, ranked by readership. Also answers the two questions either side of it: what feeds a given report, and who owns a given item. An item with nothing mapped either side of it says so rather than reporting that nothing would break, because an unmapped item is an unknown, not a safe one. Draws the slice as a picture with the failing item marked and the path a failure takes through it.",
       "input_schema": {
