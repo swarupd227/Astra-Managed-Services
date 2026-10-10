@@ -474,7 +474,17 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
                 if (options.length) {
                   if (e.key === 'ArrowDown') { e.preventDefault(); setSel((n) => (n + 1) % options.length); return }
                   if (e.key === 'ArrowUp') { e.preventDefault(); setSel((n) => (n - 1 + options.length) % options.length); return }
-                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pick(options[sel]); return }
+                  if (e.key === 'Tab') { e.preventDefault(); pick(options[sel]); return }
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    // A line that already names a command runs on the first
+                    // Enter. Completing what is already complete looks to the
+                    // person like the key did nothing, and they press it
+                    // again — which is how a demonstration stumbles.
+                    if (parse(roleId, input)) submit(input)
+                    else pick(options[sel])
+                    return
+                  }
                   if (e.key === 'Escape') { e.preventDefault(); setInput(''); return }
                 }
                 if (mentionOptions.length) {
