@@ -334,25 +334,37 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
   // half-typed line rather than replacing it.
   const base = React.useRef('')
 
-  const hold = () => {
-    if (listening || pending) return
+  /**
+   * Click to start, click to stop.
+   *
+   * It stops on its own too, when the recogniser decides the speaking has
+   * finished, so the common case needs one click rather than two. What keeps
+   * this honest is not how long a button is held but that the state is never
+   * ambiguous: the control is lit, the header says listening, and both go the
+   * moment it stops.
+   */
+  const toggleListening = () => {
+    if (pending) return
+    if (listening) {
+      stopDictation()
+      setListening(false)
+      textareaRef.current?.focus()
+      return
+    }
     base.current = input ? `${input.trimEnd()} ` : ''
     setHeard(null)
     const ok = startDictation({
       onText: (text) => setInput(base.current + text),
-      onEnd: (reason) => { setListening(false); if (reason) setHeard(reason) },
+      onEnd: (reason) => {
+        setListening(false)
+        if (reason) setHeard(reason)
+        // Whatever ended it, the words are now the person's to check. Nothing
+        // is sent on their behalf: a recogniser's guess is an unverified fact.
+        textareaRef.current?.focus()
+      },
     })
     if (ok) setListening(true)
     else setHeard('The microphone could not be started.')
-  }
-
-  const release = () => {
-    if (!listening) return
-    stopDictation()
-    setListening(false)
-    // Deliberately not sent. What the recogniser thinks it heard is an
-    // unverified fact, and this is where the person checks it.
-    textareaRef.current?.focus()
   }
 
   // Reads the agent's own sentences once a turn has finished, never the cards
@@ -486,17 +498,14 @@ export function ThreadView({ def, compact }: { def: ThreadDef; compact?: boolean
               <button
                 type="button"
                 disabled={pending}
-                onPointerDown={(e) => { e.preventDefault(); hold() }}
-                onPointerUp={release}
-                onPointerLeave={release}
-                onPointerCancel={release}
+                onClick={toggleListening}
                 className={cn(
                   'absolute bottom-3 right-11 flex h-7 w-7 items-center justify-center rounded border transition-colors disabled:opacity-30',
-                  listening ? 'border-brand bg-brand text-[#1B1B1E]' : 'border-line-strong bg-sunken text-ink-2 hover:text-ink',
+                  listening ? 'animate-pulse border-brand bg-brand text-[#1B1B1E]' : 'border-line-strong bg-sunken text-ink-2 hover:text-ink',
                 )}
-                aria-label={listening ? 'Listening — release to stop' : 'Hold to talk'}
+                aria-label={listening ? 'Listening — click to stop' : 'Click to talk'}
                 aria-pressed={listening}
-                title="Hold to talk"
+                title={listening ? 'Click to stop' : 'Click to talk'}
               >
                 {listening ? <Mic size={14} strokeWidth={2.5} /> : <MicOff size={14} />}
               </button>
