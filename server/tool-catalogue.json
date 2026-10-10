@@ -252,6 +252,27 @@
       }
     },
     {
+      "name": "request_licence", "agent": "agt_concierge", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
+      "description": "Read a licence request in the requester's own words, decide it against the directory, the seat pool and the policy, and either assign a seat or route it to whoever must say yes. Every rule is checked and every check is reported, the ones that passed included, because an approver shown only the failure cannot tell what else was looked at. A refusal always names the rule that decided it. Three outcomes: granted, with the seat assigned and the pool moved; needs approval, naming the rule and the approver, for something a person could still say yes to; or refused, for a request no approval can fix — nobody of that name in the directory, a role the product does not admit, or no seat left to give. Where the request does not say which product or how long for, it asks rather than assuming: a licence granted for a duration nobody requested is still granted wrongly.",
+      "describe": "Decide {text} against the directory, the seat pool and the policy.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string", "description": "The request as the person wrote it" },
+          "requester": { "type": "string", "description": "Who it is for, where the text does not name them" },
+          "product": { "type": "string", "description": "Alteryx Designer or Power BI Pro, where the text does not say" },
+          "months": { "type": "integer", "description": "How long for, where the text does not say" }
+        },
+        "required": ["text"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_entitlements", "agent": "agt_concierge", "surfaces": ["run", "governance"],
+      "description": "The seat pools and the policy behind them: per product, how many seats exist, how many the vendor already held at takeover, how many this platform has assigned since, and how many are free. Also the rules in force with what each one checks and why it exists, and whether each is the platform's standard value or one this contract states. Seats held before takeover are counted, because a pool read from the platform's own grants alone would report seats free that the client has already given away.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
       "name": "get_blast_radius", "agent": "agt_archivist", "surfaces": ["run", "governance"],
       "description": "What breaks if one thing in the data estate fails, walked from the lineage the platform already holds rather than reconstructed by hand. Returns everything downstream of it — datasets, semantic models, reports, applications and external recipients — with what each one is, who answers for it by role, and how many people read the far end, ranked by readership. Also answers the two questions either side of it: what feeds a given report, and who owns a given item. An item with nothing mapped either side of it says so rather than reporting that nothing would break, because an unmapped item is an unknown, not a safe one. Draws the slice as a picture with the failing item marked and the path a failure takes through it.",
       "input_schema": {
