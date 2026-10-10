@@ -15,7 +15,8 @@ import {
 import { draftProcedure, type ProcedureDraft } from '@/domain/procedureDrafts'
 import { classify, resolveItems, routeFor, towerForItems } from '@/domain/intake'
 import { fetchInbound, fetchTicketByRef } from '@/domain/tickets'
-import { feedFor } from '@/domain/ticketFeed'
+import { feedFor, feedReading } from '@/domain/ticketFeed'
+import { historyFor } from '@/domain/ticketHistory'
 import { knowledgeFor } from '@/domain/workContext'
 import { thresholdsFor } from '@/domain/thresholds'
 import { ORIGIN_LABEL as PROVENANCE_ORIGIN_LABEL, ORIGIN_MEANING, provenanceFor, provenanceSummary, type DataSet } from '@/domain/provenance'
@@ -1195,6 +1196,43 @@ export const EXECUTORS: Record<string, Executor> = {
      the engagement — a second client's export proposes its own mapping and
      nothing in the code changes.
      ------------------------------------------------------------------------ */
+  get_incident_feed: () => {
+    const r = feedReading()
+    if (!r) {
+      throw new ToolError('No incident feed is configured for this engagement. Upload a dump from the client’s ticketing system and confirm how it should be read.')
+    }
+    const history = historyFor(ENGAGEMENT.id)
+    const confirmedBy = ROLE_BY_ID[r.feed.confirmedBy]?.title ?? r.feed.confirmedBy
+
+    return {
+      payload: {
+        feed: { system: r.feed.system, loadedFrom: r.feed.source, confirmedBy, confirmedAt: r.feed.confirmedAt },
+        loaded: {
+          arrivals: r.arrivals,
+          subCategories: r.subCategories,
+          setAside: r.feed.loaded.unreadable,
+          countedTogetherDespiteCase: r.feed.loaded.foldedRows,
+        },
+        // Two different claims, deliberately not one coverage figure.
+        placed: { ...r.placed, means: 'a component is declared, so an arrival lands on a tower under a policy, a service level and a knowledge pack' },
+        identified: { ...r.identified, means: 'a costed class is declared, so the ledger can say what the demand is and what it costs' },
+        howTheDumpIsRead: r.mapping.map((m) => ({
+          field: m.field,
+          fromColumn: m.column,
+          ...(m.on ? { matchedOn: m.on, confidence: m.confidence } : { matchedOn: 'confirmed directly, without a recorded profile' }),
+        })),
+        priorityVocabulary: r.priorities,
+        whereTheNextDeclarationIsWorthMost: r.undeclared.slice(0, 8).map((s) => ({
+          subCategory: `${s.category} / ${s.subCategory}`, arrivals: s.incidents,
+        })),
+        undeclaredArrivals: r.undeclaredArrivals,
+        // The part a reader has to know before trusting any figure cut from this.
+        whatThisExtractCannotSupport: (history?.cannot ?? []).map((c) => ({ what: c.what, because: c.because })),
+      },
+      artifacts: [card('incidentFeed', `${ENGAGEMENT.client} · incident feed`, {})],
+    }
+  },
+
   profile_incident_dump: async (input) => {
     const content = str(input.content)
     if (!content.trim()) throw new ToolError('There is nothing in the dump to read.')

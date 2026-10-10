@@ -143,6 +143,11 @@
       }
     },
     {
+      "name": "get_incident_feed", "agent": "agt_archivist", "surfaces": ["run", "governance", "transition", "platform"],
+      "description": "Where the client's arrivals come from and how the platform reads them: which dump was loaded and by whom, which column feeds which field and whether that was matched on the column's name, its values or confirmed directly, what each of the client's priority words was declared to mean, and how many rows were set aside as unreadable or counted together despite differing only in case. Reports coverage as two separate figures that must not be collapsed into one: placed, meaning a component is declared so an arrival lands on a tower under a policy, a service level and a knowledge pack; and identified, meaning a costed class says what the demand is and what it costs. Most of a book is usually placed and not identified, and the gap is the finding. Ends with the sub-categories carrying neither, largest first, which is where the next declaration is worth most — and with what the extract itself cannot support, so no figure cut from it is read as more than it is. Read-only.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
       "name": "profile_incident_dump", "agent": "agt_archivist", "surfaces": ["transition", "platform"],
       "description": "Read an incident dump from any ticketing system and propose how the platform should read it, writing nothing. Profiles the values rather than trusting the headers: a column whose entries are unique and reference-shaped is the reference column whatever it is called, and a column called Date whose entries are not dates is not the timestamp. Returns, per field, which column it proposes, how confident it is, and whether the match was made on the column's name, on its values, or on both — plus the priority vocabulary it reads from the values, the columns it would not use, and anything the intake cannot run without that is still unresolved. Nothing is loaded and no configuration is stored: a person confirms a mapping, because the mapping is a decision about somebody's data rather than something to infer silently.",
       "describe": "Profile an incident dump and propose how to read it, writing nothing.",
@@ -181,7 +186,7 @@
         "type": "object",
         "properties": {
           "limit": { "type": "number", "description": "How many arrivals to show, up to 50. Twelve by default." },
-          "sub_category": { "type": "string", "description": "Only arrivals the client filed under this sub-category, e.g. Account Lock-Out or M365 - OneDrive." },
+          "sub_category": { "type": "string", "description": "Only arrivals the client filed under this sub-category. Either the sub-category alone or the way it reads on screen — \"Outlook\" or \"Software / Outlook\" both work." },
           "matching": { "type": "string", "description": "Only arrivals whose description contains this wording." }
         },
         "additionalProperties": false
@@ -253,7 +258,7 @@
     },
     {
       "name": "request_licence", "agent": "agt_concierge", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
-      "description": "Read a licence request in the requester's own words, decide it against the directory, the seat pool and the policy, and either assign a seat or route it to whoever must say yes. Every rule is checked and every check is reported, the ones that passed included, because an approver shown only the failure cannot tell what else was looked at. A refusal always names the rule that decided it. Three outcomes: granted, with the seat assigned and the pool moved; needs approval, naming the rule and the approver, for something a person could still say yes to; or refused, for a request no approval can fix — nobody of that name in the directory, a role the product does not admit, or no seat left to give. Where the request does not say which product or how long for, it asks rather than assuming: a licence granted for a duration nobody requested is still granted wrongly.",
+      "description": "Read a licence request in the requester's own words, decide it against the directory, the seat pool and the policy, and either assign a seat or route it to whoever must say yes. First it decides whether the text is a request at all, because most of what mentions a licence is not one: measured against this client's own extract, around thirty of forty-two licence texts are faults or monitoring output. Something they already hold not working is returned as an incident and no seat is touched; output from a scheduled job is returned as monitoring with nobody waiting on it. An explicit ask outranks a fault word in the same sentence, so a licence key request is still a request. Where it is a request, every rule is checked and every check is reported, the ones that passed included, because an approver shown only the failure cannot tell what else was looked at. A refusal always names the rule that decided it. Outcomes: granted, with the seat assigned and the pool moved; needs approval, naming the rule and the approver; refused, for a request no approval can fix — nobody of that name in the directory, a role the product does not admit, or no seat left to give; or refused for a product no seat pool is held for, which routes to procurement and is not the same answer as having no seats left. Where the text states no term it is granted for the policy's standard term and the decision says the term came from the policy rather than the requester. Where the text states a term it cannot read, such as 'for a few weeks', it asks: applying the standard term there would grant longer than was asked for. Where it cannot tell which product, it asks rather than assuming.",
       "describe": "Decide {text} against the directory, the seat pool and the policy.",
       "input_schema": {
         "type": "object",
