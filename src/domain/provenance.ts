@@ -321,10 +321,10 @@ export const DATASETS: DataSet[] = [
   },
   {
     id: 'ds_unpooled_products', name: 'Products the licence traffic names and no pool is held for', origin: 'client_extract',
-    source: 'Read off the 42 licence-mentioning texts in the Kearney incident extract — Tableau, Visio, MS Project, Acrobat, Webex, TeamViewer, Copilot, ChatGPT Enterprise and the rest',
+    source: 'Read off Kearney’s own licence traffic in Attachment C.3 — tab I1, 63,350 user requests, of which 1,812 mention a licence and 960 are distinct — by frequency, with the spellings those requests use: ShareCal, Gemini, Salesforce, DocuSign, Figma, Perplexity, Copilot, ChatGPT, ArcGIS and the rest',
     asOf: '2026-06-05',
     routes: ['/operate/work'],
-    caution: 'That a product appears here means the traffic names it, not that the platform holds seats in it: none of these carries a count, because nobody has stated one',
+    caution: 'That a product appears here means the traffic names it, not that the platform holds seats in it: none of these carries a count, because nobody has stated one. The requests themselves are not loaded — only the incident tab is — so nothing on screen counts them',
     maturity: 'partial',
   },
   {

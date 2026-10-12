@@ -335,20 +335,136 @@ export function decide(opts: {
 
 /* ----------------------------- Reading a request ---------------------------- */
 
+export interface UnpooledProduct {
+  name: string
+  /** Every spelling the client's own traffic uses, lowercased. */
+  aliases: string[]
+}
+
 /**
  * Products the client's own licence traffic names and no pool is held for.
  *
- * Read off the 42 licence-mentioning texts in Kearney's incident extract.
- * They are here so the reader can give the true answer — no seat pool exists
- * for Visio — instead of asking which product it is when it already knows.
- * Naming them is not the same as holding seats in them: nothing here carries a
- * count, because the platform has not been told one.
+ * The first version of this list was read off 42 licence-mentioning texts in
+ * the incident extract, which was the wrong population: licence requests are
+ * raised as requests, not incidents, and tab I1 of the volumes attachment
+ * holds 63,350 of them — 1,812 mentioning a licence, 960 distinct. Measured
+ * against those, the short list left 321 asking which product when the text
+ * said so plainly. This list is read off that traffic instead, by frequency.
+ *
+ * The aliases are the point and they are not tidy. Kearney writes "Co-Pilot"
+ * hyphenated, "Chat GPT" spaced, "auxi.ai" with the domain, and "Calude" for
+ * Claude. A reader that only knows the vendor's catalogue spelling asks a
+ * question the ticket already answered, which is the whole failure this
+ * exists to stop.
+ *
+ * Naming a product here is not the same as holding seats in it: nothing here
+ * carries a count, because nobody has told the platform one. The answer it
+ * produces is "no pool is held for that, it goes to procurement" — which is a
+ * different answer from "no seats left", and must stay different.
+ *
+ * Misspellings are listed rather than matched loosely, which is the opposite
+ * of what the pooled products get. There are two of those and thirty-five of
+ * these, and several of these are ordinary words: "offline" is one edit from
+ * "online", "protect" one from "project". Guessing costs little here — the
+ * answer either way is that no pool exists — so the cheap half of the trade
+ * is the half worth keeping.
  */
-export const UNPOOLED_PRODUCTS: string[] = [
-  'Tableau', 'TeamViewer', 'Adobe Pro', 'Adobe Acrobat', 'MS Visio', 'Visio', 'MS Project',
-  'Webex', 'Copilot', 'ChatGPT Enterprise', 'ChatGPT', 'Thinkcell', 'Efficient Elements',
-  'monday.com', 'Exact Globe', 'Windows', 'Excel', 'Teams', 'Office', 'O365', 'Claude',
+export const UNPOOLED_PRODUCTS: UnpooledProduct[] = [
+  // Seen in the request traffic, most frequent first.
+  { name: 'ShareCal', aliases: ['sharecal'] },
+  { name: 'Gemini', aliases: ['gemini'] },
+  { name: 'Salesforce', aliases: ['salesforce', 'sfdc'] },
+  { name: 'DocuSign', aliases: ['docusign', 'docu sign'] },
+  { name: 'Figma', aliases: ['figma'] },
+  { name: 'Perplexity', aliases: ['perplexity'] },
+  { name: 'Auxi', aliases: ['auxi.ai', 'auxi'] },
+  { name: 'Microsoft Copilot', aliases: ['co-pilot', 'copilot', 'copiolt', 'm365 copilot', 'ms copilot'] },
+  { name: 'Miro', aliases: ['miro'] },
+  { name: 'ChatGPT', aliases: ['chatgpt', 'chat gpt', 'open ai', 'openai'] },
+  { name: 'Anaconda', aliases: ['anaconda', 'ananconda'] },
+  { name: 'Power Automate', aliases: ['power automate'] },
+  { name: 'Mentimeter', aliases: ['mentimeter'] },
+  { name: 'KNIME', aliases: ['knime'] },
+  { name: 'Zoom', aliases: ['zoom'] },
+  { name: 'Lucidchart', aliases: ['lucidchart', 'lucid chart', 'lucid'] },
+  { name: 'Visual Studio', aliases: ['visual studio', 'vs code', 'vscode'] },
+  { name: 'Claude', aliases: ['claude', 'calude'] },
+  { name: 'Anaplan', aliases: ['anaplan'] },
+  { name: 'Smartsheet', aliases: ['smartsheet'] },
+  { name: 'ArcGIS', aliases: ['arcgis'] },
+  { name: 'Arixcel', aliases: ['arixcel'] },
+  { name: 'Harvey', aliases: ['harvey'] },
+  { name: 'ABBYY FineReader', aliases: ['abby fine', 'abbyy fine', 'finereader'] },
+  { name: 'Vuture', aliases: ['vuture'] },
+  { name: 'Oracle Java', aliases: ['oracle java', 'oracle jave'] },
+  { name: 'Exchange Online', aliases: ['exchange online'] },
+  // Seen in the incident extract.
+  { name: 'Tableau', aliases: ['tableau'] },
+  { name: 'TeamViewer', aliases: ['teamviewer', 'team viewer'] },
+  { name: 'Adobe Acrobat', aliases: ['adobe acrobat', 'acrobat', 'adobe pro', 'adobe reader', 'adobe'] },
+  { name: 'Adobe Creative Cloud', aliases: ['creative cloud'] },
+  { name: 'MS Visio', aliases: ['ms visio', 'visio'] },
+  { name: 'MS Project', aliases: ['ms project', 'microsoft project'] },
+  { name: 'Webex', aliases: ['webex'] },
+  { name: 'think-cell', aliases: ['think-cell', 'thinkcell', 'think cell'] },
+  { name: 'Efficient Elements', aliases: ['efficient elements'] },
+  { name: 'monday.com', aliases: ['monday.com'] },
+  { name: 'Exact Globe', aliases: ['exact globe'] },
+  { name: 'Windows', aliases: ['windows'] },
+  { name: 'Microsoft 365', aliases: ['m365', 'o365', 'office 365', 'microsoft office'] },
+  { name: 'Excel', aliases: ['excel'] },
+  { name: 'Microsoft Teams', aliases: ['ms teams', 'microsoft teams', 'teams'] },
 ]
+
+/**
+ * How far a word may be from a product's name and still be that product.
+ *
+ * Kearney's own requests say "Alterx", "Alteyx", "Altreyx" and "Ananconda".
+ * These are the expensive misses: a product with no pool only ever routes to
+ * procurement, but a misspelt Alteryx is a seat the platform could have
+ * decided and instead asked a question about. Enumerating the typos would
+ * only work until somebody invented a new one.
+ *
+ * Two things keep it from inventing matches, both learned by it doing so.
+ * It compares against the canonical name only, never against the typo
+ * aliases: allowing a near-miss of a near-miss put "Gallery licence request"
+ * and "Battery licence" two edits from the alias "altery", and an Alteryx
+ * seat is not what either of those is asking for. And a short word gets one
+ * edit rather than two, because at seven characters two edits reach a great
+ * many real words — every typo in the client's traffic is one edit away,
+ * including the transposition in "Altreyx".
+ */
+const MIN_FUZZY = 6
+const allowedEdits = (word: string) => (word.length >= 8 ? 2 : 1)
+
+/** Edits between two words, counting a transposition as one. */
+function editDistance(a: string, b: string, cap: number): number {
+  if (Math.abs(a.length - b.length) > cap) return cap + 1
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  )
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1)
+    }
+  }
+  return d[a.length][b.length]
+}
+
+/** The pooled product a misspelt word is reaching for, where one is. */
+function fuzzyProduct(text: string): Product | null {
+  const words = text.split(/[^a-z0-9]+/).filter((w) => w.length >= MIN_FUZZY)
+  for (const p of PRODUCTS) {
+    // The canonical name's own words, and the id. Never the typo aliases.
+    const canonical = [...p.name.toLowerCase().split(/\s+/), p.id].filter((a) => a.length >= MIN_FUZZY)
+    for (const name of canonical) {
+      if (words.some((w) => editDistance(w, name, allowedEdits(w)) <= allowedEdits(w))) return p
+    }
+  }
+  return null
+}
 
 /**
  * Words that mean something is broken rather than being asked for.
@@ -442,12 +558,19 @@ export function readLicenceRequest(text: string): RequestReading {
     if (hit) { type = c.type; on.push(hit); break }
   }
 
+  // Exact first, then near-miss. A typo should never beat a product the text
+  // actually names.
   const product = PRODUCTS.find(
     (p) => t.includes(p.name.toLowerCase()) || t.includes(p.id) || p.aliases.some((a) => t.includes(a)),
-  ) ?? null
+  ) ?? fuzzyProduct(t)
+  // Longest alias first, so "adobe acrobat" is not swallowed by "adobe" and
+  // "m365 copilot" is not read as plain Microsoft 365.
   const unpooled = product
     ? null
-    : UNPOOLED_PRODUCTS.find((n) => t.includes(n.toLowerCase())) ?? null
+    : UNPOOLED_PRODUCTS
+      .flatMap((p) => p.aliases.map((a) => ({ name: p.name, a })))
+      .sort((x, y) => y.a.length - x.a.length)
+      .find(({ a }) => t.includes(a))?.name ?? null
 
   // "a year" and "12 months" are the same request. A reader that understands
   // only the second asks a question it already has the answer to. Weeks are
