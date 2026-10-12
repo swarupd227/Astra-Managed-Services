@@ -60,15 +60,22 @@ export function mapRequests(rows, columnMap) {
   }
   const get = (r, field) => (at[field] === undefined ? '' : String(r[at[field]] ?? '').trim())
 
-  const requests = []
+  // Keyed by reference, because the export repeats one. Two of Kearney's
+  // 63,349 rows are the same request listed twice, with identical text — an
+  // artefact of how the tab was produced rather than two things that happened.
+  // Folding them is right; doing it silently is not, so the count is reported
+  // and a later row replaces an earlier one rather than both being written.
+  const byRef = new Map()
   const unreadable = []
   const undated = []
+  let folded = 0
   for (const r of rows.slice(1)) {
     const ref = get(r, 'ref')
     if (!ref) { unreadable.push({ ref: null, because: 'no reference' }); continue }
     const openedAt = readWhen(get(r, 'openedAt'))
-    if (!openedAt) undated.push(ref)
-    requests.push({
+    if (byRef.has(ref)) folded++
+    else if (!openedAt) undated.push(ref)
+    byRef.set(ref, {
       ref,
       shortDescription: get(r, 'shortDescription'),
       state: get(r, 'state'),
@@ -79,7 +86,7 @@ export function mapRequests(rows, columnMap) {
       openedAt,
     })
   }
-  return { requests, unreadable, undated }
+  return { requests: [...byRef.values()], unreadable, undated, folded }
 }
 
 /** Writes a mapped dump, replacing whatever was loaded for that engagement. */
@@ -126,7 +133,12 @@ export async function writeRequests(config, prepared) {
       prepared.requests.length, prepared.unreadable.length],
   )
 
-  return { written: prepared.requests.length, unreadable: prepared.unreadable.length, undated: prepared.undated.length }
+  return {
+    written: prepared.requests.length,
+    unreadable: prepared.unreadable.length,
+    undated: prepared.undated.length,
+    folded: prepared.folded ?? 0,
+  }
 }
 
 /** Requests whose text matches, newest first. Paged: there are sixty thousand. */

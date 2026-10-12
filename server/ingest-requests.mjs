@@ -34,6 +34,7 @@ console.log(`${path.basename(dumpPath)}: ${rows.length - 1} rows`)
 console.log(`  readable:  ${prepared.requests.length}`)
 console.log(`  unreadable: ${prepared.unreadable.length}${prepared.unreadable.length ? ` (${prepared.unreadable.slice(0, 3).map((u) => u.because).join('; ')})` : ''}`)
 console.log(`  no timestamp: ${prepared.undated.length} (kept — the text is what the platform acts on)`)
+console.log(`  folded: ${prepared.folded} (the same reference listed twice in the export)`)
 
 // What is in here that the platform can act on, stated before anything is
 // written, because "we loaded sixty thousand rows" is not the useful number.
@@ -54,5 +55,5 @@ const result = await writeRequests({
   confirmedBy: feed.confirmedBy ?? 'transition',
 }, prepared)
 
-console.log(`\nWritten: ${result.written} requests for ${feed.engagementId}.`)
+console.log(`\nWritten: ${result.written} requests for ${feed.engagementId}${result.folded ? `, ${result.folded} folded` : ''}.`)
 await close()
