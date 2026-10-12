@@ -273,6 +273,12 @@
       }
     },
     {
+      "name": "get_fault_options", "agent": "agt_custodian", "surfaces": ["run", "governance", "platform"],
+      "description": "The ways a nightly load fails, as the publish gate tells them apart: an upstream that finished late, a column renamed upstream, only part of the rows arriving, and nothing arriving. Each carries the error it puts on the run, in the wording the client's own extract uses, and whether running it again changes anything — three of the four repeat identically however many times they run, which is what makes an automatic retry the wrong default. Use it to show what can be injected before injecting one; naming a fault in a sentence runs it.",
+      "describe": "Show the four ways a load fails and whether a retry fixes each.",
+      "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
       "name": "get_licence_demand", "agent": "agt_concierge", "surfaces": ["run", "governance"],
       "description": "How much licence demand the client actually has, read from their own service request extract rather than estimated. Returns how many requests are loaded, how many mention a licence, how many distinct texts those are, and the demand per product with whether a seat pool is held for it. Splits that demand the way the platform would actually handle it: what it would decide without a person, what has no pool to draw on and goes to procurement, what still needs a person, and what is not a request at all. Licence requests are raised as requests and not as incidents, and the two extracts load separately, so where no request extract has been loaded this says so rather than reporting zero demand.",
       "describe": "Read the licence demand from the client's service request extract.",

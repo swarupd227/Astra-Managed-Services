@@ -24,7 +24,7 @@ import {
   DIMENSION_BY_ID, ORIGIN_LABEL, PROGRESS_LABEL, readRecommendations, type Recommendation,
 } from '@/domain/recommendations'
 import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } from '@/domain/experiments'
-import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
+import { FAULT_ERROR, FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
 import { PUBLISH_LABEL, publicationSummary, readPublication } from '@/domain/publication'
 import { draftOwnerNotices } from '@/domain/ownerNotice'
 import { NoRequestsLoaded, readLicenceQueue } from '@/domain/licenceQueue'
@@ -32,8 +32,8 @@ import { buildBoardDeck } from '@/domain/boardDeck'
 import { CAUSE_LABEL, KIND_LABEL, REPORTS, REPORT_BY_ID, explainDifference, financeClients } from '@/domain/finance'
 import { digest } from '@/domain/rng'
 import {
-  DIRECTORY, PRODUCTS, REQUEST_LABEL, RULE_DEFAULTS, RULE_META, SEATS_HELD_AT_TAKEOVER,
-  decide, personByName, readLicenceRequest, seatsFree,
+  DIRECTORY, PRODUCTS, REQUEST_LABEL, RULE_META, SEATS_HELD_AT_TAKEOVER,
+  decide, personByName, readLicenceRequest, readRules, rulesFor, seatsFree,
 } from '@/domain/entitlement'
 import type { Priority } from '@/domain/types'
 import { estateFindings } from '@/domain/watches'
@@ -602,6 +602,8 @@ export const EXECUTORS: Record<string, Executor> = {
     const text = str(input.text)
     if (!text) throw new ToolError('A licence request needs the words the person actually wrote.')
     const read = readLicenceRequest(text)
+    // This contract's rules where it files them, ours where it does not.
+    const rules = rulesFor(ENGAGEMENT.licenceRules)
 
     // Most of what mentions a licence is not asking for one. Measured against
     // the client's own extract: of 42 licence texts, around 30 are faults or
@@ -663,13 +665,13 @@ export const EXECUTORS: Record<string, Executor> = {
         payload: {
           read: { type: REQUEST_LABEL[read.type], product: product.name, saidAboutTheTerm: read.termUnreadable },
           needsOneAnswer: `How many months is “${read.termUnreadable}”?`,
-          note: `A term was stated and could not be read. The standard ${RULE_DEFAULTS.termWhenUnstatedMonths} months is for requests that state none, and applying it here would grant longer than was asked for.`,
+          note: `A term was stated and could not be read. The standard ${rules.termWhenUnstatedMonths} months is for requests that state none, and applying it here would grant longer than was asked for.`,
         },
         artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
       }
     }
 
-    const months = stated ?? RULE_DEFAULTS.termWhenUnstatedMonths
+    const months = stated ?? rules.termWhenUnstatedMonths
 
     const who = str(input.requester) || text
     const subject = personByName(who) ?? DIRECTORY.find((p) => text.toLowerCase().includes(p.name.toLowerCase().split(/\s+/).pop()!.toLowerCase())) ?? null
@@ -677,6 +679,7 @@ export const EXECUTORS: Record<string, Executor> = {
     const d = decide({
       product, person: subject, type: read.type, months,
       assigned: st.seatAssignments,
+      rules,
       termStated: stated !== null,
     })
 
@@ -689,7 +692,12 @@ export const EXECUTORS: Record<string, Executor> = {
         requester: d.person ? `${d.person.name}, ${d.person.role}, ${d.person.practice}${d.person.contractor ? ' (contractor)' : ''}` : null,
         product: d.product.name,
         months: d.months,
-        termFrom: stated !== null ? 'the request' : 'the platform’s standard policy; the request stated none',
+        termFrom: stated !== null
+          ? 'the request'
+          : `${ENGAGEMENT.licenceRules?.termWhenUnstatedMonths === undefined ? 'the platform’s standard policy' : `${ENGAGEMENT.client}’s own policy`}; the request stated none`,
+        decidedUnder: readRules(ENGAGEMENT.licenceRules).some((r) => r.source === 'contract')
+          ? `${ENGAGEMENT.client}’s rules where they filed them, the platform’s elsewhere`
+          : 'The platform’s standard rules; this contract files none of its own',
         decision: d.verdict,
         // Everything checked, passes included.
         checks: d.checks.map((c) => `${c.passed ? '✓' : '✗'} ${c.detail}`),
@@ -701,6 +709,26 @@ export const EXECUTORS: Record<string, Executor> = {
         ...(d.verdict === 'refused' ? { noApprovalCanFixThis: d.decidedBy?.detail ?? null } : {}),
       },
       artifacts: [card('entitlement', `${d.product.name} · seats and policy`, {}, '/operate/work')],
+    }
+  },
+
+  get_fault_options: () => {
+    const order: Fault[] = ['late', 'half_load', 'schema_change', 'zero_rows']
+    return {
+      payload: {
+        faults: order.map((f) => ({
+          fault: f,
+          is: FAULT_LABEL[f],
+          error: FAULT_ERROR[f],
+          retryFixesIt: RETRYABLE[f].retry,
+          because: RETRYABLE[f].because,
+        })),
+        // The figure worth saying aloud: a retry loop is wrong three times in four.
+        retryable: order.filter((f) => RETRYABLE[f].retry).length,
+        of: order.length,
+        toRun: 'Name one in a sentence — "run tonight’s ingest with a half load" — and the gate decides what reaches a consumer.',
+      },
+      artifacts: [card('faults', 'How a load fails', {}, '/operate/data')],
     }
   },
 
@@ -750,13 +778,15 @@ export const EXECUTORS: Record<string, Executor> = {
           eligibleRoles: p.eligibleRoles,
           annualCostPerSeat: p.annualCost,
         })),
-        rules: (Object.keys(RULE_DEFAULTS) as (keyof typeof RULE_DEFAULTS)[]).map((k) => ({
-          rule: RULE_META[k].label,
-          value: RULE_DEFAULTS[k],
-          why: RULE_META[k].because,
-          // Until a contract files its own, these are ours and say so.
-          statedBy: 'The platform’s standard policy; this contract files none',
+        // Whose rule each one is, per rule. A contract may file some and not
+        // others, so this is not one sentence about the set.
+        rules: readRules(ENGAGEMENT.licenceRules).map((r) => ({
+          rule: r.label,
+          value: r.value,
+          why: r.because,
+          statedBy: r.source === 'contract' ? `${ENGAGEMENT.client}, in this contract` : 'The platform’s standard policy; this contract files none',
         })),
+        rulesFiledByTheClient: readRules(ENGAGEMENT.licenceRules).filter((r) => r.source === 'contract').length,
       },
       artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
     }

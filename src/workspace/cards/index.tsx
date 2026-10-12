@@ -21,6 +21,7 @@ import { lineageView } from './lineage'
 import { entitlementView } from './entitlement'
 import { incidentFeedView } from './incidentFeed'
 import { ownerNoticeView } from './ownerNotice'
+import { faultsView } from './faults'
 import { recommendationsView } from './recommendations'
 import { successorPackView } from './successorPack'
 import { releasesView } from './releases'
@@ -64,6 +65,7 @@ export const CARDS: Record<CardKind, ArtifactView> = {
   lineage: lineageView,
   entitlement: entitlementView,
   ownerNotice: ownerNoticeView,
+  faults: faultsView,
   exit: exitView,
   agentLifecycle: agentLifecycleView,
   agentRun: { Body: AgentRunCard },

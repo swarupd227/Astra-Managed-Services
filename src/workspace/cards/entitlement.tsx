@@ -1,8 +1,9 @@
 import React from 'react'
 import { KeyRound } from 'lucide-react'
 import {
-  PRODUCTS, RULE_DEFAULTS, RULE_META, SEATS_HELD_AT_TAKEOVER, seatsFree,
+  PRODUCTS, RULE_DEFAULTS, SEATS_HELD_AT_TAKEOVER, readRules, seatsFree,
 } from '@/domain/entitlement'
+import { ENGAGEMENT } from '@/domain/engagement'
 import { useAstra } from '@/domain/store'
 import { Bar, Card, Chip, Metric, Table, Td, Th, Tr } from '@/ui/primitives'
 import { num, usd } from '@/lib/format'
@@ -70,12 +71,16 @@ function EntitlementBody({ size }: CardProps) {
           <Table>
             <thead><tr><Th>Rule</Th><Th align="right">Value</Th><Th>Why</Th><Th>Stated by</Th></tr></thead>
             <tbody>
-              {(Object.keys(RULE_DEFAULTS) as (keyof typeof RULE_DEFAULTS)[]).map((k) => (
-                <Tr key={k}>
-                  <Td className="text-2xs text-ink">{RULE_META[k].label}</Td>
-                  <Td align="right" className="tnum text-2xs text-ink-2">{String(RULE_DEFAULTS[k])}</Td>
-                  <Td className="max-w-[320px] text-2xs text-ink-3">{RULE_META[k].because}</Td>
-                  <Td><Chip tone="warn">the platform</Chip></Td>
+              {readRules(ENGAGEMENT.licenceRules).map((r) => (
+                <Tr key={r.key}>
+                  <Td className="text-2xs text-ink">{r.label}</Td>
+                  <Td align="right" className="tnum text-2xs text-ink-2">{String(r.value)}</Td>
+                  <Td className="max-w-[320px] text-2xs text-ink-3">{r.because}</Td>
+                  <Td>
+                    <Chip tone={r.source === 'contract' ? 'ok' : 'warn'}>
+                      {r.source === 'contract' ? ENGAGEMENT.client : 'the platform'}
+                    </Chip>
+                  </Td>
                 </Tr>
               ))}
             </tbody>

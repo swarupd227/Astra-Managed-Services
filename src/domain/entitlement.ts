@@ -183,6 +183,40 @@ export const RULE_DEFAULTS: Rules = {
   termWhenUnstatedMonths: 12,
 }
 
+export interface RuleReading {
+  key: keyof Rules
+  label: string
+  because: string
+  value: number | boolean
+  /** Whose rule this is. The difference is the whole point of showing it. */
+  source: 'contract' | 'platform default'
+}
+
+/**
+ * The licence rules in force, and whose they are.
+ *
+ * The same arrangement as the operating thresholds: the platform carries a
+ * standard set, a contract overrides what it chooses to, and every screen
+ * says which it used. It matters here more than most places, because a
+ * decision made under our policy and one made under the client's look
+ * identical on the card and are not the same thing at all — "granted under
+ * your rules" is only true once they have filed some.
+ */
+export function rulesFor(stated?: Partial<Rules>): Rules {
+  return { ...RULE_DEFAULTS, ...(stated ?? {}) }
+}
+
+export function readRules(stated?: Partial<Rules>): RuleReading[] {
+  const live = rulesFor(stated)
+  return (Object.keys(RULE_DEFAULTS) as (keyof Rules)[]).map((key) => ({
+    key,
+    label: RULE_META[key].label,
+    because: RULE_META[key].because,
+    value: live[key],
+    source: stated?.[key] === undefined ? 'platform default' : 'contract',
+  }))
+}
+
 export const RULE_META: Record<keyof Rules, { label: string; because: string }> = {
   renewalWithinDays: {
     label: 'A renewal needs recent use',

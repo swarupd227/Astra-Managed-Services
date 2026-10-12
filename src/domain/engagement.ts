@@ -1,5 +1,6 @@
 import { configuredEngagements } from './config'
 import type { Thresholds } from './thresholds'
+import type { Rules } from './entitlement'
 
 /* ==========================================================================
    The engagement — one client's contract, scope and regime, held as data.
@@ -158,6 +159,12 @@ export interface Engagement {
    * defaults. See `src/domain/thresholds.ts` for what each one moves.
    */
   thresholds?: Partial<Thresholds>
+  /**
+   * Licence rules this contract states, overriding the platform's standard
+   * set. See `src/domain/entitlement.ts`. Absent means the platform's apply,
+   * and every decision says so rather than implying the client wrote them.
+   */
+  licenceRules?: Partial<Rules>
   ingested: Ingested
   /** Why the engagement is where it is, in one clause. */
   note: string
