@@ -21,6 +21,7 @@ import { CATALOGUE, checkTranscript, conversePrompt, probeText, toolsForRole } f
 import { isImmutable, mimeFor, resolveStatic } from './static.mjs'
 import { configured as dbConfigured, ping } from './db.mjs'
 import { readEngagements, readTicketFeeds, readTicketHistories, readTickets } from './config.mjs'
+import { readRequests as readServiceRequests } from './request-load.mjs'
 import { profile, proposePriorities, readDelimited, sniffDelimiter } from './ticket-feed.mjs'
 import { checkDump, writeDump } from './ticket-load.mjs'
 import { appendRecords, clearRecords, readEpoch, readRecords } from './records.mjs'
@@ -779,6 +780,23 @@ http
       })
         .then((page) => json(res, 200, page))
         .catch((err) => json(res, 503, { error: 'The tickets could not be read.', detail: String(err?.message ?? err) }))
+    }
+
+    // Service requests, which is where licence demand actually is. Paged and
+    // text-filtered: sixty thousand rows is not something to hand a browser.
+    if (req.method === 'GET' && url.startsWith('/api/requests')) {
+      const q = new URL(url, 'http://local').searchParams
+      return readServiceRequests({
+        engagementId: q.get('engagement') ?? '',
+        q: q.get('q') ?? undefined,
+        limit: q.get('limit') ?? 50,
+        offset: q.get('offset') ?? 0,
+      })
+        .then((page) => json(res, 200, page))
+        .catch((err) => json(res, 503, {
+          error: 'The service requests could not be read. They are loaded separately from the incidents; if none has been loaded this is empty rather than broken.',
+          detail: String(err?.message ?? err),
+        }))
     }
 
     // What people have recorded, for the engagement the browser is reading.

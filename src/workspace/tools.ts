@@ -27,6 +27,7 @@ import { FUNDING_LABEL, OUTCOME_LABEL, readExperiments, type FundingSource } fro
 import { FAULT_LABEL, RETRYABLE, type Fault } from '@/domain/dataLoad'
 import { PUBLISH_LABEL, publicationSummary, readPublication } from '@/domain/publication'
 import { draftOwnerNotices } from '@/domain/ownerNotice'
+import { NoRequestsLoaded, readLicenceQueue } from '@/domain/licenceQueue'
 import { buildBoardDeck } from '@/domain/boardDeck'
 import { CAUSE_LABEL, KIND_LABEL, REPORTS, REPORT_BY_ID, explainDifference, financeClients } from '@/domain/finance'
 import { digest } from '@/domain/rng'
@@ -700,6 +701,39 @@ export const EXECUTORS: Record<string, Executor> = {
         ...(d.verdict === 'refused' ? { noApprovalCanFixThis: d.decidedBy?.detail ?? null } : {}),
       },
       artifacts: [card('entitlement', `${d.product.name} · seats and policy`, {}, '/operate/work')],
+    }
+  },
+
+  get_licence_demand: async () => {
+    let q
+    try {
+      q = await readLicenceQueue()
+    } catch (err) {
+      if (err instanceof NoRequestsLoaded) throw new ToolError(err.message)
+      throw err
+    }
+    const pooled = q.byProduct.filter((p) => p.pooled)
+    return {
+      payload: {
+        requestsLoaded: q.loaded,
+        mentioningALicence: q.mentioningLicence,
+        distinctTexts: q.distinctTexts,
+        // The split that would actually happen, read through the same reader
+        // that decides a single request.
+        wouldDecideWithoutAPerson: q.wouldDecide,
+        noSeatPoolHeld: q.noPoolHeld,
+        needsAPerson: q.needsAPerson,
+        notRequestsAtAll: q.notARequest,
+        demandByProduct: q.byProduct.slice(0, 15).map((p) => ({
+          product: p.product,
+          requests: p.requests,
+          pool: p.pooled ? 'held' : 'none held — goes to procurement',
+        })),
+        inAPoolWeHold: pooled.reduce((n, p) => n + p.requests, 0),
+        examples: q.sample.map((s) => `${s.ref} — ${s.text}`),
+        readFrom: 'The client’s own service request extract, loaded separately from the incidents',
+      },
+      artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
     }
   },
 

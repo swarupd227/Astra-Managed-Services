@@ -1,0 +1,19 @@
+{
+  "engagementId": "eng_kearney",
+  "system": "ServiceNow",
+  "source": "request-dump.csv",
+  "confirmedBy": "transition",
+
+  "_comment_source": "The dump itself is NOT in this repository and must not be put in it: this remote is public, and the request titles carry people's names. Export tab I1 of Attachment C.3 to CSV and place it beside this file, or point REQUEST_DUMP at it.",
+
+  "_comment_columnMap": "Tab I1 as the client exports it. Two of these are worth knowing about. There is no category or sub-category column at all, which is why requests are not filed the way incidents are. And the column holding the timestamp is headed 'Year' — the values are Excel date serials, so the heading is the client's mistake rather than ours, and the loader reads the values rather than trusting the name.",
+  "columnMap": {
+    "ref": "Number",
+    "openedAt": "Year",
+    "shortDescription": "Short description",
+    "state": "state",
+    "priority": "priority",
+    "assignmentGroup": "Assignment Group",
+    "location": "Opened Location"
+  }
+}

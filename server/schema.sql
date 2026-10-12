@@ -325,3 +325,45 @@ create table if not exists ticket_subcategory (
 );
 
 create index if not exists ticket_subcategory_size on ticket_subcategory (engagement_id, incidents desc);
+
+/* --------------------------------------------------------------------------
+   Service requests, which are not incidents and are not shaped like them.
+
+   Kept in their own table rather than given a kind column on `ticket`,
+   because the client's request extract carries different fields: no category
+   and no sub-category at all, which is what the incident table is indexed and
+   counted by. Folding them in would also silently turn "28,028 arrivals" into
+   ninety thousand on every screen that counts incidents, and those screens
+   are right today.
+
+   This is where licence demand actually lives. The incident extract holds 42
+   texts that mention a licence; the request extract holds 1,812.
+   -------------------------------------------------------------------------- */
+
+create table if not exists service_request (
+  engagement_id     text not null references engagement(id) on delete cascade,
+  ref               text not null,
+  short_description text not null default '',
+  state             text not null default '',
+  priority_raw      text not null default '',
+  priority          text,
+  assignment_group  text not null default '',
+  -- Where the person raising it was, which the request extract carries and
+  -- the incident extract does not.
+  location          text not null default '',
+  opened_at         timestamptz,
+  primary key (engagement_id, ref)
+);
+
+create index if not exists service_request_arrival on service_request (engagement_id, opened_at desc);
+
+create table if not exists service_request_feed (
+  engagement_id text primary key references engagement(id) on delete cascade,
+  system        text not null,
+  source        text,
+  column_map    jsonb not null,
+  confirmed_by  text not null,
+  confirmed_at  timestamptz not null default now(),
+  rows_ingested integer not null default 0,
+  unreadable    integer not null default 0
+);

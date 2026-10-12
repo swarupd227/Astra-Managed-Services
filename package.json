@@ -17,7 +17,8 @@
     "db:ingest": "node server/ingest.mjs",
     "db:ingest:tickets": "node server/ingest-tickets.mjs",
     "db:profile:dump": "node server/profile-dump.mjs",
-    "db:prune": "node server/prune.mjs"
+    "db:prune": "node server/prune.mjs",
+    "db:ingest:requests": "node server/ingest-requests.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",

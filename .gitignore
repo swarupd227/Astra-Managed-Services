@@ -10,3 +10,9 @@ dist
 # Deployment artefacts
 deploy/package/
 deploy/*.zip
+
+# Client request extracts. This remote is public and the request titles carry
+# people's names; the incident dump beside them predates this rule and is
+# dealt with separately.
+data/request-dump.csv
+data/*-requests.csv
