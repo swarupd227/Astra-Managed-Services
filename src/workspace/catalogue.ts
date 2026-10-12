@@ -68,16 +68,29 @@ export function toolLabel(roleId: string, toolName: string): string {
  *
  * A list renders as how many, because this sentence is read on a Confirm card
  * and "Adopt 7 procedure areas" is the question; the seven names are on the
- * card beneath it. A placeholder naming nothing in the input is a defect in
- * the catalogue rather than a thing to render — the test beside it refuses one
- * — and it still falls back to a dash rather than throwing, because a broken
- * sentence on an approval is better than no approval at all.
+ * card beneath it.
+ *
+ * An input the caller left out renders as what the tool will do instead,
+ * taken from `when_omitted` on the schema property. Most inputs on these
+ * tools are optional by design — "defaults to the engagement in view", "omit
+ * for a clean run" — so omitting them is the ordinary path, not a mistake,
+ * and a sentence that renders a dash there asks the user to approve "Adopt —
+ * procedure areas for — from —". That is what this surface did for every
+ * adoption until it was measured.
+ *
+ * The dash survives as the last resort for an input that is neither given nor
+ * documented, because a broken sentence on an approval is still better than a
+ * blocked approval. The test beside this refuses both a placeholder naming
+ * nothing and an optional one with no `when_omitted`, so the last resort
+ * should stay unreachable.
  */
 export function describeCall(tool: ToolSpec, input: Record<string, unknown>): string {
+  const schema = tool.input_schema as { properties?: Record<string, { when_omitted?: string }> }
   return (tool.describe ?? tool.name).replace(/\{(\w+)\}/g, (_, k) => {
     const v = input[k]
-    if (Array.isArray(v)) return String(v.length)
-    return typeof v === 'boolean' ? (v ? 'on' : 'off') : String(v ?? '—')
+    if (v === undefined || v === null || v === '') return schema?.properties?.[k]?.when_omitted ?? '—'
+    if (Array.isArray(v)) return v.length ? String(v.length) : (schema?.properties?.[k]?.when_omitted ?? '0')
+    return typeof v === 'boolean' ? (v ? 'on' : 'off') : String(v)
   })
 }
 

@@ -133,11 +133,11 @@
     {
       "name": "receive_ticket", "agent": "agt_sentinel", "surfaces": ["run", "governance"], "mutating": true, "approval": true,
       "description": "Admit a ticket from the client's ticketing system — the integration point. Everything after the payload is computed on admission: the configuration items are resolved against the estate graph, the class is matched against the client's own ingested history (sub-category first, then the phrasing of clusters that recur in their extract, then the theme), the blast radius is walked from the dependency graph, the knowledge pack is assembled from assertions, known errors and the runbooks that resolve them, and the routing follows from what the platform actually holds. An attempt is made only where a runbook resolves a known error carrying the class it was just classified into, on something the ticket names, AND an agent holds a grant for every class that runbook uses. A runbook held against the same component for a different failure is reported as context and not attempted; otherwise the ticket goes to a named person with the reason. A ticket that matches nothing in the client's history is not classified at a low confidence — it is unclassified and held for a person. A named reference is looked up across the whole loaded feed rather than only the arrivals on screen. Call with no reference to admit the next one waiting on the queue.",
-      "describe": "Admit ticket {reference} from the client's ticketing system and triage it.",
+      "describe": "Admit {reference} from the client's ticketing system and triage it.",
       "input_schema": {
         "type": "object",
         "properties": {
-          "reference": { "type": "string", "description": "The ticketing system's own reference, e.g. INC0074675. Omitted admits the next one waiting." }
+          "reference": { "type": "string", "description": "The ticketing system's own reference, e.g. INC0074675. Omitted admits the next one waiting.", "when_omitted": "the next ticket waiting" }
         },
         "additionalProperties": false
       }
@@ -168,7 +168,7 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "filename": { "type": "string", "description": "The name of the dump being loaded." },
+          "filename": { "type": "string", "description": "The name of the dump being loaded.", "when_omitted": "the dump you uploaded" },
           "content": { "type": "string", "description": "The dump itself, as delimited text." },
           "system": { "type": "string", "description": "The system that produced it, as it should be recorded on every arrival, e.g. ServiceNow." },
           "column_map": { "type": "object", "description": "Which column feeds which field: ref, openedAt, shortDescription, category, subCategory, state, priority, assignmentGroup, reportedBy. The first three are required.", "additionalProperties": { "type": "string" } },
@@ -230,7 +230,7 @@
           "recommendation_id": { "type": "string", "description": "The recommendation to fund, e.g. sec_over_retained" },
           "hypothesis": { "type": "string", "description": "What is expected to happen, in the funder's own words" },
           "success_criterion": { "type": "string", "description": "What would count as having worked" },
-          "window_days": { "type": "integer", "description": "Days before the outcome is read. Defaults to 60." },
+          "window_days": { "type": "integer", "description": "Days before the outcome is read. Defaults to 60.", "when_omitted": "60" },
           "funding_source": { "type": "string", "enum": ["capacity_credits", "innovation_allowance", "client_funded"], "description": "Where the funding comes from" }
         },
         "required": ["recommendation_id", "hypothesis", "success_criterion"],
@@ -250,7 +250,7 @@
         "type": "object",
         "properties": {
           "item_id": { "type": "string", "description": "The pipeline or dataset to load, e.g. pl_engagement_ingest" },
-          "fault": { "type": "string", "enum": ["late", "schema_change", "half_load", "zero_rows"], "description": "A fault to inject into what the source hands over. Omit for a clean run." }
+          "fault": { "type": "string", "enum": ["late", "schema_change", "half_load", "zero_rows"], "description": "A fault to inject into what the source hands over. Omit for a clean run.", "when_omitted": "" }
         },
         "required": ["item_id"],
         "additionalProperties": false
@@ -350,7 +350,7 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "client": { "type": "string", "description": "The engagement it is for. Defaults to the one in view." }
+          "client": { "type": "string", "description": "The engagement it is for. Defaults to the one in view.", "when_omitted": "the engagement in view" }
         },
         "additionalProperties": false
       }
@@ -395,11 +395,11 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "engagement": { "type": "string", "description": "Engagement id. Defaults to the engagement in view." },
-          "reference": { "type": "string", "description": "The clause or attachment the list comes from. Defaults to the one the contract files." },
+          "engagement": { "type": "string", "description": "Engagement id. Defaults to the engagement in view.", "when_omitted": "the engagement in view" },
+          "reference": { "type": "string", "description": "The clause or attachment the list comes from. Defaults to the one the contract files.", "when_omitted": "the clause the contract files" },
           "areas": {
             "type": "array",
-            "description": "The client's areas, in its own words. Omit to adopt the list the contract files.",
+            "description": "The client's areas, in its own words. Omit to adopt the list the contract files.", "when_omitted": "the contract's own",
             "items": {
               "type": "object",
               "properties": {
@@ -459,7 +459,7 @@
         "properties": {
           "kind": { "type": "string", "enum": ["cap", "stop", "restore"], "description": "Lower the ceiling, stop it outright, or lift a directive" },
           "scope": { "type": "string", "enum": ["agent", "action_class", "all"], "description": "One agent, one action class across every agent, or every agent" },
-          "target": { "type": "string", "description": "Agent id or name, or an action class id such as AC-37. Omit for scope \"all\"." },
+          "target": { "type": "string", "description": "Agent id or name, or an action class id such as AC-37. Omit for scope \"all\".", "when_omitted": "every agent" },
           "cap": { "type": "string", "enum": ["manual", "advise", "approve_first", "supervised"], "description": "The ceiling to impose, for kind \"cap\"" },
           "reason": { "type": "string", "description": "Why, in the client's own words" }
         },

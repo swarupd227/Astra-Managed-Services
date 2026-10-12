@@ -35,6 +35,49 @@ test('every confirmation sentence substitutes something the call actually carrie
   assert.deepEqual(broken, [], `A placeholder renders as a dash on the card the user approves:\n  ${broken.join('\n  ')}`)
 })
 
+test('an optional input says what the tool does when it is left out', () => {
+  // Most inputs on these tools are optional by design — "defaults to the
+  // engagement in view", "omit for a clean run" — so leaving one out is the
+  // ordinary path. Without a `when_omitted` the sentence renders a dash
+  // there, which is how the procedure-areas card came to read "Adopt —
+  // procedure areas for — from —" on every adoption.
+  const silent = []
+  for (const tool of TOOLS) {
+    if (!tool.describe) continue
+    const props = tool.input_schema?.properties ?? {}
+    const required = tool.input_schema?.required ?? []
+    for (const [, name] of tool.describe.matchAll(PLACEHOLDER)) {
+      const prop = props[name]
+      if (!prop || required.includes(name)) continue
+      if (typeof prop.when_omitted !== 'string') silent.push(`${tool.name}: {${name}} is optional with no when_omitted`)
+    }
+  }
+  assert.deepEqual(silent, [], `An omitted input renders as a dash on the card the user approves:\n  ${silent.join('\n  ')}`)
+})
+
+test('no gated sentence renders a dash when every optional input is left out', () => {
+  // The end-to-end form of the two tests above: render each sentence exactly
+  // as the Confirm card would for a call that passes only what it must.
+  //
+  // Substituted for the fallback rather than looking for an em dash in the
+  // result, because two of these sentences use an em dash as punctuation —
+  // "{kind} — {target}" — and a test that cannot tell the two apart reports a
+  // correct sentence as broken.
+  const FALLBACK = '\u0000gap\u0000'
+  const dashed = []
+  for (const tool of TOOLS.filter((t) => t.approval && t.describe)) {
+    const props = tool.input_schema?.properties ?? {}
+    const required = tool.input_schema?.required ?? []
+    const given = Object.fromEntries(required.map((r) => [r, `<${r}>`]))
+    const rendered = tool.describe.replace(PLACEHOLDER, (_, k) => {
+      const v = given[k]
+      return v === undefined ? (props[k]?.when_omitted ?? FALLBACK) : v
+    })
+    if (rendered.includes(FALLBACK)) dashed.push(`${tool.name}: ${rendered.replaceAll(FALLBACK, '—')}`)
+  }
+  assert.deepEqual(dashed, [], `A state change gated on approval asks about a dash:\n  ${dashed.join('\n  ')}`)
+})
+
 // That a tool names an agent, a surface and an object schema, and that a
 // mutating one carries a sentence at all, is already required in
 // converse.test.mjs. What is left is whether the sentence and the surfaces
