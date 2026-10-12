@@ -9,13 +9,30 @@ import { query } from './db.mjs'
    engagements and gets engagements, whatever the schema does underneath.
    ========================================================================== */
 
+/**
+ * A filed licence rule, as the type it actually is.
+ *
+ * The set is three numbers and a boolean, so the column is text. Anything
+ * that is neither reads as null and the caller drops it, because a rule that
+ * silently became 0 — "a long grant needs approval over 0 months" — would
+ * gate every request in the estate and look deliberate.
+ */
+function asRuleValue(raw) {
+  const v = String(raw ?? '').trim().toLowerCase()
+  if (v === 'true') return true
+  if (v === 'false') return false
+  const n = Number(v)
+  return v !== '' && Number.isFinite(n) ? n : null
+}
+
 export async function readEngagements() {
-  const [engagements, regimes, ingested, lines, thresholds, filed, obligations] = await Promise.all([
+  const [engagements, regimes, ingested, lines, thresholds, licenceRules, filed, obligations] = await Promise.all([
     query('select * from engagement order by id'),
     query('select * from engagement_regime'),
     query('select * from engagement_ingested'),
     query('select * from engagement_service_line order by engagement_id, position'),
     query('select * from engagement_threshold'),
+    query('select * from engagement_licence_rule'),
     query('select * from engagement_filed_item order by engagement_id, kind, position'),
     query('select * from engagement_obligation order by engagement_id, position'),
   ])
@@ -62,6 +79,13 @@ export async function readEngagements() {
       // platform's default, which is the browser's to apply.
       thresholds: Object.fromEntries(by(thresholds, e.id).map((t) => [t.key, Number(t.value)])),
       thresholdsStatedIn: Object.fromEntries(by(thresholds, e.id).map((t) => [t.key, t.stated_in])),
+      // Mixed types, held as text and read back as what they are. A row whose
+      // value is neither a number nor a boolean is left out rather than
+      // coerced into a zero that would quietly become a rule.
+      licenceRules: Object.fromEntries(
+        by(licenceRules, e.id).map((r) => [r.key, asRuleValue(r.value)]).filter(([, v]) => v !== null),
+      ),
+      licenceRulesStatedIn: Object.fromEntries(by(licenceRules, e.id).map((r) => [r.key, r.stated_in])),
       // The contract's side of each recurring obligation. Owner and state are
       // not here: see the table's own note.
       obligations: by(obligations, e.id).map((o) => ({

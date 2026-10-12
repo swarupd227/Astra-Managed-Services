@@ -367,3 +367,25 @@ create table if not exists service_request_feed (
   rows_ingested integer not null default 0,
   unreadable    integer not null default 0
 );
+
+/* --------------------------------------------------------------------------
+   Licence rules a contract states, overriding the platform's standard set.
+
+   The same arrangement as engagement_threshold, and separate from it because
+   these are not operating thresholds: they decide whether a person gets a
+   seat. Values are held as text and coerced against the platform's default
+   for that key, because the set is mixed — three numbers and a boolean — and
+   a numeric column would have to lie about one of them.
+
+   A contract files what it chooses. What it leaves out stays the platform's,
+   and every screen says which of the two it applied.
+   -------------------------------------------------------------------------- */
+
+create table if not exists engagement_licence_rule (
+  engagement_id text not null references engagement(id) on delete cascade,
+  key           text not null,
+  value         text not null,
+  -- The clause it comes from, so a disputed rule is settled from the row.
+  stated_in     text,
+  primary key (engagement_id, key)
+);
