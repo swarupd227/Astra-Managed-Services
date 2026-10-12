@@ -99,21 +99,32 @@ export function checkTranscript(catalogue, roleId, messages, confirmations = [])
     if (m.role !== 'user' && m.role !== 'assistant') return { ok: false, reason: `Unexpected message role "${m.role}".` }
     const blocks = typeof m.content === 'string' ? null : m.content
     if (m.role === 'assistant' && blocks) {
-      const content = []
-      for (const b of blocks) {
-        if (b.type !== 'tool_use') { content.push(b); continue }
+      // Whether this role may see any of it, decided before anything is
+      // written out — because the answer is all or nothing.
+      const unheld = blocks.filter((b) => {
+        if (b.type !== 'tool_use') return false
         const tool = byName[b.name]
-        if (!tool || !holds(role, tool)) {
-          dropped.add(b.id)
-          redacted.push(b.name)
-          continue
-        }
-        calls.set(b.id, tool)
-        content.push(b)
+        return !tool || !holds(role, tool)
+      })
+
+      // A message holding a call this role does not hold goes whole, and so
+      // do the results of every call in it.
+      //
+      // Taking the one block out would be neater and is not allowed: an
+      // assistant message carrying a thinking block must be handed back
+      // exactly as it came, and removing a sibling block modifies it. The API
+      // refuses the turn — "`thinking` blocks in the latest assistant message
+      // cannot be modified" — which is how this was found, by switching role
+      // mid-conversation and watching the next sentence fail. Dropping whole
+      // messages is allowed; editing one is not.
+      if (unheld.length) {
+        for (const b of blocks) if (b.type === 'tool_use') dropped.add(b.id)
+        for (const b of unheld) redacted.push(b.name)
+        continue
       }
-      // A message the removal emptied is dropped rather than stood in for:
-      // nothing is put in the agent's mouth that it did not say.
-      if (content.length) out.push({ role: 'assistant', content })
+
+      for (const b of blocks) if (b.type === 'tool_use') calls.set(b.id, byName[b.name])
+      out.push(m)
       continue
     }
     if (m.role === 'user' && blocks) {

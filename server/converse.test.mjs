@@ -166,3 +166,71 @@ test('every catalogue tool names its agent, surfaces and a schema', () => {
     if (t.mutating) assert.ok(t.describe, `${t.name} needs a confirmation sentence`)
   }
 })
+
+test('an assistant message is never handed back with a block removed', () => {
+  /* The API forbids it where a thinking block is present — "`thinking` or
+     `redacted_thinking` blocks in the latest assistant message cannot be
+     modified" — and taking a tool call out of a message is modifying it.
+     Found by switching role mid-conversation: every following sentence
+     failed with a 400, because the history held a call the new role does not
+     hold and the gateway was editing it out.
+
+     So the message goes whole or it does not go. Either is allowed; editing
+     is not. */
+  const held = CATALOGUE.tools.find((t) => t.name === 'get_sla')
+  const notHeldByConsumer = CATALOGUE.tools.find((t) => t.name === 'get_estate_overview')
+  assert.ok(held && notHeldByConsumer, 'fixture tools must exist')
+
+  const thinking = { type: 'thinking', thinking: 'deciding what to read', signature: 'sig-abc' }
+  const r = checkTranscript(CATALOGUE, 'consumer', [
+    { role: 'user', content: 'what is out there' },
+    {
+      role: 'assistant',
+      content: [thinking, { type: 'tool_use', id: 'c1', name: notHeldByConsumer.name, input: {} }],
+    },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'the estate' }] },
+    { role: 'user', content: 'and now?' },
+  ], [])
+
+  assert.equal(r.ok, true, r.reason)
+  for (const m of r.messages) {
+    if (m.role !== 'assistant' || typeof m.content === 'string') continue
+    const hasThinking = m.content.some((b) => b.type === 'thinking' || b.type === 'redacted_thinking')
+    if (!hasThinking) continue
+    // Any surviving message carrying thinking must be one of the originals,
+    // identical — not a rebuilt copy.
+    assert.ok(m.content.includes(thinking), 'the thinking block must be the same object, unmodified')
+    assert.equal(m.content.length, 2, 'and its siblings must still be there')
+  }
+  // Its result must not survive the message that called it.
+  const orphan = r.messages.some((m) => Array.isArray(m.content)
+    && m.content.some((b) => b.type === 'tool_result' && b.tool_use_id === 'c1'))
+  assert.equal(orphan, false, 'a result whose call was dropped would answer nothing')
+})
+
+test('a message mixing a held and an unheld call drops both results, not one', () => {
+  // Otherwise the held call's result survives into a message whose call is
+  // gone, and the API refuses a result that answers nothing.
+  const r = checkTranscript(CATALOGUE, 'consumer', [
+    { role: 'user', content: 'two things' },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'tool_use', id: 'a', name: 'get_sla', input: {} },
+        { type: 'tool_use', id: 'b', name: 'get_estate_overview', input: {} },
+      ],
+    },
+    {
+      role: 'user',
+      content: [
+        { type: 'tool_result', tool_use_id: 'a', content: 'sla' },
+        { type: 'tool_result', tool_use_id: 'b', content: 'estate' },
+      ],
+    },
+    { role: 'user', content: 'go on' },
+  ], [])
+  assert.equal(r.ok, true, r.reason)
+  const results = r.messages.flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+    .filter((b) => b.type === 'tool_result')
+  assert.deepEqual(results, [], 'neither result may outlive the message that called them')
+})
