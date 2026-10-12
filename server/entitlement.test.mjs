@@ -126,3 +126,27 @@ test('no unpooled product shares a name with a pooled one', () => {
     .map((u) => u.name)
   assert.deepEqual(clash, [], 'A pooled product must never also be listed as unpooled')
 })
+
+test('a request on the writer\u2019s own behalf is recognised as such', () => {
+  // The sentence that exposed this: it names nobody because the person
+  // asking is the person it is for.
+  for (const text of [
+    'I need an Alteryx for a Client pitch on Monday',
+    'Please add Alteryx to my machine',
+    'Can I get a Power BI Pro licence',
+  ]) {
+    assert.equal(readLicenceRequest(text).firstPerson, true, text)
+  }
+})
+
+test('a request about somebody else is not read as first person', () => {
+  for (const text of [
+    'Alteryx licence for P. Rautela',
+    'Add Alteryx licence',
+    'Alteryx designer license request - Alwin Jose',
+    // "Monday" contains "my" and must not trip the word-boundary test.
+    'Alteryx licence needed before Monday',
+  ]) {
+    assert.equal(readLicenceRequest(text).firstPerson, false, text)
+  }
+})

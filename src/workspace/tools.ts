@@ -673,9 +673,38 @@ export const EXECUTORS: Record<string, Executor> = {
 
     const months = stated ?? rules.termWhenUnstatedMonths
 
-    const who = str(input.requester) || text
-    const subject = personByName(who) ?? DIRECTORY.find((p) => text.toLowerCase().includes(p.name.toLowerCase().split(/\s+/).pop()!.toLowerCase())) ?? null
     const st = useAstra.getState()
+
+    // Who it is for: named in the call, named in the text, or — where the
+    // text asks in the first person — whoever is signed in.
+    const named = str(input.requester)
+    const signedIn = person()
+    const subject = (named ? personByName(named) : null)
+      ?? DIRECTORY.find((p) => text.toLowerCase().includes(p.name.toLowerCase().split(/\s+/).pop()!.toLowerCase()))
+      ?? (read.firstPerson ? personByName(signedIn) : null)
+      ?? null
+
+    // A request with nobody to give a seat to is incomplete, not impossible.
+    // It asks, the way it asks which product and how long for. Only a name
+    // the directory does not hold is a refusal, and decide() still treats it
+    // as one — those are different answers and were being given the same one.
+    if (!subject) {
+      const asked = named || (read.firstPerson ? signedIn : '')
+      return {
+        payload: {
+          read: { type: REQUEST_LABEL[read.type], product: product.name, months },
+          needsOneAnswer: 'Who is the seat for?',
+          // Only the first-person case knows who was meant. Otherwise the
+          // honest statement is that nobody matched — not that the text named
+          // nobody, which it may well have done in words this cannot resolve.
+          note: asked
+            ? `${asked} is not in ${ENGAGEMENT.client}’s directory — the seat would be for one of their people, so name who.`
+            : `Nobody in ${ENGAGEMENT.client}’s directory of ${DIRECTORY.length} matches this request, and a seat is given to a person rather than to a request.`,
+        },
+        artifacts: [card('entitlement', 'Seats and policy', {}, '/operate/work')],
+      }
+    }
+
     const d = decide({
       product, person: subject, type: read.type, months,
       assigned: st.seatAssignments,

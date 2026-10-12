@@ -75,7 +75,28 @@ function buildDirectory(): Person[] {
   }))
 }
 
-export const DIRECTORY: Person[] = buildDirectory()
+/**
+ * The client's own people who hold a role on this platform.
+ *
+ * Without these the directory holds fourteen people, none of whom can ever be
+ * signed in, so "I need an Alteryx licence" — the most ordinary sentence a
+ * requester types — could be recognised as a request on one's own behalf and
+ * still find nobody to give the seat to.
+ *
+ * Their roles are the ones their job titles imply, which is not a formality:
+ * a Consultant is not on Alteryx's eligible list and a Data Engineer is, so
+ * the same sentence from two client people gets two different and correct
+ * answers.
+ */
+const ROLE_HOLDERS: Person[] = [
+  { id: 'per_consumer', name: 'H. Dalgleish', role: 'Consultant', practice: 'Strategy & Value', manager: 'Practice Lead', contractor: false, lastUsedDaysAgo: 12 },
+  { id: 'per_clientteam', name: 'K. Mehta', role: 'Data Engineer', practice: 'Digital & Analytics', manager: 'Practice Lead', contractor: false, lastUsedDaysAgo: 3 },
+  { id: 'per_serviceowner', name: 'R. Castellano', role: 'Manager', practice: 'Operations', manager: 'Practice Lead', contractor: false, lastUsedDaysAgo: 21 },
+  { id: 'per_commercial', name: 'J. Whitcombe', role: 'Manager', practice: 'Finance Operations', manager: 'Practice Lead', contractor: false, lastUsedDaysAgo: 45 },
+  { id: 'per_sme', name: 'A. Ferreira', role: 'Principal', practice: 'Energy', manager: 'Practice Lead', contractor: false, lastUsedDaysAgo: 8 },
+]
+
+export const DIRECTORY: Person[] = [...buildDirectory(), ...ROLE_HOLDERS]
 export const personByName = (q: string) =>
   DIRECTORY.find((p) => p.name.toLowerCase() === q.toLowerCase())
   ?? DIRECTORY.find((p) => p.name.toLowerCase().includes(q.toLowerCase().split(/\s+/).pop() ?? '\u0000'))
@@ -561,6 +582,14 @@ export interface RequestReading {
   notARequest: NotARequest | null
   /** A product the text names that no seat pool is held for. */
   unpooled: string | null
+  /**
+   * True where the text asks on the writer's own behalf.
+   *
+   * "I need an Alteryx for a client pitch on Monday" names nobody, because
+   * the person asking is the person it is for. Reading that as a request with
+   * no subject refuses the most ordinary sentence anybody types.
+   */
+  firstPerson: boolean
   /** False where the term came from the policy rather than from the text. */
   termStated: boolean
   /**
@@ -637,9 +666,13 @@ export function readLicenceRequest(text: string): RequestReading {
   const unreadable = /\b((?:a\s+few|a\s+couple(?:\s+of)?|several|some|few|ongoing|permanent|indefinite)\s+(?:weeks?|months?|years?))\b/.exec(t)
   const termUnreadable = months === null && unreadable ? unreadable[1].trim() : null
 
+  // Word boundaries throughout: "my" must not match "Monday", and "i" must
+  // not match every word containing one.
+  const firstPerson = /\b(i|i'm|i am|my|me|myself|mine)\b/.test(t)
+
   const missing: string[] = []
   if (!product && !unpooled) missing.push('which product')
   if (termUnreadable) missing.push('how long for')
 
-  return { type, product, months, on, missing, notARequest, unpooled, termStated: months !== null, termUnreadable }
+  return { type, product, months, on, missing, notARequest, unpooled, firstPerson, termStated: months !== null, termUnreadable }
 }
